@@ -54,7 +54,7 @@ const parseTime = (timeStr: string) => {
 };
 
 export default function ZeitplanDashboard() {
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState<Date | null>(null);
   const [timetableData, setTimetableData] = useState<TimetableEntry[]>(initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
@@ -64,11 +64,13 @@ export default function ZeitplanDashboard() {
   const lastMinuteRef = useRef<number | null>(null);
 
   const isSchoolTime = useMemo(() => {
+    if (!now) return false;
     const currentHour = now.getHours();
     return currentHour >= SCHOOL_START_HOUR && currentHour < SCHOOL_END_HOUR;
   }, [now]);
 
   useEffect(() => {
+    setNow(new Date());
     const timer = setInterval(() => {
       setNow(new Date());
     }, 1000);
@@ -76,6 +78,7 @@ export default function ZeitplanDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!now) return;
     const currentMinute = now.getMinutes();
     if (isSchoolTime && currentMinute !== lastMinuteRef.current) {
       const fetchRemainingTime = async () => {
@@ -112,6 +115,7 @@ export default function ZeitplanDashboard() {
 
 
   const currentSubject = useMemo(() => {
+    if (!now) return null;
     return timetableData.find((entry) => {
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
@@ -131,7 +135,7 @@ export default function ZeitplanDashboard() {
         <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background">
           <div className="flex items-center gap-2 text-3xl font-bold text-foreground">
             <Clock className="w-8 h-8" />
-            <span>{now.toLocaleTimeString("de-DE")}</span>
+            <span>{now ? now.toLocaleTimeString("de-DE") : "..."}</span>
           </div>
           {isSchoolTime ? (
             <div className="flex items-center gap-2 text-accent animate-pulse">
