@@ -11,8 +11,15 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Download, Printer } from "lucide-react";
+import { User, Download, Printer, ChevronDown, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import html2canvas from "html2canvas";
 
 type TimetableEntry = {
   id: string;
@@ -59,43 +66,60 @@ const stringToHslColor = (str: string, s: number, l: number) => {
 };
 
 const openPrintView = () => {
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    const tableHtml = document.getElementById('timetable-for-print')?.outerHTML;
+  const printElement = document.getElementById('timetable-for-print');
+  if (printElement) {
+    const tableHtml = printElement.outerHTML;
     
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Stundenplan Druckansicht</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ccc; padding: 12px; text-align: center; }
-            th { background-color: #f2f2f2; }
-            .footer { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #aaa; }
-            .subject-cell { color: white; font-weight: bold; }
-            .teacher { font-size: 0.8em; margin-top: 4px; color: rgba(255,255,255,0.8); }
-          </style>
-        </head>
-        <body>
-          <h2>Wochenübersicht</h2>
-          ${tableHtml}
-          <div class="footer">@wolfikuproduction scoolmanager</div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.onafterprint = function() {
-                window.close();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Stundenplan Druckansicht</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #ccc; padding: 12px; text-align: center; }
+              th { background-color: #f2f2f2; }
+              .footer { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #aaa; }
+              .teacher { font-size: 0.8em; margin-top: 4px; color: rgba(255,255,255,0.8); }
+            </style>
+          </head>
+          <body>
+            <h2>Wochenübersicht</h2>
+            ${tableHtml}
+            <div class="footer">@wolfikuproduction scoolmanager</div>
+            <script>
+              window.onload = function() {
+                window.print();
+                window.onafterprint = function() {
+                  window.close();
+                }
               }
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
   }
 };
 
+const downloadAsPng = () => {
+  const table = document.getElementById('timetable-for-print');
+  if (table) {
+    html2canvas(table, {
+      scale: 2, // higher scale for better quality
+      useCORS: true,
+      backgroundColor: '#ffffff',
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'stundenplan.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  }
+};
 
 export default function ClassicTimetableView() {
   return (
@@ -154,56 +178,72 @@ export default function ClassicTimetableView() {
             </Table>
         </div>
         
-        {/* Hidden table for printing */}
-        <div style={{ display: 'none' }}>
-            <table id="timetable-for-print">
-                 <TableHeader>
-                    <TableRow>
-                        <TableHead>Stunde</TableHead>
-                        {days.map((day) => (<TableHead key={day}>{day}</TableHead>))}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
+        {/* Hidden table for printing and PNG export */}
+        <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
+            <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif'}}>
+                 <thead>
+                    <tr>
+                        <th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }}>Stunde</th>
+                        {days.map((day) => (<th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }} key={day}>{day}</th>))}
+                    </tr>
+                </thead>
+                <tbody>
                     {timeSlots.map((slot, index) => (
-                    <TableRow key={slot}>
-                        <TableCell>
+                    <tr key={slot}>
+                        <td style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}>
                             <div>{index + 1}. Stunde</div>
                             <div style={{fontSize: '0.8em', color: '#666'}}>{slot}</div>
-                        </TableCell>
+                        </td>
                         {days.map((day) => {
                         const entry = getEntry(day, slot);
                         return (
-                            <TableCell 
+                            <td 
                                 key={`${day}-${slot}`}
-                                style={entry ? { backgroundColor: stringToHslColor(entry.fach, 50, 60), color: 'white' } : {}}
+                                style={entry ? { backgroundColor: stringToHslColor(entry.fach, 50, 60), color: 'white', border: '1px solid #ccc', padding: '12px', textAlign: 'center' } : {border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}
                             >
                             {entry ? (
                                 <div>
-                                    <p style={{fontWeight: 'bold'}}>{entry.fach}</p>
-                                    {entry.lehrer && <div className="teacher">{entry.lehrer}</div>}
+                                    <p style={{fontWeight: 'bold', margin: '0'}}>{entry.fach}</p>
+                                    {entry.lehrer && <div className="teacher" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.lehrer}</div>}
                                 </div>
                             ) : (
                                 <span>-</span>
                             )}
-                            </TableCell>
+                            </td>
                         );
                         })}
-                    </TableRow>
+                    </tr>
                     ))}
-                </TableBody>
+                     <tr>
+                        <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
+                            @wolfikuproduction scoolmanager
+                        </td>
+                    </tr>
+                </tbody>
             </table>
         </div>
 
       </CardContent>
       <CardFooter className="justify-end flex-wrap gap-2">
-          <Button onClick={openPrintView} variant="outline">
-            <Download className="mr-2" />
-            Herunterladen
-          </Button>
-          <Button onClick={openPrintView}>
-            <Printer className="mr-2" />
-            Drucken
-          </Button>
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Download className="mr-2" />
+                Exportieren
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={openPrintView}>
+                <Printer className="mr-2" />
+                Drucken / PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={downloadAsPng}>
+                <ImageIcon className="mr-2" />
+                Als PNG speichern
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
       </CardFooter>
     </Card>
   );
