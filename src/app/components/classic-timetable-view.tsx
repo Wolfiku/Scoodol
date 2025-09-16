@@ -71,6 +71,24 @@ export default function ClassicTimetableView() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Wochenübersicht</CardTitle>
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Download className="mr-2" />
+                Exportieren
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openPrintView('timetable-for-print')}>
+                <Printer className="mr-2" />
+                Drucken / PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadAsPng('timetable-for-print')}>
+                <ImageIcon className="mr-2" />
+                Als PNG speichern
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -170,28 +188,6 @@ export default function ClassicTimetableView() {
 
         </CardContent>
       </Card>
-      
-      <div className="fixed bottom-6 left-6 flex flex-col gap-2">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="lg" className="rounded-full shadow-lg">
-                <Download className="mr-2" />
-                Exportieren
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => openPrintView('timetable-for-print')}>
-                <Printer className="mr-2" />
-                Drucken / PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => downloadAsPng('timetable-for-print')}>
-                <ImageIcon className="mr-2" />
-                Als PNG speichern
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
     </div>
   );
 }
