@@ -67,17 +67,119 @@ const stringToHslColor = (str: string, s: number, l: number) => {
 
 export default function ClassicTimetableView() {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Wochenübersicht</CardTitle>
+    <div className="relative pb-20">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Wochenübersicht</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+              <Table id="timetable-print-view" className="border min-w-[700px] md:min-w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="border-r">Stunde</TableHead>
+                    {days.map((day) => (
+                      <TableHead key={day} className="text-center border-r">
+                        {day}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {timeSlots.map((slot, index) => (
+                    <TableRow key={slot}>
+                      <TableCell className="font-medium border-r">
+                        <div className="flex flex-col">
+                          <span>{index + 1}. Stunde</span>
+                          <span className="text-xs text-muted-foreground">{slot}</span>
+                        </div>
+                      </TableCell>
+                      {days.map((day) => {
+                        const entry = getEntry(day, slot);
+                        return (
+                          <TableCell key={`${day}-${slot}`} className="text-center border-r">
+                            {entry ? (
+                              <div>
+                                <p className="font-bold">{entry.fach}</p>
+                                {entry.lehrer && (
+                                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                                    <User className="w-3 h-3" />
+                                    <span>{entry.lehrer}</span>
+                                  </div>
+                                )}
+                                {entry.hauptfach && (
+                                   <Badge variant="default" className="mt-1">Hauptfach</Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+          </div>
+          
+          {/* Hidden table for printing and PNG export */}
+          <div style={{ position: 'absolute', left: '-9999px', top: 'auto', zIndex: -100 }}>
+              <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif', width: '1000px', backgroundColor: 'white' }}>
+                   <thead>
+                      <tr>
+                          <th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }}>Stunde</th>
+                          {days.map((day) => (<th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }} key={day}>{day}</th>))}
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {timeSlots.map((slot, index) => (
+                      <tr key={slot}>
+                          <td style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}>
+                              <div>{index + 1}. Stunde</div>
+                              <div style={{fontSize: '0.8em', color: '#666'}}>{slot}</div>
+                          </td>
+                          {days.map((day) => {
+                          const entry = getEntry(day, slot);
+                          return (
+                              <td 
+                                  key={`${day}-${slot}`}
+                                  style={entry ? { backgroundColor: stringToHslColor(entry.fach, 50, 60), color: 'white', border: '1px solid #ccc', padding: '12px', textAlign: 'center' } : {border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}
+                              >
+                              {entry ? (
+                                  <div>
+                                      <p style={{fontWeight: 'bold', margin: '0'}}>{entry.fach}</p>
+                                      {entry.lehrer && <div className="teacher" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.lehrer}</div>}
+                                  </div>
+                              ) : (
+                                  <span>-</span>
+                              )}
+                              </td>
+                          );
+                          })}
+                      </tr>
+                      ))}
+                       <tr>
+                          <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
+                              @wolfikuproduction scoolmanager
+                          </td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+
+        </CardContent>
+      </Card>
+      
+      <div className="fixed bottom-6 left-6 flex flex-col gap-2">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button size="lg" className="rounded-full shadow-lg">
                 <Download className="mr-2" />
                 Exportieren
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => openPrintView('timetable-for-print')}>
                 <Printer className="mr-2" />
                 Drucken / PDF
@@ -88,104 +190,8 @@ export default function ClassicTimetableView() {
               </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-            <Table id="timetable-print-view" className="border min-w-[700px] md:min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="border-r">Stunde</TableHead>
-                  {days.map((day) => (
-                    <TableHead key={day} className="text-center border-r">
-                      {day}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {timeSlots.map((slot, index) => (
-                  <TableRow key={slot}>
-                    <TableCell className="font-medium border-r">
-                      <div className="flex flex-col">
-                        <span>{index + 1}. Stunde</span>
-                        <span className="text-xs text-muted-foreground">{slot}</span>
-                      </div>
-                    </TableCell>
-                    {days.map((day) => {
-                      const entry = getEntry(day, slot);
-                      return (
-                        <TableCell key={`${day}-${slot}`} className="text-center border-r">
-                          {entry ? (
-                            <div>
-                              <p className="font-bold">{entry.fach}</p>
-                              {entry.lehrer && (
-                                <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                                  <User className="w-3 h-3" />
-                                  <span>{entry.lehrer}</span>
-                                </div>
-                              )}
-                              {entry.hauptfach && (
-                                 <Badge variant="default" className="mt-1">Hauptfach</Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <span>-</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-        </div>
-        
-        {/* Hidden table for printing and PNG export */}
-        <div style={{ position: 'absolute', left: '-9999px', top: 'auto', zIndex: -100 }}>
-            <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif', width: '1000px', backgroundColor: 'white' }}>
-                 <thead>
-                    <tr>
-                        <th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }}>Stunde</th>
-                        {days.map((day) => (<th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }} key={day}>{day}</th>))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {timeSlots.map((slot, index) => (
-                    <tr key={slot}>
-                        <td style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}>
-                            <div>{index + 1}. Stunde</div>
-                            <div style={{fontSize: '0.8em', color: '#666'}}>{slot}</div>
-                        </td>
-                        {days.map((day) => {
-                        const entry = getEntry(day, slot);
-                        return (
-                            <td 
-                                key={`${day}-${slot}`}
-                                style={entry ? { backgroundColor: stringToHslColor(entry.fach, 50, 60), color: 'white', border: '1px solid #ccc', padding: '12px', textAlign: 'center' } : {border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}
-                            >
-                            {entry ? (
-                                <div>
-                                    <p style={{fontWeight: 'bold', margin: '0'}}>{entry.fach}</p>
-                                    {entry.lehrer && <div className="teacher" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.lehrer}</div>}
-                                </div>
-                            ) : (
-                                <span>-</span>
-                            )}
-                            </td>
-                        );
-                        })}
-                    </tr>
-                    ))}
-                     <tr>
-                        <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
-                            @wolfikuproduction scoolmanager
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+      </div>
 
-      </CardContent>
-    </Card>
+    </div>
   );
 }
