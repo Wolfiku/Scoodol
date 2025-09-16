@@ -5,9 +5,8 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Calendar, ListTodo, Download, ChevronLeft, Image as ImageIcon, Printer } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Download, Image as ImageIcon, Printer } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Functions from ClassicTimetableView for PNG/Print export
+// Functions for PNG/Print export
 const openPrintView = () => {
   const printElement = document.getElementById('timetable-for-print');
   if (printElement) {
@@ -56,8 +55,8 @@ const openPrintView = () => {
   }
 };
 
-const downloadAsPng = () => {
-  const html2canvas = require('html2canvas');
+const downloadAsPng = async () => {
+  const html2canvas = (await import('html2canvas')).default;
   const table = document.getElementById('timetable-for-print');
   if (table) {
     html2canvas(table, {
@@ -73,90 +72,54 @@ const downloadAsPng = () => {
   }
 };
 
-
 export default function Home() {
-  const [view, setView] = useState('daily'); // 'daily', 'weekly', 'homework'
-  const isMobile = useIsMobile();
-
-  const renderContent = () => {
-    switch (view) {
-      case 'weekly':
-        return <ClassicTimetableView />;
-      case 'homework':
-        return <HomeworkPlanner />;
-      case 'daily':
-      default:
-        return <ZeitplanDashboard />;
-    }
-  };
-  
-  const renderMobileView = () => (
-     <div className="space-y-8">
-        <ZeitplanDashboard />
-        <HomeworkPlanner />
-     </div>
-  );
-
-
   return (
-    <main className="container mx-auto p-4 md:p-8 relative">
-      {isMobile ? (
-         renderMobileView()
-      ) : (
-        <>
-          {view !== 'daily' && (
-             <Button 
-                variant="outline"
-                className="absolute top-8 left-8 z-10"
-                onClick={() => setView('daily')}
-             >
-                <ChevronLeft className="mr-2" />
-                Zur Tagesansicht
-            </Button>
-          )}
-          {renderContent()}
+    <main className="container mx-auto p-4 md:p-8">
+       <Tabs defaultValue="daily" className="w-full">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <TabsList className="grid grid-cols-3 w-full max-w-md">
+            <TabsTrigger value="daily">Tagesansicht</TabsTrigger>
+            <TabsTrigger value="weekly">Wochenansicht</TabsTrigger>
+            <TabsTrigger value="homework">Hausaufgaben</TabsTrigger>
+          </TabsList>
 
-          <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-3">
-             <Sheet>
-                 <SheetTrigger asChild>
-                    <Button size="lg" className="shadow-lg">
-                       <ListTodo className="mr-2" />
-                       Hausaufgaben
-                    </Button>
-                 </SheetTrigger>
-                 <SheetContent side="right" className="w-full sm:max-w-xl p-0">
-                     <HomeworkPlanner />
-                 </SheetContent>
-            </Sheet>
-            
-            <Button size="lg" onClick={() => setView('weekly')} className="shadow-lg">
-                <Calendar className="mr-2" />
-                Wochenansicht
-            </Button>
-             
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="lg" className="shadow-lg">
-                    <Download className="mr-2" />
-                    Exportieren
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="end">
-                  <DropdownMenuItem onClick={openPrintView}>
-                    <Printer className="mr-2" />
-                    Drucken / PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadAsPng}>
-                    <ImageIcon className="mr-2" />
-                    Als PNG speichern
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </>
-      )}
-       {/* The hidden table needs to be available for export, but we can render it conditionally on the client */}
-       {!isMobile && <div className="absolute -z-10 opacity-0 pointer-events-none"><ClassicTimetableView /></div>}
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="mr-2" />
+                  Exportieren
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={openPrintView}>
+                  <Printer className="mr-2" />
+                  Drucken / PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadAsPng}>
+                  <ImageIcon className="mr-2" />
+                  Als PNG speichern
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
+        <TabsContent value="daily">
+          <ZeitplanDashboard />
+        </TabsContent>
+        <TabsContent value="weekly">
+          <ClassicTimetableView />
+        </TabsContent>
+        <TabsContent value="homework">
+            <div className="max-w-4xl mx-auto">
+             <HomeworkPlanner />
+            </div>
+        </TabsContent>
+      </Tabs>
+      
+      {/* The hidden table needs to be available for export, rendered invisibly */}
+      <div className="absolute -z-10 opacity-0 pointer-events-none" aria-hidden="true">
+        <ClassicTimetableView />
+      </div>
     </main>
   );
 }

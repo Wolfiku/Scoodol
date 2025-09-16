@@ -36,21 +36,6 @@ type Homework = {
   done: boolean;
 };
 
-const subjects = [
-  "IT",
-  "Reli / Ethik",
-  "Englisch",
-  "Deutsch",
-  "Kunst",
-  "Mathe",
-  "Physik",
-  "Geo",
-  "Wirtschaft und Recht",
-  "Geschichte",
-  "Chemie",
-  "Sport",
-];
-
 export default function HomeworkPlanner() {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [isMounted, setIsMounted] = useState(false);
@@ -114,9 +99,9 @@ export default function HomeworkPlanner() {
   const doneHomeworks = homeworks.filter(hw => hw.done);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col min-h-[500px]">
       <CardHeader>
-        <CardTitle className="flex justify-between items-center">
+        <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
           <span>Hausaufgabenplaner</span>
           <div className="flex gap-2">
             <Button variant="outline" size="icon" disabled>
