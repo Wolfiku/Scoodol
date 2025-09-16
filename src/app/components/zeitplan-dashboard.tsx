@@ -31,6 +31,7 @@ import {
   Save,
   ChevronLeft,
   ChevronRight,
+  Calendar,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -61,7 +62,7 @@ const parseTime = (timeStr: string) => {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
-export default function ZeitplanDashboard() {
+export default function ZeitplanDashboard({ setView }: { setView: (view: string) => void }) {
   const [now, setNow] = useState<Date | null>(null);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
@@ -154,7 +155,7 @@ export default function ZeitplanDashboard() {
   
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col sm:flex-row justify-between items-center gap-4 p-6 bg-card rounded-xl shadow-md">
+      <header className="flex flex-col sm:flex-row justify-between items-start gap-4 p-6 bg-card rounded-xl shadow-md">
         <div className="flex items-center gap-4">
            <Button variant="ghost" size="icon" onClick={() => changeDay(-1)} disabled={currentDayIndex === 0}>
             <ChevronLeft />
@@ -168,26 +169,33 @@ export default function ZeitplanDashboard() {
             <ChevronRight />
           </Button>
         </div>
-        <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background">
-          <div className="flex items-center gap-2 text-3xl font-bold text-foreground">
-            <Clock className="w-8 h-8" />
-            <span>{now ? now.toLocaleTimeString("de-DE") : "..."}</span>
+
+        <div className="flex flex-col gap-2 w-full sm:w-auto">
+          <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background">
+            <div className="flex items-center gap-2 text-3xl font-bold text-foreground">
+              <Clock className="w-8 h-8" />
+              <span>{now ? now.toLocaleTimeString("de-DE", { hour: '2-digit', minute: '2-digit', second: '2-digit'}) : "..."}</span>
+            </div>
+            {isSchoolTime ? (
+              <div className="flex items-center gap-2 text-accent animate-pulse">
+                <Sun className="w-5 h-5" />
+                <span className="font-semibold">
+                  {remainingTime
+                    ? `Schulende in: ${remainingTime}`
+                    : "Berechne verbleibende Zeit..."}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Moon className="w-5 h-5" />
+                <span className="font-semibold">Außerhalb der Schulzeit</span>
+              </div>
+            )}
           </div>
-          {isSchoolTime ? (
-            <div className="flex items-center gap-2 text-accent animate-pulse">
-              <Sun className="w-5 h-5" />
-              <span className="font-semibold">
-                {remainingTime
-                  ? `Schulende in: ${remainingTime}`
-                  : "Berechne verbleibende Zeit..."}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Moon className="w-5 h-5" />
-              <span className="font-semibold">Außerhalb der Schulzeit</span>
-            </div>
-          )}
+          <Button variant="outline" onClick={() => setView('weekly')}>
+            <Calendar className="mr-2 h-4 w-4" />
+            Wochenansicht
+          </Button>
         </div>
       </header>
 
