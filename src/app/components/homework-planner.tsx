@@ -26,6 +26,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Homework = {
   id: number;
@@ -97,14 +98,23 @@ export default function HomeworkPlanner() {
   };
   
   if (!isMounted) {
-    return null; // Avoid hydration mismatch
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Hausaufgabenplaner</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Laden...</p>
+            </CardContent>
+        </Card>
+    ); 
   }
 
   const upcomingHomeworks = homeworks.filter(hw => !hw.done);
   const doneHomeworks = homeworks.filter(hw => hw.done);
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
           <span>Hausaufgabenplaner</span>
@@ -151,77 +161,79 @@ export default function HomeworkPlanner() {
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-         <h3 className="font-bold text-lg">Anstehend</h3>
-        {upcomingHomeworks.length > 0 ? (
-          upcomingHomeworks
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-            .map((hw) => (
-            <div
-              key={hw.id}
-              className="flex items-center gap-4 p-3 rounded-md bg-secondary"
-            >
-              <Checkbox
-                checked={hw.done}
-                onCheckedChange={() => toggleDone(hw.id)}
-                id={`hw-${hw.id}`}
-              />
-              <label
-                htmlFor={`hw-${hw.id}`}
-                className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+      <ScrollArea className="flex-1">
+        <CardContent className="flex flex-col gap-4">
+          <h3 className="font-bold text-lg">Anstehend</h3>
+          {upcomingHomeworks.length > 0 ? (
+            upcomingHomeworks
+              .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .map((hw) => (
+              <div
+                key={hw.id}
+                className="flex items-center gap-4 p-3 rounded-md bg-secondary"
               >
-                <div className="flex justify-between items-baseline">
-                   <span className="font-semibold">{hw.subject}</span>
-                    {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
-                </div>
-                <p className="text-sm text-muted-foreground">{hw.task}</p>
-              </label>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteHomework(hw.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))
-        ) : (
-            <p className="text-muted-foreground text-center p-4">Super! Keine anstehenden Aufgaben.</p>
-        )}
+                <Checkbox
+                  checked={hw.done}
+                  onCheckedChange={() => toggleDone(hw.id)}
+                  id={`hw-${hw.id}`}
+                />
+                <label
+                  htmlFor={`hw-${hw.id}`}
+                  className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                >
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-semibold">{hw.subject}</span>
+                      {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{hw.task}</p>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteHomework(hw.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))
+          ) : (
+              <p className="text-muted-foreground text-center p-4">Super! Keine anstehenden Aufgaben.</p>
+          )}
 
-        {doneHomeworks.length > 0 && <h3 className="font-bold text-lg mt-4">Erledigt</h3>}
-        {doneHomeworks
-            .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
-            .map((hw) => (
-            <div
-              key={hw.id}
-              className="flex items-center gap-4 p-3 rounded-md bg-secondary/50"
-            >
-              <Checkbox
-                checked={hw.done}
-                onCheckedChange={() => toggleDone(hw.id)}
-                id={`hw-${hw.id}`}
-              />
-              <label
-                htmlFor={`hw-${hw.id}`}
-                className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+          {doneHomeworks.length > 0 && <h3 className="font-bold text-lg mt-4">Erledigt</h3>}
+          {doneHomeworks
+              .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
+              .map((hw) => (
+              <div
+                key={hw.id}
+                className="flex items-center gap-4 p-3 rounded-md bg-secondary/50"
               >
-                <div className="flex justify-between items-baseline">
-                   <span className="font-semibold">{hw.subject}</span>
-                    {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
-                </div>
-                <p className="text-sm text-muted-foreground">{hw.task}</p>
-              </label>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteHomework(hw.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-      </CardContent>
+                <Checkbox
+                  checked={hw.done}
+                  onCheckedChange={() => toggleDone(hw.id)}
+                  id={`hw-${hw.id}`}
+                />
+                <label
+                  htmlFor={`hw-${hw.id}`}
+                  className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                >
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-semibold">{hw.subject}</span>
+                      {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{hw.task}</p>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteHomework(hw.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+        </CardContent>
+      </ScrollArea>
     </Card>
   );
 }

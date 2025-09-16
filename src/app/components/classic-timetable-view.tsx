@@ -9,17 +9,9 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Download, Printer, ChevronDown, Image as ImageIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import html2canvas from "html2canvas";
+import { User } from "lucide-react";
 
 type TimetableEntry = {
   id: string;
@@ -65,61 +57,6 @@ const stringToHslColor = (str: string, s: number, l: number) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-const openPrintView = () => {
-  const printElement = document.getElementById('timetable-for-print');
-  if (printElement) {
-    const tableHtml = printElement.outerHTML;
-    
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Stundenplan Druckansicht</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { border: 1px solid #ccc; padding: 12px; text-align: center; }
-              th { background-color: #f2f2f2; }
-              .footer { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #aaa; }
-              .teacher { font-size: 0.8em; margin-top: 4px; color: rgba(255,255,255,0.8); }
-            </style>
-          </head>
-          <body>
-            <h2>Wochenübersicht</h2>
-            ${tableHtml}
-            <div class="footer">@wolfikuproduction scoolmanager</div>
-            <script>
-              window.onload = function() {
-                window.print();
-                window.onafterprint = function() {
-                  window.close();
-                }
-              }
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
-  }
-};
-
-const downloadAsPng = () => {
-  const table = document.getElementById('timetable-for-print');
-  if (table) {
-    html2canvas(table, {
-      scale: 2, // higher scale for better quality
-      useCORS: true,
-      backgroundColor: '#ffffff',
-    }).then(canvas => {
-      const link = document.createElement('a');
-      link.download = 'stundenplan.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    });
-  }
-};
 
 export default function ClassicTimetableView() {
   return (
@@ -179,8 +116,8 @@ export default function ClassicTimetableView() {
         </div>
         
         {/* Hidden table for printing and PNG export */}
-        <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
-            <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif'}}>
+        <div style={{ position: 'absolute', left: '-9999px', top: 'auto', zIndex: -100 }}>
+            <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif', width: '1000px', backgroundColor: 'white' }}>
                  <thead>
                     <tr>
                         <th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }}>Stunde</th>
@@ -224,27 +161,6 @@ export default function ClassicTimetableView() {
         </div>
 
       </CardContent>
-      <CardFooter className="justify-end flex-wrap gap-2">
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Download className="mr-2" />
-                Exportieren
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={openPrintView}>
-                <Printer className="mr-2" />
-                Drucken / PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={downloadAsPng}>
-                <ImageIcon className="mr-2" />
-                Als PNG speichern
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-      </CardFooter>
     </Card>
   );
 }
