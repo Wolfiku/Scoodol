@@ -5,9 +5,16 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles } from 'lucide-react';
+import { Home, ListChecks, Sparkles, icons } from 'lucide-react';
 import Calculator from './components/tools/calculator';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+const GeminiSparkle = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
+        <path d="M12 2.75L13.25 10.75L21.25 12L13.25 13.25L12 21.25L10.75 13.25L2.75 12L10.75 10.75L12 2.75Z" />
+    </svg>
+);
+
 
 export default function Page() {
   const [view, setView] = useState('daily');
@@ -26,7 +33,9 @@ export default function Page() {
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
         <div className="text-center">
           <p className="text-lg font-semibold">@wolfikuproduction</p>
-          <p className="text-sm text-muted-foreground">powered by limbo</p>
+          <p className="text-sm text-muted-foreground flex items-center">
+            uses Gemini <GeminiSparkle /> and Google APIs
+          </p>
         </div>
         <div className="absolute bottom-4 text-xs text-muted-foreground">
           Coded with love by your AI Assistant
