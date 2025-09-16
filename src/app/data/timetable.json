@@ -2,22 +2,22 @@
 [
   {
     "id": 1,
-    "fach": "Mathematik",
-    "lehrer": "Herr Müller",
+    "fach": "IT",
+    "lehrer": "",
     "start": "08:00",
     "ende": "08:45",
-    "hauptfach": true,
-    "notizen": "Thema: Analysis, Ableitungen. Hausaufgabe: S. 45 Nr. 2 & 3.",
+    "hauptfach": false,
+    "notizen": "",
     "materialien": "#"
   },
   {
     "id": 2,
-    "fach": "Deutsch",
-    "lehrer": "Frau Schmidt",
+    "fach": "IT",
+    "lehrer": "",
     "start": "08:45",
     "ende": "09:30",
-    "hauptfach": true,
-    "notizen": "Lektüre: 'Faust I'. Szenenanalyse.",
+    "hauptfach": false,
+    "notizen": "",
     "materialien": "#"
   },
   {
@@ -28,25 +28,25 @@
   },
   {
     "id": 3,
-    "fach": "Englisch",
-    "lehrer": "Mr. Smith",
+    "fach": "Reli / Ethik",
+    "lehrer": "",
     "start": "09:45",
     "ende": "10:30",
-    "hauptfach": true,
-    "notizen": "Grammar: Present Perfect vs. Past Simple.",
+    "hauptfach": false,
+    "notizen": "",
     "materialien": "#"
   },
   {
     "id": 4,
-    "fach": "Geschichte",
-    "lehrer": "Herr Weber",
+    "fach": "Englisch",
+    "lehrer": "Frau Stadler",
     "start": "10:30",
     "ende": "11:15",
-    "hauptfach": false,
-    "notizen": "Thema: Die Französische Revolution.",
+    "hauptfach": true,
+    "notizen": "",
     "materialien": "#"
   },
-    {
+  {
     "id": "pause2",
     "fach": "Pause",
     "start": "11:15",
@@ -54,22 +54,12 @@
   },
   {
     "id": 5,
-    "fach": "Physik",
-    "lehrer": "Frau Klein",
+    "fach": "Englisch",
+    "lehrer": "Frau Stadler",
     "start": "11:30",
     "ende": "12:15",
-    "hauptfach": false,
-    "notizen": "Experiment zur Optik: Lichtbrechung.",
-    "materialien": "#"
-  },
-  {
-    "id": 6,
-    "fach": "Kunst",
-    "lehrer": "Frau Lang",
-    "start": "12:15",
-    "ende": "13:00",
-    "hauptfach": false,
-    "notizen": "Projekt: Surrealismus. Eigene Werke erstellen.",
+    "hauptfach": true,
+    "notizen": "",
     "materialien": "#"
   }
 ]
