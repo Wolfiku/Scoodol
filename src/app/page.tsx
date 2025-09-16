@@ -34,11 +34,11 @@ export default function Page() {
         <div className="text-center">
           <p className="text-lg font-semibold">@wolfikuproduction</p>
           <p className="text-sm text-muted-foreground flex items-center">
-            uses Gemini <GeminiSparkle /> and Google APIs
+            powered by limbo
           </p>
         </div>
-        <div className="absolute bottom-4 text-xs text-muted-foreground">
-          Coded with love by your AI Assistant
+        <div className="absolute bottom-4 text-xs text-muted-foreground flex items-center">
+            Made in Firebase Studio <GeminiSparkle />
         </div>
       </div>
     );
