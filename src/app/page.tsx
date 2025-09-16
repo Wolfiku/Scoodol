@@ -23,8 +23,11 @@ export default function Page() {
 
   if (!isInitialised) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Laden...</p>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
+        <div className="text-center">
+          <p className="text-lg font-semibold">@wolfikuproduction</p>
+          <p className="text-sm text-muted-foreground">used Gemini</p>
+        </div>
       </div>
     );
   }
