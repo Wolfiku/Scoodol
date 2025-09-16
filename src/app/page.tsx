@@ -15,11 +15,11 @@ export default function Page() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (isMobile !== undefined && !isInitialised) {
+    if (isMobile !== undefined) {
       setView(isMobile ? 'daily' : 'weekly');
       setIsInitialised(true);
     }
-  }, [isMobile, isInitialised]);
+  }, [isMobile]);
 
   if (!isInitialised) {
     return (
