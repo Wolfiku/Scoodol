@@ -1,6 +1,7 @@
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
+import HomeworkPlanner from '@/app/components/homework-planner';
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
           <TabsList>
             <TabsTrigger value="daily">Tagesansicht</TabsTrigger>
             <TabsTrigger value="weekly">Wochenansicht</TabsTrigger>
+            <TabsTrigger value="homework">Hausaufgaben</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="daily">
@@ -17,6 +19,9 @@ export default function Home() {
         </TabsContent>
         <TabsContent value="weekly">
           <ClassicTimetableView />
+        </TabsContent>
+        <TabsContent value="homework">
+          <HomeworkPlanner />
         </TabsContent>
       </Tabs>
     </main>
