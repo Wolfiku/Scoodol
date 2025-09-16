@@ -29,6 +29,8 @@ import {
   Sun,
   Moon,
   Save,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -43,6 +45,10 @@ type TimetableEntry = {
   materialien?: string;
 };
 
+type TimetableData = {
+  [key: string]: TimetableEntry[];
+};
+
 const SCHOOL_START_HOUR = 8;
 const SCHOOL_END_HOUR = 13;
 
@@ -53,15 +59,36 @@ const parseTime = (timeStr: string) => {
   return date;
 };
 
+const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+
 export default function ZeitplanDashboard() {
   const [now, setNow] = useState<Date | null>(null);
-  const [timetableData, setTimetableData] = useState<TimetableEntry[]>(initialTimetableData);
+  const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
     null
   );
   const [editingNotes, setEditingNotes] = useState<string>("");
   const lastMinuteRef = useRef<number | null>(null);
+
+  const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay() - 1);
+
+  useEffect(() => {
+    const today = new Date().getDay();
+    // Sunday is 0, Monday is 1, etc. but our array is 0-indexed from Monday.
+    const dayIndex = today > 0 && today < 6 ? today - 1 : 0; // Default to Monday if it's weekend
+    setCurrentDayIndex(dayIndex);
+  }, []);
+
+  const changeDay = (offset: number) => {
+    setCurrentDayIndex(prevIndex => {
+      const newIndex = prevIndex + offset;
+      if (newIndex >= 0 && newIndex < weekDays.length) {
+        return newIndex;
+      }
+      return prevIndex;
+    });
+  };
 
   const isSchoolTime = useMemo(() => {
     if (!now) return false;
@@ -70,10 +97,9 @@ export default function ZeitplanDashboard() {
   }, [now]);
 
   useEffect(() => {
-    setNow(new Date());
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
+    const updateTime = () => setNow(new Date());
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -95,7 +121,7 @@ export default function ZeitplanDashboard() {
       setRemainingTime(null);
     }
   }, [now, isSchoolTime]);
-  
+
   const handleOpenDialog = (entry: TimetableEntry) => {
     setSelectedSubject(entry);
     setEditingNotes(entry.notizen || "");
@@ -103,7 +129,9 @@ export default function ZeitplanDashboard() {
 
   const handleSaveNotes = () => {
     if (selectedSubject) {
-      const updatedTimetable = timetableData.map((entry) =>
+      const day = weekDays[currentDayIndex];
+      const updatedTimetable = { ...timetableData };
+      updatedTimetable[day] = updatedTimetable[day].map((entry) =>
         entry.id === selectedSubject.id
           ? { ...entry, notizen: editingNotes }
           : entry
@@ -112,25 +140,34 @@ export default function ZeitplanDashboard() {
       setSelectedSubject({ ...selectedSubject, notizen: editingNotes });
     }
   };
-
+  
+  const dailyTimetable = timetableData[weekDays[currentDayIndex]] || [];
 
   const currentSubject = useMemo(() => {
-    if (!now) return null;
-    return timetableData.find((entry) => {
+    if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
+    return dailyTimetable.find((entry) => {
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
       return now >= start && now < end;
     });
-  }, [now, timetableData]);
-
+  }, [now, dailyTimetable, currentDayIndex]);
+  
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col sm:flex-row justify-between items-center gap-4 p-6 bg-card rounded-xl shadow-md">
-        <div>
-          <h1 className="text-4xl font-bold font-headline text-primary">
-            ZeitplanPro
-          </h1>
-          <p className="text-muted-foreground">Dein digitaler Stundenplan</p>
+        <div className="flex items-center gap-4">
+           <Button variant="ghost" size="icon" onClick={() => changeDay(-1)} disabled={currentDayIndex === 0}>
+            <ChevronLeft />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold font-headline text-primary">
+              {weekDays[currentDayIndex]}
+            </h1>
+            <p className="text-muted-foreground">Dein digitaler Stundenplan</p>
+          </div>
+           <Button variant="ghost" size="icon" onClick={() => changeDay(1)} disabled={currentDayIndex === weekDays.length - 1}>
+            <ChevronRight />
+          </Button>
         </div>
         <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background">
           <div className="flex items-center gap-2 text-3xl font-bold text-foreground">
@@ -156,9 +193,9 @@ export default function ZeitplanDashboard() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {timetableData.map((entry) => {
+        {dailyTimetable.map((entry) => {
           const isCurrent = currentSubject?.id === entry.id;
-          const isBreak = !entry.lehrer;
+          const isBreak = !entry.lehrer && !entry.fach.includes("Pause") === false;
 
           if (isBreak) {
             return (
@@ -203,7 +240,7 @@ export default function ZeitplanDashboard() {
               </CardHeader>
               <CardContent className="flex justify-between items-center text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
+                  {entry.lehrer && <User className="w-4 h-4" />}
                   <span>{entry.lehrer}</span>
                 </div>
               </CardContent>
