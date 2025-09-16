@@ -1,0 +1,81 @@
+
+[
+  {
+    "id": 1,
+    "fach": "Mathematik",
+    "raum": "101",
+    "lehrer": "Herr Müller",
+    "start": "08:00",
+    "ende": "08:45",
+    "hauptfach": true,
+    "notizen": "Thema: Analysis, Ableitungen. Hausaufgabe: S. 45 Nr. 2 & 3.",
+    "materialien": "#"
+  },
+  {
+    "id": 2,
+    "fach": "Deutsch",
+    "raum": "102",
+    "lehrer": "Frau Schmidt",
+    "start": "08:45",
+    "ende": "09:30",
+    "hauptfach": true,
+    "notizen": "Lektüre: 'Faust I'. Szenenanalyse.",
+    "materialien": "#"
+  },
+  {
+    "id": "pause1",
+    "fach": "Pause",
+    "start": "09:30",
+    "ende": "09:45"
+  },
+  {
+    "id": 3,
+    "fach": "Englisch",
+    "raum": "205",
+    "lehrer": "Mr. Smith",
+    "start": "09:45",
+    "ende": "10:30",
+    "hauptfach": true,
+    "notizen": "Grammar: Present Perfect vs. Past Simple.",
+    "materialien": "#"
+  },
+  {
+    "id": 4,
+    "fach": "Geschichte",
+    "raum": "301",
+    "lehrer": "Herr Weber",
+    "start": "10:30",
+    "ende": "11:15",
+    "hauptfach": false,
+    "notizen": "Thema: Die Französische Revolution.",
+    "materialien": "#"
+  },
+    {
+    "id": "pause2",
+    "fach": "Pause",
+    "start": "11:15",
+    "ende": "11:30"
+  },
+  {
+    "id": 5,
+    "fach": "Physik",
+    "raum": "N01",
+    "lehrer": "Frau Klein",
+    "start": "11:30",
+    "ende": "12:15",
+    "hauptfach": false,
+    "notizen": "Experiment zur Optik: Lichtbrechung.",
+    "materialien": "#"
+  },
+  {
+    "id": 6,
+    "fach": "Kunst",
+    "raum": "K02",
+    "lehrer": "Frau Lang",
+    "start": "12:15",
+    "ende": "13:00",
+    "hauptfach": false,
+    "notizen": "Projekt: Surrealismus. Eigene Werke erstellen.",
+    "materialien": "#"
+  }
+]
