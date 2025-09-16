@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import timetableData from "@/app/data/timetable.json";
+import initialTimetableData from "@/app/data/timetable.json";
 import { getRemainingTime } from "@/app/actions";
 import {
   Card,
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,17 +24,17 @@ import {
   Star,
   Clock,
   User,
-  MapPin,
   BookOpen,
   Link as LinkIcon,
   Sun,
   Moon,
+  Save,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type TimetableEntry = {
   id: number | string;
   fach: string;
-  raum?: string;
   lehrer?: string;
   start: string;
   ende: string;
@@ -54,10 +55,12 @@ const parseTime = (timeStr: string) => {
 
 export default function ZeitplanDashboard() {
   const [now, setNow] = useState(new Date());
+  const [timetableData, setTimetableData] = useState<TimetableEntry[]>(initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
     null
   );
+  const [editingNotes, setEditingNotes] = useState<string>("");
   const lastMinuteRef = useRef<number | null>(null);
 
   const isSchoolTime = useMemo(() => {
@@ -89,6 +92,24 @@ export default function ZeitplanDashboard() {
       setRemainingTime(null);
     }
   }, [now, isSchoolTime]);
+  
+  const handleOpenDialog = (entry: TimetableEntry) => {
+    setSelectedSubject(entry);
+    setEditingNotes(entry.notizen || "");
+  };
+
+  const handleSaveNotes = () => {
+    if (selectedSubject) {
+      const updatedTimetable = timetableData.map((entry) =>
+        entry.id === selectedSubject.id
+          ? { ...entry, notizen: editingNotes }
+          : entry
+      );
+      setTimetableData(updatedTimetable);
+      setSelectedSubject({ ...selectedSubject, notizen: editingNotes });
+    }
+  };
+
 
   const currentSubject = useMemo(() => {
     return timetableData.find((entry) => {
@@ -96,7 +117,7 @@ export default function ZeitplanDashboard() {
       const end = parseTime(entry.ende);
       return now >= start && now < end;
     });
-  }, [now]);
+  }, [now, timetableData]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -158,7 +179,7 @@ export default function ZeitplanDashboard() {
           return (
             <Card
               key={entry.id}
-              onClick={() => setSelectedSubject(entry as TimetableEntry)}
+              onClick={() => handleOpenDialog(entry as TimetableEntry)}
               className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 rounded-xl ${
                 isCurrent ? "border-accent shadow-accent/20 shadow-lg" : ""
               }`}
@@ -166,10 +187,10 @@ export default function ZeitplanDashboard() {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-2xl font-bold">{entry.fach}</CardTitle>
-                  {entry.hauptfach && (
-                    <div className="flex items-center text-accent">
-                      <Star className="w-6 h-6 fill-current" />
-                    </div>
+                  {entry.hauptfach ? (
+                    <Badge variant="default">Hauptfach</Badge>
+                  ) : (
+                    <Badge variant="secondary">Nebenfach</Badge>
                   )}
                 </div>
                 <CardDescription className="text-base">
@@ -180,10 +201,6 @@ export default function ZeitplanDashboard() {
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
                   <span>{entry.lehrer}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{entry.raum}</span>
                 </div>
               </CardContent>
             </Card>
@@ -200,9 +217,6 @@ export default function ZeitplanDashboard() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center text-3xl font-bold gap-3">
-                  {selectedSubject.hauptfach && (
-                    <Star className="w-7 h-7 text-accent fill-accent" />
-                  )}
                   {selectedSubject.fach}
                 </DialogTitle>
                 <DialogDescription className="text-lg">
@@ -215,20 +229,25 @@ export default function ZeitplanDashboard() {
                   <span className="font-semibold">Lehrer:</span>
                   <span>{selectedSubject.lehrer}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-muted-foreground" />
-                  <span className="font-semibold">Raum:</span>
-                  <span>{selectedSubject.raum}</span>
+                 <div className="flex items-center gap-3">
+                  {selectedSubject.hauptfach ? (
+                    <Badge variant="default">Hauptfach</Badge>
+                  ) : (
+                    <Badge variant="secondary">Nebenfach</Badge>
+                  )}
                 </div>
-                {selectedSubject.notizen && (
-                  <div className="flex items-start gap-3">
-                    <BookOpen className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <span className="font-semibold">Notizen:</span>
-                      <p className="text-muted-foreground">{selectedSubject.notizen}</p>
+                <div className="grid gap-2">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="w-5 h-5 text-muted-foreground" />
+                       <span className="font-semibold">Notizen:</span>
                     </div>
+                    <Textarea
+                      value={editingNotes}
+                      onChange={(e) => setEditingNotes(e.target.value)}
+                      className="text-sm"
+                      rows={4}
+                    />
                   </div>
-                )}
                 {selectedSubject.materialien && (
                   <Button asChild variant="outline" className="mt-2">
                     <a href={selectedSubject.materialien} target="_blank" rel="noopener noreferrer">
@@ -238,6 +257,12 @@ export default function ZeitplanDashboard() {
                   </Button>
                 )}
               </div>
+              <DialogFooter>
+                <Button onClick={handleSaveNotes}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Notizen speichern
+                </Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>

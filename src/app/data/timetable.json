@@ -3,7 +3,6 @@
   {
     "id": 1,
     "fach": "Mathematik",
-    "raum": "101",
     "lehrer": "Herr Müller",
     "start": "08:00",
     "ende": "08:45",
@@ -14,7 +13,6 @@
   {
     "id": 2,
     "fach": "Deutsch",
-    "raum": "102",
     "lehrer": "Frau Schmidt",
     "start": "08:45",
     "ende": "09:30",
@@ -31,7 +29,6 @@
   {
     "id": 3,
     "fach": "Englisch",
-    "raum": "205",
     "lehrer": "Mr. Smith",
     "start": "09:45",
     "ende": "10:30",
@@ -42,7 +39,6 @@
   {
     "id": 4,
     "fach": "Geschichte",
-    "raum": "301",
     "lehrer": "Herr Weber",
     "start": "10:30",
     "ende": "11:15",
@@ -59,7 +55,6 @@
   {
     "id": 5,
     "fach": "Physik",
-    "raum": "N01",
     "lehrer": "Frau Klein",
     "start": "11:30",
     "ende": "12:15",
@@ -70,7 +65,6 @@
   {
     "id": 6,
     "fach": "Kunst",
-    "raum": "K02",
     "lehrer": "Frau Lang",
     "start": "12:15",
     "ende": "13:00",
