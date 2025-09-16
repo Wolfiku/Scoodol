@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Download } from "lucide-react";
+import { User, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type TimetableEntry = {
@@ -58,7 +58,7 @@ const stringToHslColor = (str: string, s: number, l: number) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-const handlePrint = () => {
+const openPrintView = () => {
   const printWindow = window.open('', '_blank');
   if (printWindow) {
     const tableHtml = document.getElementById('timetable-for-print')?.outerHTML;
@@ -104,53 +104,55 @@ export default function ClassicTimetableView() {
         <CardTitle>Wochenübersicht</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table id="timetable-print-view" className="border">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="border-r">Stunde</TableHead>
-              {days.map((day) => (
-                <TableHead key={day} className="text-center border-r">
-                  {day}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {timeSlots.map((slot, index) => (
-              <TableRow key={slot}>
-                <TableCell className="font-medium border-r">
-                  <div className="flex flex-col">
-                    <span>{index + 1}. Stunde</span>
-                    <span className="text-xs text-muted-foreground">{slot}</span>
-                  </div>
-                </TableCell>
-                {days.map((day) => {
-                  const entry = getEntry(day, slot);
-                  return (
-                    <TableCell key={`${day}-${slot}`} className="text-center border-r">
-                      {entry ? (
-                        <div>
-                          <p className="font-bold">{entry.fach}</p>
-                          {entry.lehrer && (
-                            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                              <User className="w-3 h-3" />
-                              <span>{entry.lehrer}</span>
-                            </div>
-                          )}
-                          {entry.hauptfach && (
-                             <Badge variant="default" className="mt-1">Hauptfach</Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <span>-</span>
-                      )}
+        <div className="overflow-x-auto">
+            <Table id="timetable-print-view" className="border min-w-[700px] md:min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="border-r">Stunde</TableHead>
+                  {days.map((day) => (
+                    <TableHead key={day} className="text-center border-r">
+                      {day}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {timeSlots.map((slot, index) => (
+                  <TableRow key={slot}>
+                    <TableCell className="font-medium border-r">
+                      <div className="flex flex-col">
+                        <span>{index + 1}. Stunde</span>
+                        <span className="text-xs text-muted-foreground">{slot}</span>
+                      </div>
                     </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    {days.map((day) => {
+                      const entry = getEntry(day, slot);
+                      return (
+                        <TableCell key={`${day}-${slot}`} className="text-center border-r">
+                          {entry ? (
+                            <div>
+                              <p className="font-bold">{entry.fach}</p>
+                              {entry.lehrer && (
+                                <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                                  <User className="w-3 h-3" />
+                                  <span>{entry.lehrer}</span>
+                                </div>
+                              )}
+                              {entry.hauptfach && (
+                                 <Badge variant="default" className="mt-1">Hauptfach</Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span>-</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+        </div>
         
         {/* Hidden table for printing */}
         <div style={{ display: 'none' }}>
@@ -193,10 +195,14 @@ export default function ClassicTimetableView() {
         </div>
 
       </CardContent>
-      <CardFooter className="justify-end">
-          <Button onClick={handlePrint}>
+      <CardFooter className="justify-end flex-wrap gap-2">
+          <Button onClick={openPrintView} variant="outline">
             <Download className="mr-2" />
-            Herunterladen / Drucken
+            Herunterladen
+          </Button>
+          <Button onClick={openPrintView}>
+            <Printer className="mr-2" />
+            Drucken
           </Button>
       </CardFooter>
     </Card>
