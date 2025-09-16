@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Download, Printer, Image as ImageIcon } from "lucide-react";
+import { User, Download, Printer, Image as ImageIcon, ChevronLeft } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,12 +65,17 @@ const stringToHslColor = (str: string, s: number, l: number) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-export default function ClassicTimetableView() {
+export default function ClassicTimetableView({ setView }: { setView: (view: string) => void }) {
   return (
     <div className="relative pb-20">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Wochenübersicht</CardTitle>
+          <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => setView('daily')}>
+                <ChevronLeft />
+              </Button>
+              <CardTitle>Wochenübersicht</CardTitle>
+          </div>
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>

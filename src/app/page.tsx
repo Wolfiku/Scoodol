@@ -14,7 +14,7 @@ export default function Page() {
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
       {view === 'daily' && <ZeitplanDashboard setView={setView} />}
-      {view === 'weekly' && <ClassicTimetableView />}
+      {view === 'weekly' && <ClassicTimetableView setView={setView} />}
       {view === 'homework' && <HomeworkPlanner />}
       {view === 'smart-tool' && <Calculator />}
 

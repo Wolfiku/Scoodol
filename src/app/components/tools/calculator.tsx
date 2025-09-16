@@ -6,58 +6,62 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function Calculator() {
   const [display, setDisplay] = useState('0');
+  const [currentValue, setCurrentValue] = useState('0');
   const [firstOperand, setFirstOperand] = useState<number | null>(null);
   const [operator, setOperator] = useState<string | null>(null);
   const [waitingForSecondOperand, setWaitingForSecondOperand] = useState(false);
 
   const inputDigit = (digit: string) => {
     if (waitingForSecondOperand) {
-      setDisplay(digit);
+      setCurrentValue(digit);
       setWaitingForSecondOperand(false);
     } else {
-      setDisplay(display === '0' ? digit : display + digit);
+      setCurrentValue(currentValue === '0' ? digit : currentValue + digit);
     }
   };
 
   const inputDecimal = () => {
     if (waitingForSecondOperand) {
-      setDisplay('0.');
+      setCurrentValue('0.');
       setWaitingForSecondOperand(false);
       return;
     }
-    if (!display.includes('.')) {
-      setDisplay(display + '.');
+    if (!currentValue.includes('.')) {
+      setCurrentValue(currentValue + '.');
     }
   };
 
   const clearDisplay = () => {
     setDisplay('0');
+    setCurrentValue('0');
     setFirstOperand(null);
     setOperator(null);
     setWaitingForSecondOperand(false);
   };
 
   const performOperation = (nextOperator: string) => {
-    const inputValue = parseFloat(display);
+    const inputValue = parseFloat(currentValue);
 
     if (firstOperand === null) {
       setFirstOperand(inputValue);
     } else if (operator) {
       const result = calculate(firstOperand, inputValue, operator);
-      setDisplay(String(result));
+      setCurrentValue(String(result));
       setFirstOperand(result);
     }
-
+    
+    setDisplay(`${firstOperand ?? inputValue} ${nextOperator}`);
     setWaitingForSecondOperand(true);
     setOperator(nextOperator);
   };
   
   const handleEquals = () => {
-    const inputValue = parseFloat(display);
+    const inputValue = parseFloat(currentValue);
     if (operator && firstOperand !== null) {
       const result = calculate(firstOperand, inputValue, operator);
-      setDisplay(String(result));
-      setFirstOperand(result); // Allows for continuous calculations
+      setDisplay(`${firstOperand} ${operator} ${currentValue} =`);
+      setCurrentValue(String(result));
+      setFirstOperand(null); 
       setOperator(null);
       setWaitingForSecondOperand(true);
     }
@@ -79,11 +83,11 @@ export default function Calculator() {
   };
   
   const toggleSign = () => {
-    setDisplay(String(parseFloat(display) * -1));
+    setCurrentValue(String(parseFloat(currentValue) * -1));
   };
   
   const inputPercent = () => {
-     setDisplay(String(parseFloat(display) / 100));
+     setCurrentValue(String(parseFloat(currentValue) / 100));
   }
 
   const renderButton = (label: string, onClick: () => void, className: string = '') => (
@@ -102,11 +106,12 @@ export default function Calculator() {
             <CardTitle>Taschenrechner</CardTitle>
         </CardHeader>
         <CardContent>
-            <div className="bg-muted text-right p-4 rounded-lg mb-4">
-                <p className="text-4xl font-mono break-all">{display}</p>
+            <div className="bg-muted text-right p-4 rounded-lg mb-4 min-h-[100px] flex flex-col justify-end">
+                <p className="text-2xl font-mono break-all text-muted-foreground">{display}</p>
+                <p className="text-4xl font-mono break-all">{currentValue}</p>
             </div>
             <div className="grid grid-cols-4 gap-2">
-                {renderButton(display === '0' ? 'AC' : 'C', clearDisplay, 'bg-accent text-accent-foreground col-span-1')}
+                {renderButton(currentValue === '0' && display === '0' ? 'AC' : 'C', clearDisplay, 'bg-accent text-accent-foreground col-span-1')}
                 {renderButton('+/-', toggleSign, 'bg-accent text-accent-foreground')}
                 {renderButton('%', inputPercent, 'bg-accent text-accent-foreground')}
                 {renderButton('÷', () => performOperation('/'), 'bg-primary text-primary-foreground')}
