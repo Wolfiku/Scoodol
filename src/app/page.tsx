@@ -4,32 +4,32 @@ import { useState } from 'react';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Calendar, LayoutGrid, Download } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { openPrintView, downloadAsPng } from '@/app/lib/export-helpers';
 
 export default function Home() {
+  const [view, setView] = useState('daily'); // 'daily', 'weekly'
+
   return (
-    <main className="container mx-auto p-4 md:p-8">
-       <Tabs defaultValue="daily" className="w-full">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <TabsList className="grid grid-cols-3 w-full max-w-md">
-            <TabsTrigger value="daily">Tagesansicht</TabsTrigger>
-            <TabsTrigger value="weekly">Wochenansicht</TabsTrigger>
-            <TabsTrigger value="homework">Hausaufgaben</TabsTrigger>
-          </TabsList>
-        </div>
-        
-        <TabsContent value="daily">
-          <ZeitplanDashboard />
-        </TabsContent>
-        <TabsContent value="weekly">
-          <ClassicTimetableView />
-        </TabsContent>
-        <TabsContent value="homework">
-            <div className="max-w-4xl mx-auto">
-             <HomeworkPlanner />
-            </div>
-        </TabsContent>
-      </Tabs>
+    <main className="container mx-auto p-4 md:p-8 relative min-h-screen">
+      
+      {view === 'daily' && <ZeitplanDashboard />}
+      {view === 'weekly' && <ClassicTimetableView />}
+      
+      <div className="fixed bottom-6 left-6 flex flex-col gap-2">
+         <Button onClick={() => setView(view === 'daily' ? 'weekly' : 'daily')} size="lg" className="rounded-full shadow-lg">
+          {view === 'daily' ? <Calendar className="mr-2" /> : <LayoutGrid className="mr-2" />}
+          {view === 'daily' ? 'Wochenansicht' : 'Tagesansicht'}
+        </Button>
+      </div>
+
     </main>
   );
 }
