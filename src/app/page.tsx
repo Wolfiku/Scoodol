@@ -23,10 +23,13 @@ export default function Page() {
 
   if (!isInitialised) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
+      <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
         <div className="text-center">
           <p className="text-lg font-semibold">@wolfikuproduction</p>
-          <p className="text-sm text-muted-foreground">used Gemini</p>
+          <p className="text-sm text-muted-foreground">powered by limbo</p>
+        </div>
+        <div className="absolute bottom-4 text-xs text-muted-foreground">
+          Coded with love by your AI Assistant
         </div>
       </div>
     );
