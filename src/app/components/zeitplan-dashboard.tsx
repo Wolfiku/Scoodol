@@ -163,7 +163,6 @@ export default function ZeitplanDashboard() {
             <h1 className="text-4xl font-bold font-headline text-primary">
               {weekDays[currentDayIndex]}
             </h1>
-            <p className="text-muted-foreground">Dein digitaler Stundenplan</p>
           </div>
            <Button variant="ghost" size="icon" onClick={() => changeDay(1)} disabled={currentDayIndex === weekDays.length - 1}>
             <ChevronRight />
