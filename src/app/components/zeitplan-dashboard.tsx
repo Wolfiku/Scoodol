@@ -155,12 +155,12 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
   
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col sm:flex-row justify-between items-start gap-4 p-6 bg-card rounded-xl shadow-md">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-6 bg-card rounded-xl shadow-md">
+        <div className="flex items-center justify-between w-full sm:w-auto">
            <Button variant="ghost" size="icon" onClick={() => changeDay(-1)} disabled={currentDayIndex === 0}>
             <ChevronLeft />
           </Button>
-          <div>
+          <div className="flex-1 text-center">
             <h1 className="text-4xl font-bold font-headline text-primary">
               {weekDays[currentDayIndex]}
             </h1>
