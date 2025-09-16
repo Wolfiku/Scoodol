@@ -33,7 +33,7 @@ export default function Page() {
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
         <div className="text-center">
           <p className="text-lg font-semibold">@wolfikuproduction</p>
-          <p className="text-sm text-muted-foreground flex items-center">
+          <p className="text-sm text-muted-foreground flex items-center justify-center">
             powered by limbo
           </p>
         </div>
