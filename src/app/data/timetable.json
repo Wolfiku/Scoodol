@@ -6,7 +6,8 @@
     { "id": "mo-3", "fach": "Reli / Ethik", "lehrer": "", "start": "09:45", "ende": "10:30", "hauptfach": false, "notizen": "", "materialien": "#" },
     { "id": "mo-4", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "10:30", "ende": "11:15", "hauptfach": true, "notizen": "", "materialien": "#" },
     { "id": "mo-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "mo-5", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "11:30", "ende": "12:15", "hauptfach": true, "notizen": "", "materialien": "#" }
+    { "id": "mo-5", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "11:30", "ende": "12:15", "hauptfach": true, "notizen": "", "materialien": "#" },
+    { "id": "mo-6", "fach": "Deutsch", "lehrer": "Herr Platzer", "start": "12:15", "ende": "13:00", "hauptfach": true }
   ],
   "Dienstag": [
     { "id": "di-1", "fach": "Kunst", "lehrer": "", "start": "08:00", "ende": "08:45" },
