@@ -156,8 +156,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
           : entry
       );
       setTimetableData(updatedTimetable);
-      // Update the selectedSubject in state as well so the dialog shows the new notes
-      setSelectedSubject({ ...selectedSubject, notizen: editingNotes }); 
+      handleCloseDialog();
     }
   };
   
@@ -315,6 +314,10 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
                       rows={4}
                       placeholder="Hier kannst du Notizen hinzufügen..."
                     />
+                    <Button onClick={handleSaveNotes} className="mt-2">
+                      <Save className="mr-2 h-4 w-4" />
+                      Notizen speichern
+                    </Button>
                   </div>
                 {selectedSubject.materialien && (
                   <Button asChild variant="outline" className="mt-2">
@@ -326,11 +329,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
                 )}
               </div>
               <DialogFooter>
-                 <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
-                 <Button onClick={handleSaveNotes}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Notizen speichern
-                </Button>
+                 <Button variant="outline" onClick={handleCloseDialog}>Schließen</Button>
               </DialogFooter>
             </>
           )}
