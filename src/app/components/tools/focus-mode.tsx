@@ -152,14 +152,20 @@ export default function FocusMode({ tasks, onExit }: Props) {
   // --- UI Rendering ---
 
   const renderSelectScreen = () => (
-    <Card>
+    <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Aufgabe auswählen</CardTitle>
         <CardDescription>Wähle deine nächste Aufgabe aus der Liste.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {remainingTasks.map(task => (
-          <Button key={task.id} variant="secondary" size="lg" className="justify-start h-auto py-3" onClick={() => handleSelectTask(task)}>
+          <Button 
+              key={task.id} 
+              variant="secondary" 
+              size="lg" 
+              className="justify-start h-auto py-3 text-left whitespace-normal" 
+              onClick={() => handleSelectTask(task)}
+          >
             {task.title}
           </Button>
         ))}
@@ -190,7 +196,7 @@ export default function FocusMode({ tasks, onExit }: Props) {
     const progressPercentage = (totalWorkTime / (TOTAL_WORK_SESSION_MINUTES * 60)) * 100;
     
     return (
-      <Card className="flex flex-col">
+      <Card className="flex flex-col w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">{currentTask?.title}</CardTitle>
           <CardDescription>Konzentriere dich auf diese eine Aufgabe.</CardDescription>
@@ -237,7 +243,7 @@ export default function FocusMode({ tasks, onExit }: Props) {
   };
   
   const renderBreakScreen = () => (
-      <Card className="bg-accent/10 border-accent">
+      <Card className="bg-accent/10 border-accent w-full max-w-md">
          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-accent-foreground"><Coffee/> Zeit für eine Pause!</CardTitle>
             <CardDescription className="text-accent-foreground/80">Streck dich, trink was oder schau aus dem Fenster. Du hast es dir verdient.</CardDescription>
@@ -255,7 +261,7 @@ export default function FocusMode({ tasks, onExit }: Props) {
   );
 
   return (
-    <div className="h-full flex flex-col items-center justify-center p-4">
+    <div className="h-full flex flex-col items-center justify-center p-4 w-full">
         {currentScreen === 'select' && renderSelectScreen()}
         {currentScreen === 'work' && renderWorkScreen()}
         {currentScreen === 'break' && renderBreakScreen()}
