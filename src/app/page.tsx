@@ -68,7 +68,7 @@ export default function Page() {
             onClick={() => setView(isMobile ? 'daily' : 'weekly')}
           >
             <Home className="w-5 h-5" />
-            <span className="text-xs">Heute</span>
+            <span className="text-[10px] whitespace-nowrap">Heute</span>
           </Button>
           <Button
             variant={view === 'homework' ? 'secondary' : 'ghost'}
@@ -77,7 +77,7 @@ export default function Page() {
             onClick={() => setView('homework')}
           >
             <ListChecks className="w-5 h-5" />
-            <span className="text-xs">Aufgaben</span>
+            <span className="text-[10px] whitespace-nowrap">Aufgaben</span>
           </Button>
           <Button
             variant={view === 'smart-tool' ? 'secondary' : 'ghost'}
@@ -86,7 +86,7 @@ export default function Page() {
             onClick={() => setView('smart-tool')}
           >
             <Sparkles className="w-5 h-5" />
-            <span className="text-xs">Smart Tool</span>
+            <span className="text-[10px] whitespace-nowrap">Smart Tool</span>
           </Button>
            <Button
             variant={view === 'settings' ? 'secondary' : 'ghost'}
@@ -95,7 +95,7 @@ export default function Page() {
             onClick={() => setView('settings')}
           >
             <Settings className="w-5 h-5" />
-            <span className="text-xs">Einstellungen</span>
+            <span className="text-[10px] whitespace-nowrap">Einstellungen</span>
           </Button>
         </div>
       </div>
