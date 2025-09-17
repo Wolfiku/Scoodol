@@ -16,7 +16,25 @@ const themes = [
 
 
 export default function SettingsView() {
-    const { theme, setTheme, resolvedTheme } = useTheme();
+    const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
+
+    const handleModeChange = (mode: 'light' | 'dark') => {
+        if (colorTheme && colorTheme !== 'default') {
+            setTheme(`${mode}-${colorTheme}`);
+        } else {
+            setTheme(mode);
+        }
+    }
+
+    const handleColorThemeChange = (newColor: string) => {
+        setColorTheme(newColor);
+        const currentMode = resolvedTheme || 'light';
+        if (newColor === 'default') {
+            setTheme(currentMode);
+        } else {
+            setTheme(`${currentMode}-${newColor}`);
+        }
+    }
 
     return (
         <div>
@@ -30,10 +48,10 @@ export default function SettingsView() {
                     <div className="space-y-2">
                         <Label>Heller / Dunkler Modus</Label>
                         <div className="flex gap-2">
-                            <Button variant={resolvedTheme === 'light' ? 'default' : 'outline'} onClick={() => setTheme('light')}>
+                            <Button variant={resolvedTheme === 'light' ? 'default' : 'outline'} onClick={() => handleModeChange('light')}>
                                 <Sun className="mr-2"/> Hell
                             </Button>
-                             <Button variant={resolvedTheme === 'dark' ? 'default' : 'outline'} onClick={() => setTheme('dark')}>
+                             <Button variant={resolvedTheme === 'dark' ? 'default' : 'outline'} onClick={() => handleModeChange('dark')}>
                                 <Moon className="mr-2"/> Dunkel
                             </Button>
                         </div>
@@ -41,21 +59,12 @@ export default function SettingsView() {
                      <div className="space-y-2">
                         <Label>Farbthema</Label>
                         <RadioGroup 
-                            value={theme?.startsWith('light-') ? theme.substring(6) : theme?.startsWith('dark-') ? theme.substring(5) : 'default'}
-                            onValueChange={(value) => {
-                                const currentMode = resolvedTheme || 'light';
-                                if (value === 'default') {
-                                    setTheme(currentMode);
-                                } else {
-                                    setTheme(`${currentMode}-${value}`);
-                                }
-                            }}
+                            value={colorTheme}
+                            onValueChange={handleColorThemeChange}
                             className="grid grid-cols-2 sm:grid-cols-4 gap-4"
                         >
                             {themes.map(t => {
-                                const currentMode = resolvedTheme || 'light';
-                                const themeValue = t.value === 'default' ? currentMode : `${currentMode}-${t.value}`;
-                                const isActive = theme === themeValue || (t.value === 'default' && (theme === 'light' || theme === 'dark'));
+                                const isActive = colorTheme === t.value;
 
                                 return (
                                 <Label 
