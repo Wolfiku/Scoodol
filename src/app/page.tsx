@@ -6,8 +6,8 @@ import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
 import { Home, ListChecks, Sparkles, icons } from 'lucide-react';
-import Calculator from './components/tools/calculator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import SmartToolsView from './components/smart-tools-view';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -22,18 +22,21 @@ export default function Page() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    // This effect runs once on mount to set the initial view based on device type.
+    if (isInitialised) return; // Prevent re-running
     if (isMobile !== undefined) {
       setView(isMobile ? 'daily' : 'weekly');
       setIsInitialised(true);
     }
-  }, [isMobile]);
+  }, [isMobile, isInitialised]);
+  
 
   if (!isInitialised) {
     return (
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
         <div className="text-center">
           <p className="text-lg font-semibold">@wolfikuproduction</p>
-          <p className="text-sm text-muted-foreground flex items-center justify-center">
+          <p className="text-sm text-muted-foreground flex items-center justify-center text-center">
             powered by limbo
           </p>
         </div>
@@ -49,7 +52,7 @@ export default function Page() {
       {view === 'daily' && <ZeitplanDashboard setView={setView} />}
       {view === 'weekly' && <ClassicTimetableView setView={setView} />}
       {view === 'homework' && <HomeworkPlanner />}
-      {view === 'smart-tool' && <Calculator />}
+      {view === 'smart-tool' && <SmartToolsView />}
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8">
         <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">

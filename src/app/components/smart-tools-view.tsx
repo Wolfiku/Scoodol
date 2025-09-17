@@ -1,0 +1,74 @@
+
+"use client";
+
+import { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom } from 'lucide-react';
+import Calculator from './tools/calculator';
+import GradeCalculator from './tools/grade-calculator';
+import FormulaCollection from './tools/formula-collection';
+import PeriodicTableSearch from './tools/periodic-table-search';
+
+type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table';
+
+const tools: { id: Tool; title: string; description: string; icon: React.ReactNode }[] = [
+    { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
+    { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
+    { id: 'formula-collection', title: 'Formelsammlung', description: 'Finde Formeln für Mathe, Physik & Chemie.', icon: <BookText className="w-8 h-8" /> },
+    { id: 'periodic-table', title: 'Periodensystem', description: 'Suche nach chemischen Elementen.', icon: <Atom className="w-8 h-8" /> },
+];
+
+export default function SmartToolsView() {
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+
+  const renderTool = () => {
+    switch (selectedTool) {
+      case 'calculator':
+        return <Calculator />;
+      case 'grade-calculator':
+        return <GradeCalculator />;
+      case 'formula-collection':
+          return <FormulaCollection />;
+      case 'periodic-table':
+          return <PeriodicTableSearch />;
+      default:
+        return null;
+    }
+  };
+
+  if (selectedTool) {
+    return (
+      <div>
+        <Button variant="ghost" onClick={() => setSelectedTool(null)} className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Zurück zur Tool-Auswahl
+        </Button>
+        {renderTool()}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+        <h2 className="text-3xl font-bold mb-6">Smart Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tools.map(tool => (
+                <Card 
+                    key={tool.id} 
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => setSelectedTool(tool.id)}
+                >
+                    <CardHeader className="flex flex-row items-center gap-4">
+                        {tool.icon}
+                        <div>
+                            <CardTitle>{tool.title}</CardTitle>
+                            <CardDescription>{tool.description}</CardDescription>
+                        </div>
+                    </CardHeader>
+                </Card>
+            ))}
+        </div>
+    </div>
+  );
+}
