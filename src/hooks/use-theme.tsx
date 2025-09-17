@@ -8,7 +8,7 @@ type ColorTheme = 'default' | 'ocean' | 'sunset' | 'forest';
 
 type ThemeProviderState = {
   theme: Theme;
-  resolvedTheme: 'light' | 'dark';
+  resolvedTheme: 'light' | 'dark' | undefined;
   colorTheme: ColorTheme;
   setTheme: (theme: Theme) => void;
   setColorTheme: (colorTheme: ColorTheme | string) => void;
@@ -17,7 +17,7 @@ type ThemeProviderState = {
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [theme, setThemeState] = useState<Theme | undefined>(undefined);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -39,13 +39,14 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const setColorTheme = (newColorTheme: ColorTheme | string) => {
     const currentMode = resolvedTheme;
     if (newColorTheme === 'default') {
-      setTheme(currentMode);
+      if (currentMode) setTheme(currentMode);
     } else {
-      setTheme(`${currentMode}-${newColorTheme}`);
+      if (currentMode) setTheme(`${currentMode}-${newColorTheme}`);
     }
   }
   
-  const [resolvedTheme, colorTheme] = useMemo((): ['light' | 'dark', ColorTheme] => {
+  const [resolvedTheme, colorTheme] = useMemo((): [('light' | 'dark') | undefined, ColorTheme] => {
+      if (!theme) return [undefined, 'default'];
       const parts = theme.split('-');
       const mode = (parts[0] === 'dark' ? 'dark' : 'light') as 'light' | 'dark';
       const color = (parts[1] || 'default') as ColorTheme;
@@ -54,7 +55,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   useEffect(() => {
-    if (isMounted) {
+    if (isMounted && resolvedTheme) {
       document.body.classList.remove('light', 'dark');
       document.body.classList.add(resolvedTheme);
 
@@ -70,7 +71,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [theme, resolvedTheme, colorTheme, isMounted]);
 
-  const value = { theme, resolvedTheme, colorTheme, setTheme, setColorTheme };
+  const value = { theme: theme || 'light', resolvedTheme, colorTheme, setTheme, setColorTheme };
 
   if (!isMounted) {
     // Return a skeleton or null to avoid hydration mismatch

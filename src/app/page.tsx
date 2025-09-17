@@ -27,7 +27,11 @@ export default function Page() {
 
   useEffect(() => {
     // This effect runs once on mount to set the initial view based on device type.
-    if (!isMobile) {
+    if (isMobile === undefined) return; // Wait until isMobile has a definitive value
+
+    if (isMobile) {
+      setView('daily');
+    } else {
       setView('weekly');
     }
     setIsInitialised(true);
@@ -95,7 +99,7 @@ export default function Page() {
             onClick={() => setView('settings')}
           >
             <Settings className="w-5 h-5" />
-            <span className="text-[10px] whitespace-nowrap">Einstellungen</span>
+            <span className="text-[10px] whitespace-nowrap">Einst.</span>
           </Button>
         </div>
       </div>

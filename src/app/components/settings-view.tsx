@@ -28,12 +28,6 @@ export default function SettingsView() {
 
     const handleColorThemeChange = (newColor: string) => {
         setColorTheme(newColor);
-        const currentMode = resolvedTheme || 'light';
-        if (newColor === 'default') {
-            setTheme(currentMode);
-        } else {
-            setTheme(`${currentMode}-${newColor}`);
-        }
     }
 
     return (
