@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { searchElement } from '@/app/actions';
 import type { FindElementOutput } from '@/ai/flows/find-element';
 import { Loader2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export default function PeriodicTableSearch() {
     const [query, setQuery] = useState('');
@@ -23,6 +24,16 @@ export default function PeriodicTableSearch() {
         const searchResult = await searchElement(query);
         setResult(searchResult);
         setIsLoading(false);
+    }
+
+    const renderProperty = (label: string, value?: string) => {
+        if (!value) return null;
+        return (
+            <div className="flex justify-between text-sm py-2">
+                <span className="text-muted-foreground">{label}</span>
+                <span className="font-medium">{value}</span>
+            </div>
+        )
     }
 
   return (
@@ -63,7 +74,13 @@ export default function PeriodicTableSearch() {
                                 <CardDescription>Atommasse: {result.element.atomicMass}</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <p>{result.element.description}</p>
+                                <p className="mb-4">{result.element.description}</p>
+                                <Separator className="my-2" />
+                                {renderProperty("Schmelzpunkt", result.element.meltingPoint)}
+                                <Separator className="my-0 h-[0.5px]" />
+                                {renderProperty("Siedepunkt", result.element.boilingPoint)}
+                                <Separator className="my-0 h-[0.5px]" />
+                                {renderProperty("Dichte", result.element.density)}
                             </CardContent>
                         </Card>
                     )}
@@ -77,7 +94,13 @@ export default function PeriodicTableSearch() {
                                 <CardDescription>Molare Masse: {result.compound.molarMass}</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <p>{result.compound.description}</p>
+                                <p className="mb-4">{result.compound.description}</p>
+                                <Separator className="my-2" />
+                                {renderProperty("Schmelzpunkt", result.compound.meltingPoint)}
+                                 <Separator className="my-0 h-[0.5px]" />
+                                {renderProperty("Siedepunkt", result.compound.boilingPoint)}
+                                 <Separator className="my-0 h-[0.5px]" />
+                                {renderProperty("Dichte", result.compound.density)}
                             </CardContent>
                         </Card>
                     )}

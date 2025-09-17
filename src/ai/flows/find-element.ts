@@ -22,6 +22,9 @@ const ElementSchema = z.object({
   atomicNumber: z.number().describe('The atomic number of the element.'),
   atomicMass: z.string().describe('The atomic mass of the element (e.g., "1.008 u").'),
   description: z.string().describe('A brief description of the element and its most important properties.'),
+  meltingPoint: z.string().optional().describe('The melting point of the element (e.g., "0 °C").'),
+  boilingPoint: z.string().optional().describe('The boiling point of the element (e.g., "100 °C").'),
+  density: z.string().optional().describe('The density of the element (e.g., "1.0 g/cm³").'),
 });
 
 const CompoundSchema = z.object({
@@ -29,6 +32,9 @@ const CompoundSchema = z.object({
     formula: z.string().describe('The chemical formula of the compound.'),
     molarMass: z.string().describe('The molar mass of the compound in g/mol.'),
     description: z.string().describe('A brief description of the compound, its composition, and its most important properties.'),
+    meltingPoint: z.string().optional().describe('The melting point of the compound (e.g., "0 °C").'),
+    boilingPoint: z.string().optional().describe('The boiling point of the compound (e.g., "100 °C").'),
+    density: z.string().optional().describe('The density of the compound (e.g., "1.0 g/cm³").'),
 });
 
 const FindElementOutputSchema = z.object({
@@ -47,10 +53,10 @@ const prompt = ai.definePrompt({
   input: {schema: FindElementInputSchema},
   output: {schema: FindElementOutputSchema},
   prompt: `You are an expert chemist. The user is searching for information about a chemical element or a chemical compound.
-Your task is to analyze the user's query and provide structured information about it.
+Your task is to analyze the user's query and provide structured information about it, including physical properties like melting point, boiling point, and density.
 
-- If the query refers to a single chemical element (like "Iron", "O", or "Wasserstoff"), populate the 'element' field.
-- If the query refers to a chemical compound (like "H2O", "Water", or "Sodium Chloride"), populate the 'compound' field.
+- If the query refers to a single chemical element (like "Iron", "O", or "Wasserstoff"), populate the 'element' field. Include its melting point, boiling point, and density if available.
+- If the query refers to a chemical compound (like "H2O", "Water", or "Sodium Chloride"), populate the 'compound' field. Include its melting point, boiling point, and density if available.
 - If the query is ambiguous, not a chemical term, or you cannot find any information, set the 'error' field with a helpful message in German.
 - Do not populate both 'element' and 'compound' fields at the same time.
 
