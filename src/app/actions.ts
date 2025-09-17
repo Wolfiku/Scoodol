@@ -1,6 +1,7 @@
 "use server";
 
 import { calculateRemainingTime } from "@/ai/flows/calculate-remaining-time";
+import { findElement } from "@/ai/flows/find-element";
 import { findFormula } from "@/ai/flows/find-formula";
 
 export async function getRemainingTime(currentTime: string) {
@@ -22,6 +23,16 @@ export async function searchFormula(query: string, formulas: string) {
     return result;
   } catch (error) {
     console.error("Error searching for formula:", error);
+    return { error: "Bei der Suche ist ein Fehler aufgetreten." };
+  }
+}
+
+export async function searchElement(query: string) {
+  try {
+    const result = await findElement({ query });
+    return result;
+  } catch (error) {
+    console.error("Error searching for element:", error);
     return { error: "Bei der Suche ist ein Fehler aufgetreten." };
   }
 }
