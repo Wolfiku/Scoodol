@@ -282,33 +282,37 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-center gap-4 p-3 rounded-md bg-secondary"
+                className="flex items-start gap-3 p-3 rounded-md bg-secondary"
               >
-                <Checkbox
-                  checked={selectedTasksForFocus.has(hw.id)}
-                  onCheckedChange={() => handleSelectForFocus(hw.id)}
-                  id={`focus-hw-${hw.id}`}
-                  className="w-5 h-5"
-                />
-                <Checkbox
-                  checked={hw.done}
-                  onCheckedChange={() => toggleDone(hw.id)}
-                  id={`hw-${hw.id}`}
-                />
+                 <div className="flex flex-col gap-3 pt-1">
+                    <Checkbox
+                      checked={hw.done}
+                      onCheckedChange={() => toggleDone(hw.id)}
+                      id={`hw-${hw.id}`}
+                      aria-label={`Mark task as done: ${hw.task}`}
+                    />
+                    <Checkbox
+                        checked={selectedTasksForFocus.has(hw.id)}
+                        onCheckedChange={() => handleSelectForFocus(hw.id)}
+                        id={`focus-hw-${hw.id}`}
+                        aria-label={`Select task for focus mode: ${hw.task}`}
+                    />
+                 </div>
                 <label
                   htmlFor={`hw-${hw.id}`}
                   className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                 >
-                  <div className="flex justify-between items-baseline">
-                    <span className="font-semibold">{hw.subject}</span>
+                  <div className="flex justify-between items-baseline flex-wrap">
+                    <span className="font-semibold text-base">{hw.subject}</span>
                       {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                   </div>
-                  <p className="text-sm text-muted-foreground">{hw.task}</p>
+                  <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                 </label>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => deleteHomework(hw.id)}
+                  className="shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -324,27 +328,29 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-center gap-4 p-3 rounded-md bg-secondary/50"
+                className="flex items-start gap-3 p-3 rounded-md bg-secondary/50"
               >
                 <Checkbox
                   checked={hw.done}
                   onCheckedChange={() => toggleDone(hw.id)}
                   id={`hw-${hw.id}`}
+                  className="mt-1"
                 />
                 <label
                   htmlFor={`hw-${hw.id}`}
                   className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                 >
-                  <div className="flex justify-between items-baseline">
-                    <span className="font-semibold">{hw.subject}</span>
+                  <div className="flex justify-between items-baseline flex-wrap">
+                    <span className="font-semibold text-base">{hw.subject}</span>
                       {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                   </div>
-                  <p className="text-sm text-muted-foreground">{hw.task}</p>
+                  <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                 </label>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => deleteHomework(hw.id)}
+                   className="shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
