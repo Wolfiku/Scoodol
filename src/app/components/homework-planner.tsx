@@ -169,7 +169,7 @@ export default function HomeworkPlanner() {
   }
 
   const focusModeTasks: FocusTask[] = upcomingHomeworks
-    .map(hw => ({ id: hw.id, title: `${hw.subject}: ${hw.task}` }));
+    .map(hw => ({ id: hw.id, title: `${hw.subject || "Allgemein"}: ${hw.task}` }));
 
 
   if (isFocusMode) {
@@ -278,7 +278,7 @@ export default function HomeworkPlanner() {
                   className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                 >
                   <div className="flex justify-between items-baseline flex-wrap">
-                    <span className="font-semibold text-base">{hw.subject}</span>
+                    <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
                       {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                   </div>
                   <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
@@ -316,7 +316,7 @@ export default function HomeworkPlanner() {
                   className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                 >
                   <div className="flex justify-between items-baseline flex-wrap">
-                    <span className="font-semibold text-base">{hw.subject}</span>
+                    <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
                       {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                   </div>
                   <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
@@ -336,5 +336,3 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
-
-    
