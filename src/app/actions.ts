@@ -3,6 +3,7 @@
 import { calculateRemainingTime } from "@/ai/flows/calculate-remaining-time";
 import { findElement } from "@/ai/flows/find-element";
 import { findFormula } from "@/ai/flows/find-formula";
+import { scanHomework } from "@/ai/flows/scan-homework";
 
 export async function getRemainingTime(currentTime: string) {
   try {
@@ -35,4 +36,14 @@ export async function searchElement(query: string) {
     console.error("Error searching for element:", error);
     return { error: "Bei der Suche ist ein Fehler aufgetreten." };
   }
+}
+
+export async function scanHomeworkImage(photoDataUri: string) {
+    try {
+        const result = await scanHomework({ photoDataUri });
+        return result;
+    } catch (error) {
+        console.error("Error scanning homework:", error);
+        return { error: "Beim Scannen der Hausaufgabe ist ein Fehler aufgetreten." };
+    }
 }

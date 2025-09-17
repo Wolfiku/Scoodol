@@ -23,12 +23,11 @@ export default function Page() {
 
   useEffect(() => {
     // This effect runs once on mount to set the initial view based on device type.
-    if (isInitialised) return; // Prevent re-running
-    if (isMobile !== undefined) {
-      setView(isMobile ? 'daily' : 'weekly');
-      setIsInitialised(true);
+    if (!isMobile) {
+      setView('weekly');
     }
-  }, [isMobile, isInitialised]);
+    setIsInitialised(true);
+  }, [isMobile]);
   
 
   if (!isInitialised) {

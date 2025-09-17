@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -15,6 +15,7 @@ import {
   Plus,
   Trash2,
   Camera,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { scanHomeworkImage } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
 
 type Homework = {
   id: number;
@@ -42,6 +45,9 @@ export default function HomeworkPlanner() {
   const [newSubject, setNewSubject] = useState("");
   const [newTask, setNewTask] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsMounted(true);
@@ -66,11 +72,22 @@ export default function HomeworkPlanner() {
       dueDate: newDueDate,
       done: false,
     };
-    setHomeworks([...homeworks, newHomework]);
+    setHomeworks(prev => [...prev, newHomework]);
     setNewSubject("");
     setNewTask("");
     setNewDueDate("");
   };
+  
+  const addMultipleHomeworks = (tasks: {subject: string, task: string, dueDate?: string}[]) => {
+      const newHomeworks: Homework[] = tasks.map(t => ({
+          id: Date.now() + Math.random(),
+          subject: t.subject,
+          task: t.task,
+          dueDate: t.dueDate || "",
+          done: false,
+      }));
+      setHomeworks(prev => [...prev, ...newHomeworks]);
+  }
 
   const toggleDone = (id: number) => {
     setHomeworks(
@@ -81,6 +98,46 @@ export default function HomeworkPlanner() {
   const deleteHomework = (id: number) => {
     setHomeworks(homeworks.filter((hw) => hw.id !== id));
   };
+  
+  const handleCameraClick = () => {
+      fileInputRef.current?.click();
+  }
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        const dataUri = reader.result as string;
+        const result = await scanHomeworkImage(dataUri);
+        
+        if (result.error || !result.tasks || result.tasks.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Fehler beim Scannen',
+                description: result.error || 'Die KI konnte keine Aufgaben im Bild finden.',
+            });
+        } else {
+            addMultipleHomeworks(result.tasks);
+            toast({
+                title: 'Aufgaben gescannt!',
+                description: `${result.tasks.length} neue Aufgabe(n) wurde(n) hinzugefügt.`,
+            });
+        }
+        setIsScanning(false);
+    };
+    reader.onerror = () => {
+        toast({
+            variant: 'destructive',
+            title: 'Fehler',
+            description: 'Die Bilddatei konnte nicht gelesen werden.',
+        });
+        setIsScanning(false);
+    }
+  }
   
   if (!isMounted) {
     return (
@@ -104,8 +161,9 @@ export default function HomeworkPlanner() {
         <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
           <span>Hausaufgabenplaner</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" disabled>
-              <Camera className="w-5 h-5" />
+            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            <Button variant="outline" size="icon" onClick={handleCameraClick} disabled={isScanning}>
+              {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
               <span className="sr-only">Hausaufgabe scannen</span>
             </Button>
             <Dialog>
