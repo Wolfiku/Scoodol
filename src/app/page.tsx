@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -5,9 +6,11 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, icons } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import SmartToolsView from './components/smart-tools-view';
+import SettingsView from './components/settings-view';
+import { useTheme } from '@/hooks/use-theme';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -20,6 +23,7 @@ export default function Page() {
   const [view, setView] = useState('daily');
   const [isInitialised, setIsInitialised] = useState(false);
   const isMobile = useIsMobile();
+  const { theme } = useTheme();
 
   useEffect(() => {
     // This effect runs once on mount to set the initial view based on device type.
@@ -52,8 +56,10 @@ export default function Page() {
       {view === 'weekly' && <ClassicTimetableView setView={setView} />}
       {view === 'homework' && <HomeworkPlanner />}
       {view === 'smart-tool' && <SmartToolsView />}
+      {view === 'settings' && <SettingsView />}
 
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8">
+
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">
         <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
           <Button
             variant={view === 'daily' || view === 'weekly' ? 'secondary' : 'ghost'}
@@ -81,6 +87,15 @@ export default function Page() {
           >
             <Sparkles className="w-5 h-5" />
             <span className="text-xs">Smart Tool</span>
+          </Button>
+           <Button
+            variant={view === 'settings' ? 'secondary' : 'ghost'}
+            size="icon"
+            className="rounded-full h-14 w-14 flex flex-col gap-1"
+            onClick={() => setView('settings')}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-xs">Einstellungen</span>
           </Button>
         </div>
       </div>

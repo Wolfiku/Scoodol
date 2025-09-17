@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -42,6 +43,7 @@ body {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
     --background: 215 28% 17%;
     --foreground: 210 40% 98%;
@@ -76,6 +78,70 @@ body {
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+    body[data-theme="ocean"] {
+        --background: 205 90% 96%;
+        --foreground: 216 34% 35%;
+        --card: 205 90% 100%;
+        --primary: 210 85% 55%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 85% 94%;
+        --accent: 30 90% 60%;
+    }
+
+    body[data-theme="ocean"].dark {
+        --background: 216 34% 15%;
+        --foreground: 205 90% 96%;
+        --card: 216 34% 20%;
+        --primary: 210 85% 65%;
+        --primary-foreground: 216 34% 10%;
+        --secondary: 216 34% 25%;
+        --accent: 30 90% 70%;
+    }
+
+    body[data-theme="sunset"] {
+        --background: 20 80% 97%;
+        --foreground: 15 50% 30%;
+        --card: 10 80% 99%;
+        --primary: 350 80% 65%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 350 80% 96%;
+        --accent: 30 95% 60%;
+    }
+    
+    body[data-theme="sunset"].dark {
+        --background: 15 50% 10%;
+        --foreground: 20 80% 97%;
+        --card: 15 50% 15%;
+        --primary: 350 80% 70%;
+        --primary-foreground: 15 50% 5%;
+        --secondary: 15 50% 20%;
+        --accent: 30 95% 65%;
+    }
+
+    body[data-theme="forest"] {
+        --background: 100 20% 96%;
+        --foreground: 120 25% 25%;
+        --card: 100 20% 100%;
+        --primary: 130 40% 45%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 130 40% 95%;
+        --accent: 40 60% 55%;
+    }
+
+    body[data-theme="forest"].dark {
+        --background: 120 25% 10%;
+        --foreground: 100 20% 96%;
+        --card: 120 25% 15%;
+        --primary: 130 40% 55%;
+        --primary-foreground: 120 25% 5%;
+        --secondary: 120 25% 20%;
+        --accent: 40 60% 65%;
+    }
+
+    body[data-theme="default"] {
+       /* Uses the default :root and .dark variables */
+    }
 }
 
 @layer base {
