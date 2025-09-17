@@ -18,6 +18,7 @@ import {
   Loader2,
   PlayCircle,
   X,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -47,9 +48,14 @@ type Homework = {
 export default function HomeworkPlanner() {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
+
   const [newSubject, setNewSubject] = useState("");
   const [newTask, setNewTask] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  
   const [isScanning, setIsScanning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   
@@ -73,19 +79,55 @@ export default function HomeworkPlanner() {
     }
   }, [homeworks, isMounted]);
 
-  const addHomework = () => {
+  const resetDialogForm = () => {
+      setNewSubject("");
+      setNewTask("");
+      setNewDueDate("");
+      setEditingHomework(null);
+  }
+
+  const handleOpenDialog = (hw: Homework | null = null) => {
+      if (hw) {
+          setEditingHomework(hw);
+          setNewSubject(hw.subject);
+          setNewTask(hw.task);
+          setNewDueDate(hw.dueDate);
+      } else {
+          resetDialogForm();
+      }
+      setIsDialogOpen(true);
+  }
+
+  const handleCloseDialog = () => {
+      resetDialogForm();
+      setIsDialogOpen(false);
+  }
+
+  const handleSaveHomework = () => {
     if (!newTask.trim()) return;
-    const newHomework: Homework = {
-      id: Date.now(),
-      subject: newSubject,
-      task: newTask,
-      dueDate: newDueDate,
-      done: false,
-    };
-    setHomeworks(prev => [...prev, newHomework]);
-    setNewSubject("");
-    setNewTask("");
-    setNewDueDate("");
+
+    if (editingHomework) {
+        // Update existing homework
+        setHomeworks(homeworks.map(hw => 
+            hw.id === editingHomework.id 
+            ? { ...hw, subject: newSubject, task: newTask, dueDate: newDueDate }
+            : hw
+        ));
+        toast({ title: 'Aufgabe aktualisiert!' });
+    } else {
+        // Add new homework
+        const newHomework: Homework = {
+            id: Date.now(),
+            subject: newSubject,
+            task: newTask,
+            dueDate: newDueDate,
+            done: false,
+        };
+        setHomeworks(prev => [...prev, newHomework]);
+        toast({ title: 'Neue Aufgabe hinzugefügt!' });
+    }
+    
+    handleCloseDialog();
   };
   
   const addMultipleHomeworks = (tasks: {subject: string, task: string, dueDate?: string}[]) => {
@@ -200,17 +242,17 @@ export default function HomeworkPlanner() {
               {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
               <span className="sr-only">Hausaufgabe scannen</span>
             </Button>
-            <Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button onClick={() => handleOpenDialog()}>
                   <Plus className="mr-2" /> Neue Aufgabe
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent onEscapeKeyDown={handleCloseDialog}>
                 <DialogHeader>
-                  <DialogTitle>Neue Hausaufgabe hinzufügen</DialogTitle>
+                  <DialogTitle>{editingHomework ? 'Hausaufgabe bearbeiten' : 'Neue Hausaufgabe hinzufügen'}</DialogTitle>
                   <DialogDescription>
-                    Fülle die Details für deine neue Aufgabe aus.
+                    {editingHomework ? 'Ändere die Details deiner Aufgabe.' : 'Fülle die Details für deine neue Aufgabe aus.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -231,7 +273,8 @@ export default function HomeworkPlanner() {
                   />
                 </div>
                 <DialogFooter>
-                    <Button onClick={addHomework}>Hinzufügen</Button>
+                    <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
+                    <Button onClick={handleSaveHomework}>{editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -283,14 +326,24 @@ export default function HomeworkPlanner() {
                   </div>
                   <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                 </label>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteHomework(hw.id)}
-                  className="shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenDialog(hw)}
+                      className="shrink-0"
+                      >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteHomework(hw.id)}
+                      className="shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
               </div>
             ))
           ) : (
@@ -321,14 +374,24 @@ export default function HomeworkPlanner() {
                   </div>
                   <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                 </label>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteHomework(hw.id)}
-                   className="shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                 <div className="flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenDialog(hw)}
+                      className="shrink-0"
+                      >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteHomework(hw.id)}
+                      className="shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
               </div>
             ))}
         </CardContent>
