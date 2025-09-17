@@ -4,19 +4,21 @@
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom } from 'lucide-react';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText } from 'lucide-react';
 import Calculator from './tools/calculator';
 import GradeCalculator from './tools/grade-calculator';
 import FormulaCollection from './tools/formula-collection';
 import PeriodicTableSearch from './tools/periodic-table-search';
+import ReportCardAnalyzer from './tools/report-card-analyzer';
 
-type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table';
+type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer';
 
 const tools: { id: Tool; title: string; description: string; icon: React.ReactNode }[] = [
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
     { id: 'formula-collection', title: 'Formelsammlung', description: 'Finde Formeln für Mathe, Physik & Chemie.', icon: <BookText className="w-8 h-8" /> },
     { id: 'periodic-table', title: 'Periodensystem', description: 'Suche nach chemischen Elementen.', icon: <Atom className="w-8 h-8" /> },
+    { id: 'report-card-analyzer', title: 'Zeugnis-Analyse', description: 'Analysiere dein Zeugnis mit KI.', icon: <FileText className="w-8 h-8" /> },
 ];
 
 export default function SmartToolsView() {
@@ -32,6 +34,8 @@ export default function SmartToolsView() {
           return <FormulaCollection />;
       case 'periodic-table':
           return <PeriodicTableSearch />;
+      case 'report-card-analyzer':
+          return <ReportCardAnalyzer />;
       default:
         return null;
     }

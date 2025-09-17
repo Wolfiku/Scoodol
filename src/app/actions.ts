@@ -4,6 +4,8 @@ import { calculateRemainingTime } from "@/ai/flows/calculate-remaining-time";
 import { findElement } from "@/ai/flows/find-element";
 import { findFormula } from "@/ai/flows/find-formula";
 import { scanHomework } from "@/ai/flows/scan-homework";
+import { analyzeReportCard as analyzeReportCardFlow } from "@/ai/flows/analyze-report-card";
+import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
 
 export async function getRemainingTime(currentTime: string) {
   try {
@@ -45,5 +47,16 @@ export async function scanHomeworkImage(photoDataUri: string) {
     } catch (error) {
         console.error("Error scanning homework:", error);
         return { error: "Beim Scannen der Hausaufgabe ist ein Fehler aufgetreten." };
+    }
+}
+
+
+export async function analyzeReportCard(photoDataUri: string): Promise<AnalyzeReportCardOutput> {
+    try {
+        const result = await analyzeReportCardFlow({ photoDataUri });
+        return result;
+    } catch (error) {
+        console.error("Error analyzing report card:", error);
+        return { error: "Bei der Analyse des Zeugnisses ist ein Fehler aufgetreten." };
     }
 }
