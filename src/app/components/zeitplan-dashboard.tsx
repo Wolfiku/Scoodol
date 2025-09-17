@@ -36,7 +36,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 type TimetableEntry = {
-  id: number | string;
+  id: string;
   fach: string;
   lehrer?: string;
   start: string;
@@ -73,13 +73,26 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
   const lastMinuteRef = useRef<number | null>(null);
 
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay() - 1);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+    const savedTimetable = localStorage.getItem("timetable");
+    if(savedTimetable) {
+        setTimetableData(JSON.parse(savedTimetable));
+    }
+    
     const today = new Date().getDay();
     // Sunday is 0, Monday is 1, etc. but our array is 0-indexed from Monday.
     const dayIndex = today > 0 && today < 6 ? today - 1 : 0; // Default to Monday if it's weekend
     setCurrentDayIndex(dayIndex);
   }, []);
+
+  useEffect(() => {
+    if(isMounted) {
+      localStorage.setItem("timetable", JSON.stringify(timetableData));
+    }
+  }, [timetableData, isMounted]);
 
   const changeDay = (offset: number) => {
     setCurrentDayIndex(prevIndex => {
@@ -105,7 +118,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
   }, []);
 
   useEffect(() => {
-    if (!now) return;
+    if (!now || !isMounted) return;
     const currentMinute = now.getMinutes();
     if (isSchoolTime && currentMinute !== lastMinuteRef.current) {
       const fetchRemainingTime = async () => {
@@ -121,12 +134,17 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
     } else if (!isSchoolTime) {
       setRemainingTime(null);
     }
-  }, [now, isSchoolTime]);
+  }, [now, isSchoolTime, isMounted]);
 
   const handleOpenDialog = (entry: TimetableEntry) => {
     setSelectedSubject(entry);
     setEditingNotes(entry.notizen || "");
   };
+  
+  const handleCloseDialog = () => {
+    setSelectedSubject(null);
+    setEditingNotes("");
+  }
 
   const handleSaveNotes = () => {
     if (selectedSubject) {
@@ -138,7 +156,8 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
           : entry
       );
       setTimetableData(updatedTimetable);
-      setSelectedSubject({ ...selectedSubject, notizen: editingNotes });
+      // Update the selectedSubject in state as well so the dialog shows the new notes
+      setSelectedSubject({ ...selectedSubject, notizen: editingNotes }); 
     }
   };
   
@@ -202,7 +221,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {dailyTimetable.map((entry) => {
           const isCurrent = currentSubject?.id === entry.id;
-          const isBreak = !entry.lehrer && !entry.fach.includes("Pause") === false;
+          const isBreak = !entry.lehrer && entry.fach.includes("Pause");
 
           if (isBreak) {
             return (
@@ -227,7 +246,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
           return (
             <Card
               key={entry.id}
-              onClick={() => handleOpenDialog(entry as TimetableEntry)}
+              onClick={() => handleOpenDialog(entry)}
               className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 rounded-xl ${
                 isCurrent ? "border-accent shadow-accent/20 shadow-lg" : ""
               }`}
@@ -258,7 +277,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
 
       <Dialog
         open={!!selectedSubject}
-        onOpenChange={(isOpen) => !isOpen && setSelectedSubject(null)}
+        onOpenChange={(isOpen) => !isOpen && handleCloseDialog()}
       >
         <DialogContent className="sm:max-w-[425px]">
           {selectedSubject && (
@@ -275,7 +294,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-muted-foreground" />
                   <span className="font-semibold">Lehrer:</span>
-                  <span>{selectedSubject.lehrer}</span>
+                  <span>{selectedSubject.lehrer || 'N/A'}</span>
                 </div>
                  <div className="flex items-center gap-3">
                   {selectedSubject.hauptfach ? (
@@ -294,6 +313,7 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
                       onChange={(e) => setEditingNotes(e.target.value)}
                       className="text-sm"
                       rows={4}
+                      placeholder="Hier kannst du Notizen hinzufügen..."
                     />
                   </div>
                 {selectedSubject.materialien && (
@@ -306,7 +326,8 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
                 )}
               </div>
               <DialogFooter>
-                <Button onClick={handleSaveNotes}>
+                 <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
+                 <Button onClick={handleSaveNotes}>
                   <Save className="mr-2 h-4 w-4" />
                   Notizen speichern
                 </Button>
