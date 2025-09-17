@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,8 @@ import {
   Trash2,
   Camera,
   Loader2,
+  PlayCircle,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,6 +31,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { scanHomeworkImage } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import FocusMode, { type FocusTask } from "./tools/focus-mode";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 
 type Homework = {
   id: number;
@@ -46,6 +50,9 @@ export default function HomeworkPlanner() {
   const [newTask, setNewTask] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [selectedTasksForFocus, setSelectedTasksForFocus] = useState<Set<number>>(new Set());
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -138,6 +145,50 @@ export default function HomeworkPlanner() {
         setIsScanning(false);
     }
   }
+
+  const handleSelectForFocus = (id: number) => {
+    setSelectedTasksForFocus(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        return newSet;
+    })
+  }
+
+  const handleStartFocusMode = () => {
+    if (selectedTasksForFocus.size > 0) {
+        setIsFocusMode(true);
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Keine Aufgaben ausgewählt',
+            description: 'Bitte wähle mindestens eine Aufgabe für den Fokus-Modus aus.',
+        });
+    }
+  }
+
+  const handleExitFocusMode = (completedTaskIds?: number[]) => {
+      setIsFocusMode(false);
+      if(completedTaskIds) {
+          setHomeworks(prev => prev.map(hw => completedTaskIds.includes(hw.id) ? {...hw, done: true} : hw));
+      }
+      setSelectedTasksForFocus(new Set());
+  }
+
+  const focusModeTasks: FocusTask[] = Array.from(selectedTasksForFocus)
+    .map(id => {
+        const hw = homeworks.find(h => h.id === id);
+        return hw ? { id: hw.id, title: `${hw.subject}: ${hw.task}` } : null;
+    })
+    .filter((t): t is FocusTask => t !== null);
+
+
+  if (isFocusMode) {
+      return <FocusMode tasks={focusModeTasks} onExit={handleExitFocusMode} />;
+  }
   
   if (!isMounted) {
     return (
@@ -206,6 +257,24 @@ export default function HomeworkPlanner() {
       </CardHeader>
       <ScrollArea className="flex-1">
         <CardContent className="flex flex-col gap-4">
+        {upcomingHomeworks.length > 0 && (
+            <Alert className="bg-primary/10 border-primary/40">
+                <PlayCircle className="h-4 w-4" />
+                <AlertTitle className="text-primary font-bold">Fokus-Modus</AlertTitle>
+                <AlertDescription>
+                    Wähle Aufgaben aus und starte eine konzentrierte Lerneinheit.
+                    <Button 
+                        size="sm" 
+                        className="mt-3 w-full sm:w-auto"
+                        onClick={handleStartFocusMode}
+                        disabled={selectedTasksForFocus.size === 0}
+                    >
+                        Fokus-Modus starten ({selectedTasksForFocus.size})
+                    </Button>
+                </AlertDescription>
+            </Alert>
+        )}
+
           <h3 className="font-bold text-lg">Anstehend</h3>
           {upcomingHomeworks.length > 0 ? (
             upcomingHomeworks
@@ -215,6 +284,12 @@ export default function HomeworkPlanner() {
                 key={hw.id}
                 className="flex items-center gap-4 p-3 rounded-md bg-secondary"
               >
+                <Checkbox
+                  checked={selectedTasksForFocus.has(hw.id)}
+                  onCheckedChange={() => handleSelectForFocus(hw.id)}
+                  id={`focus-hw-${hw.id}`}
+                  className="w-5 h-5"
+                />
                 <Checkbox
                   checked={hw.done}
                   onCheckedChange={() => toggleDone(hw.id)}
