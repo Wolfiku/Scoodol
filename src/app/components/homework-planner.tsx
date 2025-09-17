@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -51,10 +52,12 @@ export default function HomeworkPlanner() {
   const [newDueDate, setNewDueDate] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
-  const [selectedTasksForFocus, setSelectedTasksForFocus] = useState<Set<number>>(new Set());
-
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  const upcomingHomeworks = homeworks.filter(hw => !hw.done);
+  const doneHomeworks = homeworks.filter(hw => hw.done);
 
   useEffect(() => {
     setIsMounted(true);
@@ -146,26 +149,14 @@ export default function HomeworkPlanner() {
     }
   }
 
-  const handleSelectForFocus = (id: number) => {
-    setSelectedTasksForFocus(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-        }
-        return newSet;
-    })
-  }
-
   const handleStartFocusMode = () => {
-    if (selectedTasksForFocus.size > 0) {
+    if (upcomingHomeworks.length > 0) {
         setIsFocusMode(true);
     } else {
         toast({
             variant: 'destructive',
             title: 'Keine Aufgaben ausgewählt',
-            description: 'Bitte wähle mindestens eine Aufgabe für den Fokus-Modus aus.',
+            description: 'Es gibt keine anstehenden Aufgaben für den Fokus-Modus.',
         });
     }
   }
@@ -175,15 +166,10 @@ export default function HomeworkPlanner() {
       if(completedTaskIds) {
           setHomeworks(prev => prev.map(hw => completedTaskIds.includes(hw.id) ? {...hw, done: true} : hw));
       }
-      setSelectedTasksForFocus(new Set());
   }
 
-  const focusModeTasks: FocusTask[] = Array.from(selectedTasksForFocus)
-    .map(id => {
-        const hw = homeworks.find(h => h.id === id);
-        return hw ? { id: hw.id, title: `${hw.subject}: ${hw.task}` } : null;
-    })
-    .filter((t): t is FocusTask => t !== null);
+  const focusModeTasks: FocusTask[] = upcomingHomeworks
+    .map(hw => ({ id: hw.id, title: `${hw.subject}: ${hw.task}` }));
 
 
   if (isFocusMode) {
@@ -202,9 +188,6 @@ export default function HomeworkPlanner() {
         </Card>
     ); 
   }
-
-  const upcomingHomeworks = homeworks.filter(hw => !hw.done);
-  const doneHomeworks = homeworks.filter(hw => hw.done);
 
   return (
     <Card className="h-full flex flex-col min-h-[500px]">
@@ -262,14 +245,13 @@ export default function HomeworkPlanner() {
                 <PlayCircle className="h-4 w-4" />
                 <AlertTitle className="text-primary font-bold">Fokus-Modus</AlertTitle>
                 <AlertDescription>
-                    Wähle Aufgaben aus und starte eine konzentrierte Lerneinheit.
+                    Starte eine konzentrierte Lerneinheit mit allen anstehenden Aufgaben.
                     <Button 
                         size="sm" 
                         className="mt-3 w-full sm:w-auto"
                         onClick={handleStartFocusMode}
-                        disabled={selectedTasksForFocus.size === 0}
                     >
-                        Fokus-Modus starten ({selectedTasksForFocus.size})
+                        Fokus-Modus starten
                     </Button>
                 </AlertDescription>
             </Alert>
@@ -282,22 +264,15 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-start gap-3 p-3 rounded-md bg-secondary"
+                className="flex items-start gap-4 p-3 rounded-md bg-secondary"
               >
-                 <div className="flex flex-col gap-3 pt-1">
-                    <Checkbox
-                      checked={hw.done}
-                      onCheckedChange={() => toggleDone(hw.id)}
-                      id={`hw-${hw.id}`}
-                      aria-label={`Mark task as done: ${hw.task}`}
-                    />
-                    <Checkbox
-                        checked={selectedTasksForFocus.has(hw.id)}
-                        onCheckedChange={() => handleSelectForFocus(hw.id)}
-                        id={`focus-hw-${hw.id}`}
-                        aria-label={`Select task for focus mode: ${hw.task}`}
-                    />
-                 </div>
+                <Checkbox
+                  checked={hw.done}
+                  onCheckedChange={() => toggleDone(hw.id)}
+                  id={`hw-${hw.id}`}
+                  aria-label={`Mark task as done: ${hw.task}`}
+                  className="mt-1"
+                />
                 <label
                   htmlFor={`hw-${hw.id}`}
                   className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
@@ -361,3 +336,5 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
+
+    
