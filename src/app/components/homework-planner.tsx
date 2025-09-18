@@ -43,6 +43,7 @@ type Homework = {
   task: string;
   dueDate: string;
   done: boolean;
+  completedAt?: number;
 };
 
 export default function HomeworkPlanner() {
@@ -62,16 +63,24 @@ export default function HomeworkPlanner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  const upcomingHomeworks = homeworks.filter(hw => !hw.done);
-  const doneHomeworks = homeworks.filter(hw => hw.done);
-
   useEffect(() => {
     setIsMounted(true);
     const savedHomeworks = localStorage.getItem("homeworks");
     if (savedHomeworks) {
-      setHomeworks(JSON.parse(savedHomeworks));
+        const loadedHomeworks: Homework[] = JSON.parse(savedHomeworks);
+        const now = Date.now();
+        const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+        const filteredHomeworks = loadedHomeworks.filter(hw => {
+            // Keep the task if it's not done, or if it was done within the last 24 hours.
+            return !hw.done || (hw.completedAt && hw.completedAt > twentyFourHoursAgo);
+        });
+        setHomeworks(filteredHomeworks);
     }
   }, []);
+  
+  const upcomingHomeworks = homeworks.filter(hw => !hw.done);
+  const doneHomeworks = homeworks.filter(hw => hw.done);
 
   useEffect(() => {
     if(isMounted) {
@@ -143,7 +152,13 @@ export default function HomeworkPlanner() {
 
   const toggleDone = (id: number) => {
     setHomeworks(
-      homeworks.map((hw) => (hw.id === id ? { ...hw, done: !hw.done } : hw))
+      homeworks.map((hw) => {
+        if (hw.id === id) {
+          const isDone = !hw.done;
+          return { ...hw, done: isDone, completedAt: isDone ? Date.now() : undefined };
+        }
+        return hw;
+      })
     );
   };
 
@@ -206,7 +221,7 @@ export default function HomeworkPlanner() {
   const handleExitFocusMode = (completedTaskIds?: number[]) => {
       setIsFocusMode(false);
       if(completedTaskIds) {
-          setHomeworks(prev => prev.map(hw => completedTaskIds.includes(hw.id) ? {...hw, done: true} : hw));
+          setHomeworks(prev => prev.map(hw => completedTaskIds.includes(hw.id) ? {...hw, done: true, completedAt: Date.now()} : hw));
       }
   }
 
@@ -352,7 +367,7 @@ export default function HomeworkPlanner() {
 
           {doneHomeworks.length > 0 && <h3 className="font-bold text-lg mt-4">Erledigt</h3>}
           {doneHomeworks
-              .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
+              .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
               .map((hw) => (
               <div
                 key={hw.id}
@@ -399,3 +414,5 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
+
+    
