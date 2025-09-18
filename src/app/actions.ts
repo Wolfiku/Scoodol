@@ -1,9 +1,12 @@
+
 "use server";
 
 import { calculateRemainingTime } from "@/ai/flows/calculate-remaining-time";
 import { findElement } from "@/ai/flows/find-element";
 import { findFormula } from "@/ai/flows/find-formula";
 import { scanHomework } from "@/ai/flows/scan-homework";
+import { scanTimetable as scanTimetableFlow } from "@/ai/flows/scan-timetable";
+import type { ScanTimetableOutput } from "@/ai/flows/scan-timetable";
 import { analyzeReportCard as analyzeReportCardFlow } from "@/ai/flows/analyze-report-card";
 import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
 
@@ -47,6 +50,16 @@ export async function scanHomeworkImage(photoDataUri: string) {
     } catch (error) {
         console.error("Error scanning homework:", error);
         return { error: "Beim Scannen der Hausaufgabe ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function scanTimetableImage(photoDataUri: string): Promise<ScanTimetableOutput> {
+    try {
+        const result = await scanTimetableFlow({ photoDataUri });
+        return result;
+    } catch (error) {
+        console.error("Error scanning timetable:", error);
+        return { error: "Beim Scannen des Stundenplans ist ein Fehler aufgetreten." };
     }
 }
 

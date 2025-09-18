@@ -11,6 +11,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
+import SetupView from './components/setup-view';
+import initialTimetableData from "@/app/data/timetable.json";
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -22,20 +24,45 @@ const GeminiSparkle = () => (
 export default function Page() {
   const [view, setView] = useState('daily');
   const [isInitialised, setIsInitialised] = useState(false);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
   const isMobile = useIsMobile();
   const { theme } = useTheme();
 
   useEffect(() => {
-    // This effect runs once on mount to set the initial view based on device type.
-    if (isMobile === undefined) return; // Wait until isMobile has a definitive value
+    if (typeof window !== 'undefined') {
+        const savedTimetable = localStorage.getItem('timetable');
+        if (savedTimetable) {
+            setIsSetupComplete(true);
+        } else {
+            // Optional: Pre-fill with default for easier setup/demo
+            // localStorage.setItem('timetable', JSON.stringify(initialTimetableData));
+            // setIsSetupComplete(true);
+        }
 
-    if (isMobile) {
+        if (isMobile === undefined) return; 
+
+        if (isMobile) {
+            setView('daily');
+        } else {
+            setView('weekly');
+        }
+        setIsInitialised(true);
+    }
+  }, [isMobile]);
+
+  const handleSetupComplete = () => {
+    setIsSetupComplete(true);
+    // After setup, decide the view based on device
+     if (isMobile) {
       setView('daily');
     } else {
       setView('weekly');
     }
-    setIsInitialised(true);
-  }, [isMobile]);
+  }
+
+  const handleEditTimetable = () => {
+      setIsSetupComplete(false); // Go back to setup view for editing
+  }
   
 
   if (!isInitialised) {
@@ -54,13 +81,17 @@ export default function Page() {
     );
   }
 
+  if (!isSetupComplete) {
+      return <SetupView onSetupComplete={handleSetupComplete} />;
+  }
+
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
       {view === 'daily' && <ZeitplanDashboard setView={setView} />}
       {view === 'weekly' && <ClassicTimetableView setView={setView} />}
       {view === 'homework' && <HomeworkPlanner />}
       {view === 'smart-tool' && <SmartToolsView />}
-      {view === 'settings' && <SettingsView />}
+      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable}/>}
 
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">

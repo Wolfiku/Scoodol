@@ -1,0 +1,234 @@
+
+"use client"
+
+import { useState, useRef } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { Camera, Edit, Loader2, Save, Trash2 } from 'lucide-react';
+import initialTimetableData from '@/app/data/timetable.json';
+import { scanTimetableImage } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+
+type TimetableEntry = {
+    id: string;
+    fach: string;
+    lehrer?: string;
+    start: string;
+    ende: string;
+    hauptfach?: boolean;
+    notizen?: string;
+    materialien?: string;
+};
+
+type TimetableData = {
+    [key: string]: TimetableEntry[];
+};
+
+const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+const timeSlots = [
+    "08:00 - 08:45", "08:45 - 09:30", "09:45 - 10:30", "10:30 - 11:15",
+    "11:30 - 12:15", "12:15 - 13:00"
+];
+
+const createInitialTimetable = (): TimetableData => {
+    const timetable: TimetableData = {};
+    weekDays.forEach(day => {
+        timetable[day] = timeSlots.map((slot, index) => {
+            const [start, end] = slot.split(' - ');
+            return {
+                id: `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
+                fach: '',
+                lehrer: '',
+                start: start,
+                ende: end,
+                hauptfach: false
+            };
+        });
+        // You can add pauses manually if needed, but for editing, it's cleaner without
+    });
+    return timetable;
+}
+
+
+export default function SetupView({ onSetupComplete }: { onSetupComplete: () => void }) {
+    const [mode, setMode] = useState<'select' | 'manual' | 'scan'>('select');
+    const [timetable, setTimetable] = useState<TimetableData>(() => {
+        if(typeof window !== "undefined") {
+            const saved = localStorage.getItem("timetable");
+            return saved ? JSON.parse(saved) : createInitialTimetable();
+        }
+        return createInitialTimetable();
+    });
+    const [isScanning, setIsScanning] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsScanning(true);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            const dataUri = reader.result as string;
+            const result = await scanTimetableImage(dataUri);
+
+            if (result.error || !result.timetable) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Fehler beim Scannen',
+                    description: result.error || 'Die KI konnte keinen Stundenplan erkennen.',
+                });
+            } else {
+                // Merge AI data with our structure
+                const newTimetable = { ...timetable };
+                Object.keys(result.timetable).forEach(day => {
+                    if(newTimetable[day]) {
+                        const daySchedule = result.timetable[day as keyof typeof result.timetable] || [];
+                        daySchedule.forEach(aiEntry => {
+                            const slotIndex = timeSlots.findIndex(slot => slot.startsWith(aiEntry.start));
+                            if(slotIndex !== -1) {
+                                newTimetable[day][slotIndex] = {
+                                    ...newTimetable[day][slotIndex],
+                                    fach: aiEntry.subject,
+                                    lehrer: aiEntry.teacher || '',
+                                    hauptfach: aiEntry.isMainSubject || false,
+                                };
+                            }
+                        })
+                    }
+                })
+                setTimetable(newTimetable);
+                toast({
+                    title: 'Stundenplan gescannt!',
+                    description: 'Überprüfe die erkannten Daten und korrigiere sie bei Bedarf.',
+                });
+                setMode('manual'); // Switch to manual mode for corrections
+            }
+            setIsScanning(false);
+        };
+         reader.onerror = () => {
+            toast({
+                variant: 'destructive',
+                title: 'Fehler',
+                description: 'Die Bilddatei konnte nicht gelesen werden.',
+            });
+            setIsScanning(false);
+        }
+    }
+    
+    const handleInputChange = (day: string, slotIndex: number, field: keyof TimetableEntry, value: string | boolean) => {
+        const newTimetable = { ...timetable };
+        // @ts-ignore
+        newTimetable[day][slotIndex][field] = value;
+        setTimetable(newTimetable);
+    }
+    
+    const handleSave = () => {
+        localStorage.setItem("timetable", JSON.stringify(timetable));
+        toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
+        onSetupComplete();
+    }
+
+
+    if (mode === 'select') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                <Card className="w-full max-w-lg text-center">
+                    <CardHeader>
+                        <CardTitle className="text-3xl">Willkommen bei ZeitplanPro!</CardTitle>
+                        <CardDescription>Richte deinen Stundenplan ein, um loszulegen.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Button className="w-full" size="lg" onClick={() => { setMode('manual'); }}>
+                            <Edit className="mr-2" /> Manuell eingeben
+                        </Button>
+                        <div className="relative flex py-2 items-center">
+                            <div className="flex-grow border-t border-muted"></div>
+                            <span className="flex-shrink mx-4 text-muted-foreground">ODER</span>
+                            <div className="flex-grow border-t border-muted"></div>
+                        </div>
+                        <Button className="w-full" size="lg" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
+                            {isScanning ? <Loader2 className="mr-2 animate-spin"/> : <Camera className="mr-2" />}
+                            {isScanning ? "Scanne..." : "Stundenplan scannen (KI)"}
+                        </Button>
+                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    if (mode === 'manual' || mode === 'scan') {
+         return (
+            <div className="container mx-auto p-4 md:p-8">
+                 <h2 className="text-3xl font-bold mb-2">Stundenplan bearbeiten</h2>
+                 <p className="text-muted-foreground mb-6">Trage deine Fächer und Lehrer ein. Du kannst leere Felder für Pausen oder Freistunden lassen.</p>
+                 <div className="overflow-x-auto pb-20">
+                     <Table className="border min-w-[800px]">
+                         <TableHeader>
+                             <TableRow>
+                                 <TableHead className="w-[150px]">Stunde</TableHead>
+                                 {weekDays.map(day => <TableHead key={day}>{day}</TableHead>)}
+                             </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                             {timeSlots.map((slot, slotIndex) => (
+                                 <TableRow key={slot}>
+                                     <TableCell className="font-medium">
+                                        <div className="flex flex-col">
+                                            <span>{slotIndex + 1}. Stunde</span>
+                                            <span className="text-xs text-muted-foreground">{slot}</span>
+                                        </div>
+                                     </TableCell>
+                                     {weekDays.map(day => {
+                                        const entry = timetable[day]?.[slotIndex];
+                                        if(!entry) return <TableCell key={day}></TableCell>;
+                                        
+                                        return (
+                                            <TableCell key={day} className="p-1">
+                                                <div className="flex flex-col gap-1">
+                                                    <Input 
+                                                        placeholder="Fach" 
+                                                        value={entry.fach} 
+                                                        onChange={e => handleInputChange(day, slotIndex, 'fach', e.target.value)}
+                                                    />
+                                                    <Input 
+                                                        placeholder="Lehrer" 
+                                                        value={entry.lehrer} 
+                                                        onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
+                                                        />
+                                                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={entry.hauptfach} 
+                                                            onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                        Hauptfach
+                                                    </label>
+                                                </div>
+                                            </TableCell>
+                                        )
+                                     })}
+                                 </TableRow>
+                             ))}
+                         </TableBody>
+                     </Table>
+                 </div>
+                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
+                    <div className="container mx-auto flex justify-end">
+                         <Button size="lg" onClick={handleSave}>
+                            <Save className="mr-2"/> Stundenplan speichern & App starten
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    return null;
+}
