@@ -26,6 +26,7 @@ export default function Page() {
   const [view, setView] = useState('daily');
   const [isInitialised, setIsInitialised] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [isEditingTimetable, setIsEditingTimetable] = useState(false);
   const isMobile = useIsMobile();
   const { theme } = useTheme();
 
@@ -55,6 +56,7 @@ export default function Page() {
 
   const handleSetupComplete = () => {
     setIsSetupComplete(true);
+    setIsEditingTimetable(false);
     const savedStartView = localStorage.getItem('startView');
     if (savedStartView) {
         setView(savedStartView);
@@ -67,6 +69,7 @@ export default function Page() {
 
   const handleEditTimetable = () => {
       setIsSetupComplete(false);
+      setIsEditingTimetable(true);
   }
   
   const handleNavClick = (newView: string) => {
@@ -104,7 +107,7 @@ export default function Page() {
   }
 
   if (!isSetupComplete) {
-      return <SetupView onSetupComplete={handleSetupComplete} />;
+      return <SetupView onSetupComplete={handleSetupComplete} isEditing={isEditingTimetable} />;
   }
 
   return (

@@ -52,11 +52,12 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete }: { onSetupComplete: () => void }) {
-    const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>('welcome');
+export default function SetupView({ onSetupComplete, isEditing = false }: { onSetupComplete: () => void, isEditing?: boolean }) {
+    const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(() => {
         if(typeof window !== "undefined") {
             const saved = localStorage.getItem("timetable");
+            // If editing, load saved data, otherwise start fresh
             return saved ? JSON.parse(saved) : createInitialTimetable();
         }
         return createInitialTimetable();
@@ -246,7 +247,7 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
                  <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
                     <div className="container mx-auto flex justify-end">
                          <Button size="lg" onClick={handleSave}>
-                            <Save className="mr-2"/> Stundenplan speichern & App starten
+                            <Save className="mr-2"/> Stundenplan speichern
                         </Button>
                     </div>
                 </div>
