@@ -30,18 +30,23 @@ export default function Page() {
   const { theme } = useTheme();
 
   useEffect(() => {
-    // This effect should only run once on the client
     if (typeof window !== 'undefined') {
         const checkSetup = () => {
             const savedTimetable = localStorage.getItem('timetable');
-            setIsSetupComplete(!!savedTimetable);
+            const setupDone = !!savedTimetable;
+            setIsSetupComplete(setupDone);
 
-            if (isMobile) {
-                setView('daily');
-            } else {
-                setView('weekly');
+            if (setupDone) {
+                const savedStartView = localStorage.getItem('startView');
+                if (savedStartView) {
+                    setView(savedStartView);
+                } else if (isMobile) {
+                    setView('daily');
+                } else {
+                    setView('weekly');
+                }
             }
-            // Add a small delay to prevent flickering
+            
             setTimeout(() => setIsInitialised(true), 500);
         };
         checkSetup();
@@ -50,8 +55,10 @@ export default function Page() {
 
   const handleSetupComplete = () => {
     setIsSetupComplete(true);
-    // After setup, decide the view based on device
-     if (isMobile) {
+    const savedStartView = localStorage.getItem('startView');
+    if (savedStartView) {
+        setView(savedStartView);
+    } else if (isMobile) {
       setView('daily');
     } else {
       setView('weekly');
@@ -59,9 +66,26 @@ export default function Page() {
   }
 
   const handleEditTimetable = () => {
-      setIsSetupComplete(false); // Go back to setup view for editing
+      setIsSetupComplete(false);
   }
   
+  const handleNavClick = (newView: string) => {
+    if (newView === 'home') {
+        const savedStartView = localStorage.getItem('startView');
+         if (savedStartView) {
+            setView(savedStartView);
+        } else if (isMobile) {
+            setView('daily');
+        } else {
+            setView('weekly');
+        }
+    } else {
+      setView(newView);
+    }
+  };
+
+  const isHomeView = view === 'daily' || view === 'weekly';
+
 
   if (!isInitialised) {
     return (
@@ -95,10 +119,10 @@ export default function Page() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">
         <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
           <Button
-            variant={view === 'daily' || view === 'weekly' ? 'secondary' : 'ghost'}
+            variant={isHomeView ? 'secondary' : 'ghost'}
             size="icon"
             className="rounded-full h-14 w-14 flex flex-col gap-1"
-            onClick={() => setView(isMobile ? 'daily' : 'weekly')}
+            onClick={() => handleNavClick('home')}
           >
             <Home className="w-5 h-5" />
             <span className="text-[10px] whitespace-nowrap">Heute</span>
@@ -107,7 +131,7 @@ export default function Page() {
             variant={view === 'homework' ? 'secondary' : 'ghost'}
             size="icon"
             className="rounded-full h-14 w-14 flex flex-col gap-1"
-            onClick={() => setView('homework')}
+            onClick={() => handleNavClick('homework')}
           >
             <ListChecks className="w-5 h-5" />
             <span className="text-[10px] whitespace-nowrap">Aufgaben</span>
@@ -116,7 +140,7 @@ export default function Page() {
             variant={view === 'smart-tool' ? 'secondary' : 'ghost'}
             size="icon"
             className="rounded-full h-14 w-14 flex flex-col gap-1"
-            onClick={() => setView('smart-tool')}
+            onClick={() => handleNavClick('smart-tool')}
           >
             <Sparkles className="w-5 h-5" />
             <span className="text-[10px] whitespace-nowrap">Smart Tools</span>
@@ -125,7 +149,7 @@ export default function Page() {
             variant={view === 'settings' ? 'secondary' : 'ghost'}
             size="icon"
             className="rounded-full h-14 w-14 flex flex-col gap-1"
-            onClick={() => setView('settings')}
+            onClick={() => handleNavClick('settings')}
           >
             <Settings className="w-5 h-5" />
             <span className="text-[10px] whitespace-nowrap">Einst.</span>
