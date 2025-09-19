@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
 import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -42,12 +43,18 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     }, [startView, isMounted]);
 
     const handleModeChange = (mode: 'light' | 'dark') => {
-        if (colorTheme && colorTheme !== 'default') {
-            setTheme(`${mode}-${colorTheme}`);
+        // We derive the new full theme string based on the current color theme
+        // and the newly selected mode ('light' or 'dark').
+        const currentParts = theme.split('-');
+        const currentColor = currentParts.length > 1 ? currentParts[1] : 'default';
+
+        if (currentColor !== 'default') {
+            setTheme(`${mode}-${currentColor}`);
         } else {
             setTheme(mode);
         }
     }
+
 
     const handleColorThemeChange = (newColor: string) => {
         setColorTheme(newColor);
@@ -153,13 +160,4 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
             </div>
         </div>
     )
-}
-
-function Button({variant, onClick, children}: any) {
-    const baseClasses = "flex items-center justify-center px-4 py-2 rounded-md transition-colors";
-    const variantClasses = {
-        default: "bg-primary text-primary-foreground",
-        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
-    }
-    return <button onClick={onClick} className={`${baseClasses} ${variantClasses[variant]}`}>{children}</button>
 }
