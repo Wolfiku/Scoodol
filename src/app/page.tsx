@@ -35,7 +35,10 @@ export default function Page() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
-        setIsPreviewMode(checkPreviewMode);
+        if (checkPreviewMode) {
+          setIsPreviewMode(true);
+          sessionStorage.removeItem('previewMode'); // Immediately remove after checking
+        }
         
         const checkSetup = () => {
             const savedTimetable = localStorage.getItem('timetable');
