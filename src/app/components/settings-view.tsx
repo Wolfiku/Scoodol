@@ -38,13 +38,6 @@ const startViews = [
 
 const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 
-const GeminiSparkle = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
-        <path d="M12 2.75L13.25 10.75L21.25 12L13.25 13.25L12 21.25L10.75 13.25L2.75 12L10.75 10.75L12 2.75Z" />
-    </svg>
-);
-
-
 export default function SettingsView({ onEditTimetable, isPreview = false }: { onEditTimetable: () => void, isPreview?: boolean }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
     const [startView, setStartView] = useState('daily');
@@ -341,7 +334,7 @@ a.click();
                 className="text-center text-sm text-muted-foreground mt-8 cursor-pointer"
                 onClick={handleFooterTap}
             >
-                Made by @wolfiku, powered by Gemini <GeminiSparkle />
+                made by @wolfiku, powered by limbo
             </div>
         </div>
     )
