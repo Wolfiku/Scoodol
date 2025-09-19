@@ -35,19 +35,16 @@ export default function Page() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
-        if (checkPreviewMode) {
-            setIsPreviewMode(true);
-            // Don't clear it here, let it persist for the session
-        }
+        setIsPreviewMode(checkPreviewMode);
         
         const checkSetup = () => {
             const savedTimetable = localStorage.getItem('timetable');
             const setupDone = !!savedTimetable;
             setIsSetupComplete(setupDone);
 
-            if (setupDone) {
+            if (setupDone || checkPreviewMode) {
                 const savedStartView = localStorage.getItem('startView');
-                if (savedStartView && !checkPreviewMode) { // Don't redirect if in preview
+                if (savedStartView && !checkPreviewMode) { 
                     setView(savedStartView);
                 } else if (isMobile) {
                     setView('daily');
@@ -118,15 +115,13 @@ export default function Page() {
       return <SetupView onSetupComplete={handleSetupComplete} isEditing={isEditingTimetable} />;
   }
   
-  const currentView = isPreviewMode && view === 'settings' ? 'settings' : view;
-
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
-      {currentView === 'daily' && <ZeitplanDashboard setView={setView} />}
-      {currentView === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode}/>}
-      {currentView === 'homework' && <HomeworkPlanner />}
-      {currentView === 'smart-tool' && <SmartToolsView />}
-      {currentView === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode}/>}
+      {view === 'daily' && <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} />}
+      {view === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode}/>}
+      {view === 'homework' && <HomeworkPlanner />}
+      {view === 'smart-tool' && <SmartToolsView />}
+      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode}/>}
 
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">

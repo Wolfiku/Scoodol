@@ -1,7 +1,8 @@
 
 "use client";
 
-import timetableData from "@/app/data/timetable.json";
+import initialTimetableData from "@/app/data/timetable.json";
+import previewTimetableData from "@/app/data/preview-timetable.json";
 import {
   Table,
   TableHeader,
@@ -35,7 +36,7 @@ type Timetable = {
   [day: string]: TimetableEntry[];
 };
 
-const timetable: Timetable = timetableData;
+
 const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 const timeSlots = [
   "08:00 - 08:45",
@@ -46,15 +47,7 @@ const timeSlots = [
   "12:15 - 13:00",
 ];
 
-const getEntry = (day: string, timeSlot: string) => {
-  const daySchedule = timetable[day];
-  if (!daySchedule) return null;
 
-  const [start] = timeSlot.split(" - ");
-  return daySchedule.find(
-    (entry) => entry.start === start && entry.fach !== "Pause"
-  );
-};
 
 // Function to generate a color from a string
 const stringToHslColor = (str: string, s: number, l: number) => {
@@ -67,6 +60,18 @@ const stringToHslColor = (str: string, s: number, l: number) => {
 };
 
 export default function ClassicTimetableView({ setView, isPreview = false }: { setView: (view: string) => void, isPreview?: boolean }) {
+  const timetable: Timetable = isPreview ? previewTimetableData : initialTimetableData;
+
+  const getEntry = (day: string, timeSlot: string) => {
+    const daySchedule = timetable[day];
+    if (!daySchedule) return null;
+
+    const [start] = timeSlot.split(" - ");
+    return daySchedule.find(
+      (entry) => entry.start === start && entry.fach !== "Pause"
+    );
+  };
+  
   return (
     <div className="relative pb-20">
       <Card>

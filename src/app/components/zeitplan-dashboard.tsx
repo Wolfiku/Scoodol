@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import initialTimetableData from "@/app/data/timetable.json";
+import previewTimetableData from "@/app/data/preview-timetable.json";
 import { getRemainingTime } from "@/app/actions";
 import {
   Card,
@@ -62,9 +64,9 @@ const parseTime = (timeStr: string) => {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
-export default function ZeitplanDashboard({ setView }: { setView: (view: string) => void }) {
+export default function ZeitplanDashboard({ setView, isPreview = false }: { setView: (view: string) => void, isPreview?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
-  const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
+  const [timetableData, setTimetableData] = useState<TimetableData>(isPreview ? previewTimetableData : initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
     null
@@ -77,22 +79,24 @@ export default function ZeitplanDashboard({ setView }: { setView: (view: string)
 
   useEffect(() => {
     setIsMounted(true);
-    const savedTimetable = localStorage.getItem("timetable");
-    if(savedTimetable) {
-        setTimetableData(JSON.parse(savedTimetable));
+    if (!isPreview) {
+      const savedTimetable = localStorage.getItem("timetable");
+      if(savedTimetable) {
+          setTimetableData(JSON.parse(savedTimetable));
+      }
     }
     
     const today = new Date().getDay();
     // Sunday is 0, Monday is 1, etc. but our array is 0-indexed from Monday.
     const dayIndex = today > 0 && today < 6 ? today - 1 : 0; // Default to Monday if it's weekend
     setCurrentDayIndex(dayIndex);
-  }, []);
+  }, [isPreview]);
 
   useEffect(() => {
-    if(isMounted) {
+    if(isMounted && !isPreview) {
       localStorage.setItem("timetable", JSON.stringify(timetableData));
     }
-  }, [timetableData, isMounted]);
+  }, [timetableData, isMounted, isPreview]);
 
   const changeDay = (offset: number) => {
     setCurrentDayIndex(prevIndex => {

@@ -19,9 +19,18 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undef
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme | undefined>(undefined);
   const [isMounted, setIsMounted] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    const isPreviewMode = sessionStorage.getItem('previewMode') === 'true';
+    setIsPreview(isPreviewMode);
+
+    if (isPreviewMode) {
+      setThemeState('light'); // Force default theme in preview
+      return;
+    }
+
     const storedTheme = localStorage.getItem('theme');
     if (storedTheme) {
       setThemeState(storedTheme);
@@ -32,11 +41,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
   
   const setTheme = (newTheme: Theme) => {
+    if (isPreview) return; // Don't allow theme changes in preview mode
     localStorage.setItem('theme', newTheme);
     setThemeState(newTheme);
   };
 
   const setColorTheme = (newColorTheme: ColorTheme | string) => {
+    if (isPreview) return; // Don't allow theme changes in preview mode
     const currentMode = resolvedTheme;
     if (newColorTheme === 'default') {
       if (currentMode) setTheme(currentMode);
@@ -47,11 +58,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   
   const [resolvedTheme, colorTheme] = useMemo((): [('light' | 'dark') | undefined, ColorTheme] => {
       if (!theme) return [undefined, 'default'];
+      if (isPreview) return ['light', 'default'];
+
       const parts = theme.split('-');
       const mode = (parts[0] === 'dark' ? 'dark' : 'light') as 'light' | 'dark';
       const color = (parts[1] || 'default') as ColorTheme;
       return [mode, color];
-  }, [theme]);
+  }, [theme, isPreview]);
 
 
   useEffect(() => {
