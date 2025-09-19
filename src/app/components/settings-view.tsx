@@ -2,14 +2,26 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -24,6 +36,7 @@ const startViews = [
     { value: "homework", label: "Hausaufgaben", icon: ListChecks },
 ]
 
+const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 
 export default function SettingsView({ onEditTimetable }: { onEditTimetable: () => void }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
@@ -31,6 +44,8 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     const [isMounted, setIsMounted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const [resetInput, setResetInput] = useState('');
+    const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
      useEffect(() => {
         setIsMounted(true);
@@ -65,20 +80,31 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     const handleExport = () => {
         try {
             const timetableData = localStorage.getItem('timetable');
+            const homeworkData = localStorage.getItem('homeworks');
+            const themeData = localStorage.getItem('theme');
+            const startViewData = localStorage.getItem('startView');
+
+            const exportData = {
+                timetable: timetableData ? JSON.parse(timetableData) : null,
+                homeworks: homeworkData ? JSON.parse(homeworkData) : null,
+                theme: themeData,
+                startView: startViewData,
+            }
+
             if (!timetableData) {
                 toast({ variant: 'destructive', title: "Fehler", description: "Kein Stundenplan zum Exportieren gefunden." });
                 return;
             }
-            const blob = new Blob([timetableData], { type: 'application/json' });
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'stundenplan.skplanexpo';
+            a.download = 'skoolio-data.skplanexpo';
             document.body.appendChild(a);
-            a.click();
+a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            toast({ title: "Export erfolgreich", description: "Dein Stundenplan wurde heruntergeladen." });
+            toast({ title: "Export erfolgreich", description: "Deine Daten wurden heruntergeladen." });
         } catch (error) {
             toast({ variant: 'destructive', title: "Fehler", description: "Der Export ist fehlgeschlagen." });
         }
@@ -96,12 +122,15 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
         reader.onload = (e) => {
             try {
                 const content = e.target?.result as string;
-                // Simple validation
-                JSON.parse(content); 
-                localStorage.setItem('timetable', content);
-                toast({ title: "Import erfolgreich", description: "Dein Stundenplan wurde aktualisiert. Die App wird neu geladen." });
+                const importedData = JSON.parse(content);
+
+                if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
+                if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
+                if (importedData.theme) localStorage.setItem('theme', importedData.theme);
+                if (importedData.startView) localStorage.setItem('startView', importedData.startView);
+
+                toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt. Die App wird neu geladen." });
                 
-                // Reload to apply changes everywhere
                 setTimeout(() => window.location.reload(), 1500);
 
             } catch (error) {
@@ -109,6 +138,12 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
             }
         };
         reader.readAsText(file);
+    }
+    
+    const handleResetData = () => {
+        localStorage.clear();
+        toast({ title: "Alle Daten zurückgesetzt", description: "Die App wird neu gestartet." });
+        setTimeout(() => window.location.reload(), 1500);
     }
 
     if (!isMounted) {
@@ -186,7 +221,7 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                 <Card>
                      <CardHeader>
                         <CardTitle>Erweiterte Einstellungen</CardTitle>
-                        <CardDescription>Passe das Verhalten der App an und sichere deine Daten.</CardDescription>
+                        <CardDescription>Passe das Verhalten der App an und sichere oder lösche deine Daten.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
@@ -213,15 +248,15 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                              </RadioGroup>
                         </div>
                         <div className="space-y-2">
-                            <Label>Stundenplan-Daten</Label>
+                            <Label>App-Daten</Label>
                             <div className="flex flex-col sm:flex-row gap-2">
                                 <Button variant="outline" onClick={handleExport}>
                                     <Download className="mr-2" />
-                                    Exportieren
+                                    Daten exportieren
                                 </Button>
                                 <Button variant="outline" onClick={handleImportClick}>
                                     <Upload className="mr-2" />
-                                    Importieren
+                                    Daten importieren
                                 </Button>
                                 <input 
                                     type="file" 
@@ -233,6 +268,40 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                             </div>
                         </div>
                     </CardContent>
+                    <CardFooter className="border-t pt-6 mt-4">
+                        <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive">
+                                    <Trash2 className="mr-2"/> Alle App-Daten zurücksetzen
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Bist du absolut sicher?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Daten, einschließlich Stundenplan und Hausaufgaben, werden dauerhaft gelöscht.
+                                        <br/><br/>
+                                        Bitte gib <strong className="text-foreground">{RESET_CONFIRMATION_CODE}</strong> ein, um fortzufahren.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <Input 
+                                    type="text"
+                                    value={resetInput}
+                                    onChange={(e) => setResetInput(e.target.value)}
+                                    placeholder={`Tippe "${RESET_CONFIRMATION_CODE}"`}
+                                />
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={() => setResetInput('')}>Abbrechen</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        disabled={resetInput !== RESET_CONFIRMATION_CODE}
+                                        onClick={handleResetData}
+                                    >
+                                        Endgültig löschen
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </CardFooter>
                 </Card>
             </div>
         </div>

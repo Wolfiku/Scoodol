@@ -47,14 +47,13 @@ const createInitialTimetable = (): TimetableData => {
                 hauptfach: false
             };
         });
-        // You can add pauses manually if needed, but for editing, it's cleaner without
     });
     return timetable;
 }
 
 
 export default function SetupView({ onSetupComplete }: { onSetupComplete: () => void }) {
-    const [mode, setMode] = useState<'select' | 'manual' | 'scan'>('select');
+    const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>('welcome');
     const [timetable, setTimetable] = useState<TimetableData>(() => {
         if(typeof window !== "undefined") {
             const saved = localStorage.getItem("timetable");
@@ -133,6 +132,22 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
         onSetupComplete();
     }
+    
+    if (mode === 'welcome') {
+        return (
+             <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                <Card className="w-full max-w-lg text-center">
+                    <CardHeader>
+                        <CardTitle className="text-3xl">Willkommen bei Skoolio Planner!</CardTitle>
+                        <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <Button size="lg" className="w-full" onClick={() => setMode('select')}>Los geht's!</Button>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
 
     if (mode === 'select') {
@@ -140,8 +155,8 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
             <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-3xl">Willkommen bei Skoolio Planner!</CardTitle>
-                        <CardDescription>Richte deinen Stundenplan ein, um loszulegen.</CardDescription>
+                        <CardTitle className="text-2xl">Stundenplan einrichten</CardTitle>
+                        <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <Button className="w-full" size="lg" onClick={() => { setMode('manual'); }}>
