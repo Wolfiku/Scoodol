@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
 import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -43,8 +44,6 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     }, [startView, isMounted]);
 
     const handleModeChange = (mode: 'light' | 'dark') => {
-        // We derive the new full theme string based on the current color theme
-        // and the newly selected mode ('light' or 'dark').
         const currentParts = theme.split('-');
         const currentColor = currentParts.length > 1 ? currentParts[1] : 'default';
 
@@ -61,7 +60,7 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     }
 
     if (!isMounted) {
-        return null; // or a loading skeleton
+        return null;
     }
 
     return (
@@ -97,7 +96,10 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                                     <Label 
                                         key={t.value}
                                         htmlFor={`theme-${t.value}`}
-                                        className="block p-4 rounded-lg border-2 has-[:checked]:border-primary cursor-pointer"
+                                        className={cn(
+                                            "block p-4 rounded-lg border-2 cursor-pointer transition-colors",
+                                            colorTheme === t.value ? "border-primary" : "border-border"
+                                        )}
                                     >
                                         <RadioGroupItem value={t.value} id={`theme-${t.value}`} className="sr-only"/>
                                         <div className="flex flex-col items-center gap-2">
@@ -146,7 +148,10 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                                      <Label 
                                         key={v.value}
                                         htmlFor={`view-${v.value}`}
-                                        className="flex flex-col items-center justify-center p-4 rounded-lg border-2 has-[:checked]:border-primary cursor-pointer"
+                                        className={cn(
+                                            "flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-colors",
+                                            startView === v.value ? "border-primary" : "border-border"
+                                        )}
                                     >
                                         <RadioGroupItem value={v.value} id={`view-${v.value}`} className="sr-only"/>
                                         <v.icon className="w-8 h-8 mb-2" />
