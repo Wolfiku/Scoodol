@@ -19,6 +19,7 @@ import {
   PlayCircle,
   X,
   Pencil,
+  Info,
 } from "lucide-react";
 import {
   Dialog,
@@ -61,6 +62,7 @@ export default function HomeworkPlanner() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showScanInfo, setShowScanInfo] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -167,7 +169,7 @@ export default function HomeworkPlanner() {
   };
   
   const handleCameraClick = () => {
-      fileInputRef.current?.click();
+      setShowScanInfo(true);
   }
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -253,10 +255,40 @@ export default function HomeworkPlanner() {
           <span>Hausaufgabenplaner</span>
           <div className="flex gap-2">
             <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            <Button variant="outline" size="icon" onClick={handleCameraClick} disabled={isScanning}>
-              {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
-              <span className="sr-only">Hausaufgabe scannen</span>
-            </Button>
+
+            <Dialog open={showScanInfo} onOpenChange={setShowScanInfo}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleCameraClick} disabled={isScanning}>
+                  {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                  <span className="sr-only">Hausaufgabe scannen</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Hausaufgabe scannen</DialogTitle>
+                    <DialogDescription>
+                       Mache ein Foto von deinen Hausaufgaben, um sie automatisch hinzuzufügen.
+                    </DialogDescription>
+                  </DialogHeader>
+                   <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Datenschutzhinweis</AlertTitle>
+                      <AlertDescription>
+                          Dein hochgeladenes Bild wird zur Analyse sicher an eine Google API gesendet und nicht dauerhaft gespeichert.
+                      </AlertDescription>
+                  </Alert>
+                  <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowScanInfo(false)}>Abbrechen</Button>
+                       <Button onClick={() => {
+                           setShowScanInfo(false);
+                           fileInputRef.current?.click();
+                       }}>
+                         <Camera className="mr-2" /> Foto auswählen
+                       </Button>
+                  </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => handleOpenDialog()}>
@@ -414,5 +446,3 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
-
-    

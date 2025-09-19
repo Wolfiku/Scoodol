@@ -12,7 +12,8 @@ import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
-import initialTimetableData from "@/app/data/timetable.json";
+import { Loader2 } from 'lucide-react';
+
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -29,24 +30,21 @@ export default function Page() {
   const { theme } = useTheme();
 
   useEffect(() => {
+    // This effect should only run once on the client
     if (typeof window !== 'undefined') {
-        const savedTimetable = localStorage.getItem('timetable');
-        if (savedTimetable) {
-            setIsSetupComplete(true);
-        } else {
-            // Optional: Pre-fill with default for easier setup/demo
-            // localStorage.setItem('timetable', JSON.stringify(initialTimetableData));
-            // setIsSetupComplete(true);
-        }
+        const checkSetup = () => {
+            const savedTimetable = localStorage.getItem('timetable');
+            setIsSetupComplete(!!savedTimetable);
 
-        if (isMobile === undefined) return; 
-
-        if (isMobile) {
-            setView('daily');
-        } else {
-            setView('weekly');
-        }
-        setIsInitialised(true);
+            if (isMobile) {
+                setView('daily');
+            } else {
+                setView('weekly');
+            }
+            // Add a small delay to prevent flickering
+            setTimeout(() => setIsInitialised(true), 500);
+        };
+        checkSetup();
     }
   }, [isMobile]);
 
@@ -67,11 +65,11 @@ export default function Page() {
 
   if (!isInitialised) {
     return (
-      <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground">
-        <div className="text-center">
-          <p className="text-lg font-semibold">@wolfikuproduction</p>
-          <p className="text-sm text-muted-foreground flex items-center justify-center text-center">
-            powered by limbo
+      <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-bold">@wolfikuproduction</h1>
+          <p className="text-muted-foreground flex items-center justify-center">
+            <Loader2 className="mr-2 animate-spin"/> App wird geladen...
           </p>
         </div>
         <div className="absolute bottom-4 text-xs text-muted-foreground flex items-center">
@@ -121,7 +119,7 @@ export default function Page() {
             onClick={() => setView('smart-tool')}
           >
             <Sparkles className="w-5 h-5" />
-            <span className="text-[10px] whitespace-nowrap">Smart Tool</span>
+            <span className="text-[10px] whitespace-nowrap">Smart Tools</span>
           </Button>
            <Button
             variant={view === 'settings' ? 'secondary' : 'ghost'}

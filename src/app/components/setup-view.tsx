@@ -6,10 +6,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Loader2, Save, Trash2 } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Trash2 } from 'lucide-react';
 import initialTimetableData from '@/app/data/timetable.json';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type TimetableEntry = {
     id: string;
@@ -137,8 +138,8 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
     if (mode === 'select') {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4">
-                <Card className="w-full max-w-lg text-center">
-                    <CardHeader>
+                <Card className="w-full max-w-lg">
+                    <CardHeader className="text-center">
                         <CardTitle className="text-3xl">Willkommen bei ZeitplanPro!</CardTitle>
                         <CardDescription>Richte deinen Stundenplan ein, um loszulegen.</CardDescription>
                     </CardHeader>
@@ -155,7 +156,15 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
                             {isScanning ? <Loader2 className="mr-2 animate-spin"/> : <Camera className="mr-2" />}
                             {isScanning ? "Scanne..." : "Stundenplan scannen (KI)"}
                         </Button>
-                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+
+                        <Alert className="text-left mt-4">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Datenschutzhinweis</AlertTitle>
+                            <AlertDescription>
+                                Dein hochgeladenes Dokument wird zur Analyse sicher an eine Google API gesendet und nicht dauerhaft gespeichert.
+                            </AlertDescription>
+                        </Alert>
                     </CardContent>
                 </Card>
             </div>
@@ -201,10 +210,10 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
                                                         value={entry.lehrer} 
                                                         onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
                                                         />
-                                                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                                                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer p-1">
                                                         <input 
                                                             type="checkbox" 
-                                                            checked={entry.hauptfach} 
+                                                            checked={!!entry.hauptfach} 
                                                             onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
                                                             className="rounded border-gray-300"
                                                         />

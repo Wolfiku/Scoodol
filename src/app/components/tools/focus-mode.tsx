@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -69,9 +70,15 @@ export default function FocusMode({ tasks, onExit }: Props) {
 
   // --- Derived Data ---
   const repetitionSubjects = useMemo(() => {
-    const allEntries = Object.values(timetableData).flat();
+    if (typeof window === 'undefined') {
+        return { main: [], other: [] };
+    }
+    const savedTimetable = localStorage.getItem("timetable");
+    const currentTimetable = savedTimetable ? JSON.parse(savedTimetable) : timetableData;
+
+    const allEntries = Object.values(currentTimetable).flat() as {fach: string, hauptfach?: boolean}[];
     const mainSubjects = new Set(allEntries.filter(e => e.hauptfach).map(e => e.fach));
-    const otherSubjects = new Set(allEntries.filter(e => e.fach !== 'Pause').map(e => e.fach));
+    const otherSubjects = new Set(allEntries.filter(e => e.fach && e.fach !== 'Pause').map(e => e.fach));
     
     return {
         main: Array.from(mainSubjects).sort(),
@@ -317,14 +324,14 @@ export default function FocusMode({ tasks, onExit }: Props) {
             <div className="space-y-4">
                 <Label>Wähle ein Fach</Label>
                 <RadioGroup value={repetitionSubject || ""} onValueChange={setRepetitionSubject} className="flex flex-wrap gap-2">
-                    <p className="w-full text-sm font-medium">Hauptfächer</p>
+                    {repetitionSubjects.main.length > 0 && <p className="w-full text-sm font-medium">Hauptfächer</p>}
                     {repetitionSubjects.main.map(subject => (
                         <Label key={subject} htmlFor={`subject-${subject}`} className={`flex items-center gap-2 border rounded-full px-4 py-2 cursor-pointer transition-colors ${repetitionSubject === subject ? 'bg-primary text-primary-foreground border-transparent' : 'hover:bg-accent/50'}`}>
                             <RadioGroupItem value={subject} id={`subject-${subject}`} className="sr-only"/>
                             {subject}
                         </Label>
                     ))}
-                    <p className="w-full text-sm font-medium pt-2">Nebenfächer</p>
+                     {repetitionSubjects.other.length > 0 && <p className="w-full text-sm font-medium pt-2">Nebenfächer</p>}
                      {repetitionSubjects.other.map(subject => (
                         <Label key={subject} htmlFor={`subject-${subject}`} className={`flex items-center gap-2 border rounded-full px-4 py-2 cursor-pointer transition-colors ${repetitionSubject === subject ? 'bg-primary text-primary-foreground border-transparent' : 'hover:bg-accent/50'}`}>
                             <RadioGroupItem value={subject} id={`subject-${subject}`} className="sr-only"/>
@@ -411,5 +418,3 @@ export default function FocusMode({ tasks, onExit }: Props) {
     </div>
   );
 }
-
-    
