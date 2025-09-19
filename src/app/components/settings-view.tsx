@@ -1,14 +1,15 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -28,6 +29,8 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
     const [startView, setStartView] = useState('daily');
     const [isMounted, setIsMounted] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
 
      useEffect(() => {
         setIsMounted(true);
@@ -57,6 +60,55 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
 
     const handleColorThemeChange = (newColor: string) => {
         setColorTheme(newColor);
+    }
+    
+    const handleExport = () => {
+        try {
+            const timetableData = localStorage.getItem('timetable');
+            if (!timetableData) {
+                toast({ variant: 'destructive', title: "Fehler", description: "Kein Stundenplan zum Exportieren gefunden." });
+                return;
+            }
+            const blob = new Blob([timetableData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stundenplan.zeitplanpro';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast({ title: "Export erfolgreich", description: "Dein Stundenplan wurde heruntergeladen." });
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Fehler", description: "Der Export ist fehlgeschlagen." });
+        }
+    }
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    }
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = e.target?.result as string;
+                // Simple validation
+                JSON.parse(content); 
+                localStorage.setItem('timetable', content);
+                toast({ title: "Import erfolgreich", description: "Dein Stundenplan wurde aktualisiert. Die App wird neu geladen." });
+                
+                // Reload to apply changes everywhere
+                setTimeout(() => window.location.reload(), 1500);
+
+            } catch (error) {
+                toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei ist ungültig oder beschädigt." });
+            }
+        };
+        reader.readAsText(file);
     }
 
     if (!isMounted) {
@@ -134,9 +186,9 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                 <Card>
                      <CardHeader>
                         <CardTitle>Erweiterte Einstellungen</CardTitle>
-                        <CardDescription>Passe das Verhalten der App an.</CardDescription>
+                        <CardDescription>Passe das Verhalten der App an und sichere deine Daten.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
                         <div className="space-y-2">
                              <Label>Standard-Ansicht nach dem Start</Label>
                              <RadioGroup 
@@ -159,6 +211,26 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                                      </Label>
                                  ))}
                              </RadioGroup>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Stundenplan-Daten</Label>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Button variant="outline" onClick={handleExport}>
+                                    <Download className="mr-2" />
+                                    Exportieren
+                                </Button>
+                                <Button variant="outline" onClick={handleImportClick}>
+                                    <Upload className="mr-2" />
+                                    Importieren
+                                </Button>
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    accept=".zeitplanpro,application/json"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
