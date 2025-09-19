@@ -23,7 +23,7 @@ export const openPrintView = (elementId: string) => {
           <body>
             <h2>Wochenübersicht</h2>
             ${tableHtml}
-            <div class="footer">@wolfikuproduction scoolmanager</div>
+            <div class="footer">Skoolio Planner by @wolfikuproduction</div>
             <script>
               window.onload = function() {
                 window.print();

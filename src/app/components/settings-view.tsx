@@ -73,7 +73,7 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'stundenplan.zeitplanpro';
+            a.download = 'stundenplan.skplanexpo';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -227,7 +227,7 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
                                     type="file" 
                                     ref={fileInputRef} 
                                     className="hidden" 
-                                    accept=".zeitplanpro,application/json"
+                                    accept=".skplanexpo,application/json"
                                     onChange={handleFileChange}
                                 />
                             </div>

@@ -140,7 +140,7 @@ export default function SetupView({ onSetupComplete }: { onSetupComplete: () => 
             <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-3xl">Willkommen bei ZeitplanPro!</CardTitle>
+                        <CardTitle className="text-3xl">Willkommen bei Skoolio Planner!</CardTitle>
                         <CardDescription>Richte deinen Stundenplan ein, um loszulegen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">

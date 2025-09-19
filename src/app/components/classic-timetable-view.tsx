@@ -184,7 +184,7 @@ export default function ClassicTimetableView({ setView }: { setView: (view: stri
                       ))}
                        <tr>
                           <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
-                              @wolfikuproduction scoolmanager
+                              Skoolio Planner by @wolfikuproduction
                           </td>
                       </tr>
                   </tbody>
