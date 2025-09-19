@@ -38,7 +38,14 @@ const startViews = [
 
 const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 
-export default function SettingsView({ onEditTimetable }: { onEditTimetable: () => void }) {
+const GeminiSparkle = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
+        <path d="M12 2.75L13.25 10.75L21.25 12L13.25 13.25L12 21.25L10.75 13.25L2.75 12L10.75 10.75L12 2.75Z" />
+    </svg>
+);
+
+
+export default function SettingsView({ onEditTimetable, isPreview = false }: { onEditTimetable: () => void, isPreview?: boolean }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
     const [startView, setStartView] = useState('daily');
     const [isMounted, setIsMounted] = useState(false);
@@ -46,6 +53,7 @@ export default function SettingsView({ onEditTimetable }: { onEditTimetable: () 
     const { toast } = useToast();
     const [resetInput, setResetInput] = useState('');
     const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+    const [tapCount, setTapCount] = useState(0);
 
      useEffect(() => {
         setIsMounted(true);
@@ -146,12 +154,37 @@ a.click();
         setTimeout(() => window.location.reload(), 1500);
     }
 
+    const handleFooterTap = () => {
+        const newTapCount = tapCount + 1;
+        setTapCount(newTapCount);
+        if (newTapCount >= 3) {
+            sessionStorage.setItem('previewMode', 'true');
+            toast({ title: 'Preview-Modus aktiviert!', description: 'Starte die App neu, um die Änderungen zu sehen.' });
+            setTapCount(0);
+        }
+    }
+
     if (!isMounted) {
         return null;
     }
+    
+    if (isPreview) {
+        return (
+             <div className="flex flex-col items-center justify-center text-center p-8">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CardTitle>Vorschau-Modus</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">Weitere Einstellungen gibt es in der Vollversion.</p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     return (
-        <div>
+        <div className="pb-16">
             <h2 className="text-3xl font-bold mb-6">Einstellungen</h2>
             <div className="space-y-6">
                 <Card>
@@ -303,6 +336,12 @@ a.click();
                         </AlertDialog>
                     </CardFooter>
                 </Card>
+            </div>
+            <div 
+                className="text-center text-sm text-muted-foreground mt-8 cursor-pointer"
+                onClick={handleFooterTap}
+            >
+                Made by @wolfiku, powered by Gemini <GeminiSparkle />
             </div>
         </div>
     )

@@ -29,9 +29,17 @@ export default function Page() {
   const [isEditingTimetable, setIsEditingTimetable] = useState(false);
   const isMobile = useIsMobile();
   const { theme } = useTheme();
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+        const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
+        if (checkPreviewMode) {
+            setIsPreviewMode(true);
+            // Don't clear it here, let it persist for the session
+        }
+        
         const checkSetup = () => {
             const savedTimetable = localStorage.getItem('timetable');
             const setupDone = !!savedTimetable;
@@ -39,7 +47,7 @@ export default function Page() {
 
             if (setupDone) {
                 const savedStartView = localStorage.getItem('startView');
-                if (savedStartView) {
+                if (savedStartView && !checkPreviewMode) { // Don't redirect if in preview
                     setView(savedStartView);
                 } else if (isMobile) {
                     setView('daily');
@@ -75,7 +83,7 @@ export default function Page() {
   const handleNavClick = (newView: string) => {
     if (newView === 'home') {
         const savedStartView = localStorage.getItem('startView');
-         if (savedStartView) {
+         if (savedStartView && !isPreviewMode) {
             setView(savedStartView);
         } else if (isMobile) {
             setView('daily');
@@ -106,17 +114,19 @@ export default function Page() {
     );
   }
 
-  if (!isSetupComplete) {
+  if (!isSetupComplete && !isPreviewMode) {
       return <SetupView onSetupComplete={handleSetupComplete} isEditing={isEditingTimetable} />;
   }
+  
+  const currentView = isPreviewMode && view === 'settings' ? 'settings' : view;
 
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
-      {view === 'daily' && <ZeitplanDashboard setView={setView} />}
-      {view === 'weekly' && <ClassicTimetableView setView={setView} />}
-      {view === 'homework' && <HomeworkPlanner />}
-      {view === 'smart-tool' && <SmartToolsView />}
-      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable}/>}
+      {currentView === 'daily' && <ZeitplanDashboard setView={setView} />}
+      {currentView === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode}/>}
+      {currentView === 'homework' && <HomeworkPlanner />}
+      {currentView === 'smart-tool' && <SmartToolsView />}
+      {currentView === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode}/>}
 
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">

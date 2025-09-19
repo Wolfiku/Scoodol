@@ -1,3 +1,4 @@
+
 "use client";
 
 import timetableData from "@/app/data/timetable.json";
@@ -65,7 +66,7 @@ const stringToHslColor = (str: string, s: number, l: number) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-export default function ClassicTimetableView({ setView }: { setView: (view: string) => void }) {
+export default function ClassicTimetableView({ setView, isPreview = false }: { setView: (view: string) => void, isPreview?: boolean }) {
   return (
     <div className="relative pb-20">
       <Card>
@@ -78,7 +79,7 @@ export default function ClassicTimetableView({ setView }: { setView: (view: stri
           </div>
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>
+              <Button disabled={isPreview}>
                 <Download className="mr-2" />
                 Exportieren
               </Button>
