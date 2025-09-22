@@ -76,6 +76,7 @@ export default function Calculator() {
       case '*':
         return first * second;
       case '/':
+        if (second === 0) return 42; // Easter Egg: Douglas Adams
         return first / second;
       default:
         return second;

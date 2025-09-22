@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -20,6 +19,23 @@ export default function PeriodicTableSearch() {
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
+
+        // Easter Egg for "wolfiku"
+        if (query.trim().toLowerCase() === 'wolfiku') {
+            setResult({
+                element: {
+                    name: 'Wolfikum',
+                    symbol: 'Wf',
+                    atomicNumber: 42,
+                    atomicMass: '??',
+                    description: 'Ein extrem seltenes und kreatives Element, das hauptsächlich in digitalen Schulplanern vorkommt. Es zeichnet sich durch eine hohe Affinität zu Code, Design und cleveren Ideen aus. Vorsicht: kann Spuren von Kaffee enthalten.',
+                    meltingPoint: 'kreative Hitze',
+                    boilingPoint: 'sprudelnde Ideen',
+                    density: 'sehr kompakt'
+                }
+            });
+            return;
+        }
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             toast({
@@ -117,13 +133,10 @@ export default function PeriodicTableSearch() {
                     )}
                     {result.error && <p className="text-destructive text-center p-4">{result.error}</p>}
                     {!result.element && !result.compound && !result.error && (
-                        <p className="text-muted-foreground text-center p-4">Die KI konnte leider keine passenden Informationen finden.</p>
-                    )}
+                        <p className="text-muted-foreground text-center p-4">Die KI konnte leider keine passenden Informationen finden.</p>                    )}
                 </div>
             )}
       </CardContent>
     </Card>
   );
 }
-
-    
