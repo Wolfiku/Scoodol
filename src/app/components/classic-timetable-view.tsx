@@ -1,8 +1,6 @@
 
 "use client";
 
-import initialTimetableData from "@/app/data/timetable.json";
-import previewTimetableData from "@/app/data/preview-timetable.json";
 import {
   Table,
   TableHeader,
@@ -36,6 +34,12 @@ type Timetable = {
   [day: string]: TimetableEntry[];
 };
 
+type Props = {
+  setView: (view: string) => void;
+  isPreview?: boolean;
+  timetable: Timetable;
+}
+
 
 const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 const timeSlots = [
@@ -59,8 +63,7 @@ const stringToHslColor = (str: string, s: number, l: number) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-export default function ClassicTimetableView({ setView, isPreview = false }: { setView: (view: string) => void, isPreview?: boolean }) {
-  const timetable: Timetable = isPreview ? previewTimetableData : initialTimetableData;
+export default function ClassicTimetableView({ setView, isPreview = false, timetable }: Props) {
 
   const getEntry = (day: string, timeSlot: string) => {
     const daySchedule = timetable[day];
@@ -190,7 +193,7 @@ export default function ClassicTimetableView({ setView, isPreview = false }: { s
                       ))}
                        <tr>
                           <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
-                              Skoolio Planner v1.0.1 by @wolfikuproduction
+                              Skoolio Planner v1.1-hotfix by @wolfikuproduction
                           </td>
                       </tr>
                   </tbody>

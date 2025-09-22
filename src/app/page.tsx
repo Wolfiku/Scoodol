@@ -13,6 +13,8 @@ import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
 import { Loader2 } from 'lucide-react';
+import initialTimetableData from "@/app/data/timetable.json";
+import previewTimetableData from "@/app/data/preview-timetable.json";
 
 
 const GeminiSparkle = () => (
@@ -20,6 +22,21 @@ const GeminiSparkle = () => (
         <path d="M12 2.75L13.25 10.75L21.25 12L13.25 13.25L12 21.25L10.75 13.25L2.75 12L10.75 10.75L12 2.75Z" />
     </svg>
 );
+
+type TimetableEntry = {
+  id: string;
+  fach: string;
+  lehrer?: string;
+  start: string;
+  ende: string;
+  hauptfach?: boolean;
+  notizen?: string;
+  materialien?: string;
+};
+
+type TimetableData = {
+  [key: string]: TimetableEntry[];
+};
 
 
 export default function Page() {
@@ -30,6 +47,7 @@ export default function Page() {
   const isMobile = useIsMobile();
   const { theme } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
 
 
   useEffect(() => {
@@ -38,6 +56,12 @@ export default function Page() {
         if (checkPreviewMode) {
           setIsPreviewMode(true);
           sessionStorage.removeItem('previewMode'); // Immediately remove after checking
+          setTimetableData(previewTimetableData);
+        } else {
+            const savedTimetable = localStorage.getItem("timetable");
+            if(savedTimetable) {
+                setTimetableData(JSON.parse(savedTimetable));
+            }
         }
         
         const checkSetup = () => {
@@ -61,10 +85,19 @@ export default function Page() {
         checkSetup();
     }
   }, [isMobile]);
+  
+  const updateTimetable = (newTimetable: TimetableData) => {
+    setTimetableData(newTimetable);
+    if (!isPreviewMode) {
+        localStorage.setItem("timetable", JSON.stringify(newTimetable));
+    }
+  }
 
-  const handleSetupComplete = () => {
+  const handleSetupComplete = (newTimetable: TimetableData) => {
+    updateTimetable(newTimetable);
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
+    
     const savedStartView = localStorage.getItem('startView');
     if (savedStartView) {
         setView(savedStartView);
@@ -111,7 +144,7 @@ export default function Page() {
             Made in Firebase Studio <GeminiSparkle />
         </div>
          <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
-            Version 1.0.1
+            Version v1.1-hotfix
         </div>
       </div>
     );
@@ -123,11 +156,11 @@ export default function Page() {
   
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
-      {view === 'daily' && <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} />}
-      {view === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode}/>}
+      {view === 'daily' && <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />}
+      {view === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />}
       {view === 'homework' && <HomeworkPlanner />}
       {view === 'smart-tool' && <SmartToolsView />}
-      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode}/>}
+      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={(newTimetable) => updateTimetable(newTimetable)} />}
 
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">

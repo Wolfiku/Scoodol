@@ -38,7 +38,22 @@ const startViews = [
 
 const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 
-export default function SettingsView({ onEditTimetable, isPreview = false }: { onEditTimetable: () => void, isPreview?: boolean }) {
+type TimetableEntry = {
+  id: string;
+  fach: string;
+  lehrer?: string;
+  start: string;
+  ende: string;
+  hauptfach?: boolean;
+  notizen?: string;
+  materialien?: string;
+};
+
+type TimetableData = {
+  [key: string]: TimetableEntry[];
+};
+
+export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (timetable: TimetableData) => void }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
     const [startView, setStartView] = useState('daily');
     const [isMounted, setIsMounted] = useState(false);
@@ -102,7 +117,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false }: { o
             a.href = url;
             a.download = 'skoolio-data.skplanexpo';
             document.body.appendChild(a);
-a.click();
+            a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             toast({ title: "Export erfolgreich", description: "Deine Daten wurden heruntergeladen." });
@@ -125,14 +140,14 @@ a.click();
                 const content = e.target?.result as string;
                 const importedData = JSON.parse(content);
 
-                if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
+                if (importedData.timetable) {
+                    onTimetableImport(importedData.timetable);
+                }
                 if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
-                if (importedData.theme) localStorage.setItem('theme', importedData.theme);
-                if (importedData.startView) localStorage.setItem('startView', importedData.startView);
+                if (importedData.theme) setTheme(importedData.theme);
+                if (importedData.startView) setStartView(importedData.startView);
 
-                toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt. Die App wird neu geladen." });
-                
-                setTimeout(() => window.location.reload(), 1500);
+                toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt." });
 
             } catch (error) {
                 toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei ist ungültig oder beschädigt." });
@@ -338,7 +353,7 @@ a.click();
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.0.1
+                    Version v1.1-hotfix
                 </span>
             </div>
         </div>

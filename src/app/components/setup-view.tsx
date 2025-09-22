@@ -1,13 +1,12 @@
 
 "use client"
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Camera, Edit, Info, Loader2, Save, Trash2 } from 'lucide-react';
-import initialTimetableData from '@/app/data/timetable.json';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -52,19 +51,21 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete, isEditing = false }: { onSetupComplete: () => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
-    const [timetable, setTimetable] = useState<TimetableData>(() => {
-        if(typeof window !== "undefined") {
-            const saved = localStorage.getItem("timetable");
-            // If editing, load saved data, otherwise start fresh
-            return saved ? JSON.parse(saved) : createInitialTimetable();
-        }
-        return createInitialTimetable();
-    });
+    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+
+     useEffect(() => {
+        if(isEditing) {
+            const saved = localStorage.getItem("timetable");
+            if (saved) {
+                setTimetable(JSON.parse(saved));
+            }
+        }
+    }, [isEditing]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -85,7 +86,7 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
                 });
             } else {
                 // Merge AI data with our structure
-                const newTimetable = { ...timetable };
+                const newTimetable = createInitialTimetable();
                 Object.keys(result.timetable).forEach(day => {
                     if(newTimetable[day]) {
                         const daySchedule = result.timetable[day as keyof typeof result.timetable] || [];
@@ -129,9 +130,8 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
     }
     
     const handleSave = () => {
-        localStorage.setItem("timetable", JSON.stringify(timetable));
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
-        onSetupComplete();
+        onSetupComplete(timetable);
     }
     
     if (mode === 'welcome') {

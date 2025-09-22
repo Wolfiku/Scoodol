@@ -2,8 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import initialTimetableData from "@/app/data/timetable.json";
-import previewTimetableData from "@/app/data/preview-timetable.json";
 import { getRemainingTime } from "@/app/actions";
 import {
   Card,
@@ -52,6 +50,14 @@ type TimetableData = {
   [key: string]: TimetableEntry[];
 };
 
+type Props = {
+  setView: (view: string) => void;
+  isPreview?: boolean;
+  timetable: TimetableData;
+  onTimetableUpdate: (timetable: TimetableData) => void;
+};
+
+
 const SCHOOL_START_HOUR = 8;
 const SCHOOL_END_HOUR = 13;
 
@@ -64,9 +70,8 @@ const parseTime = (timeStr: string) => {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
-export default function ZeitplanDashboard({ setView, isPreview = false }: { setView: (view: string) => void, isPreview?: boolean }) {
+export default function ZeitplanDashboard({ setView, isPreview = false, timetable, onTimetableUpdate }: Props) {
   const [now, setNow] = useState<Date | null>(null);
-  const [timetableData, setTimetableData] = useState<TimetableData>(isPreview ? previewTimetableData : initialTimetableData);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
     null
@@ -79,24 +84,10 @@ export default function ZeitplanDashboard({ setView, isPreview = false }: { setV
 
   useEffect(() => {
     setIsMounted(true);
-    if (!isPreview) {
-      const savedTimetable = localStorage.getItem("timetable");
-      if(savedTimetable) {
-          setTimetableData(JSON.parse(savedTimetable));
-      }
-    }
-    
     const today = new Date().getDay();
-    // Sunday is 0, Monday is 1, etc. but our array is 0-indexed from Monday.
-    const dayIndex = today > 0 && today < 6 ? today - 1 : 0; // Default to Monday if it's weekend
+    const dayIndex = today > 0 && today < 6 ? today - 1 : 0; 
     setCurrentDayIndex(dayIndex);
-  }, [isPreview]);
-
-  useEffect(() => {
-    if(isMounted && !isPreview) {
-      localStorage.setItem("timetable", JSON.stringify(timetableData));
-    }
-  }, [timetableData, isMounted, isPreview]);
+  }, []);
 
   const changeDay = (offset: number) => {
     setCurrentDayIndex(prevIndex => {
@@ -153,18 +144,18 @@ export default function ZeitplanDashboard({ setView, isPreview = false }: { setV
   const handleSaveNotes = () => {
     if (selectedSubject) {
       const day = weekDays[currentDayIndex];
-      const updatedTimetable = { ...timetableData };
+      const updatedTimetable = { ...timetable };
       updatedTimetable[day] = updatedTimetable[day].map((entry) =>
         entry.id === selectedSubject.id
           ? { ...entry, notizen: editingNotes }
           : entry
       );
-      setTimetableData(updatedTimetable);
+      onTimetableUpdate(updatedTimetable);
       handleCloseDialog();
     }
   };
   
-  const dailyTimetable = timetableData[weekDays[currentDayIndex]] || [];
+  const dailyTimetable = timetable[weekDays[currentDayIndex]] || [];
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
