@@ -263,50 +263,6 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Hilfe &amp; Anleitung</CardTitle>
-                        <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Accordion type="single" collapsible>
-                            <AccordionItem value="install-pwa">
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-2">
-                                        <HelpCircle className="w-5 h-5" />
-                                        <span>Wie installiere ich die App (PWA)?</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-4 pt-4">
-                                    <p>Du kannst diese Web-App wie eine normale App auf deinem Gerät installieren, um schnell darauf zugreifen zu können.</p>
-                                    
-                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Tablet className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">iOS / iPadOS (Safari)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App in Safari, tippe auf das "Teilen"-Symbol (das Quadrat mit dem Pfeil nach oben) und wähle dann "Zum Home-Bildschirm".</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Smartphone className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">Android (Chrome)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App in Chrome. Je nach Version erscheint eine Aufforderung zur Installation oder du findest die Option "App installieren" bzw. "Zum Startbildschirm hinzufügen" im Browser-Menü (drei Punkte).</p>
-                                        </div>
-                                    </div>
-                                     <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Laptop className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">Desktop (Chrome, Edge)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App im Browser. In der Adressleiste erscheint rechts ein kleines Icon (oft ein Bildschirm mit einem Pfeil). Klicke darauf und bestätige die Installation.</p>
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    </CardContent>
-                </Card>
-
                  <Card>
                     <CardHeader>
                         <CardTitle>Erweiterte Einstellungen</CardTitle>
@@ -395,6 +351,50 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
                 <Card>
                     <CardHeader>
+                        <CardTitle>Hilfe &amp; Anleitung</CardTitle>
+                        <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="install-pwa">
+                                <AccordionTrigger>
+                                    <div className="flex items-center gap-2">
+                                        <HelpCircle className="w-5 h-5" />
+                                        <span>Wie installiere ich die App (PWA)?</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-4 pt-4">
+                                    <p>Du kannst diese Web-App wie eine normale App auf deinem Gerät installieren, um schnell darauf zugreifen zu können.</p>
+                                    
+                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Tablet className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">iOS / iPadOS (Safari)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App in Safari, tippe auf das "Teilen"-Symbol (das Quadrat mit dem Pfeil nach oben) und wähle dann "Zum Home-Bildschirm".</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Smartphone className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">Android (Chrome)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App in Chrome. Je nach Version erscheint eine Aufforderung zur Installation oder du findest die Option "App installieren" bzw. "Zum Startbildschirm hinzufügen" im Browser-Menü (drei Punkte).</p>
+                                        </div>
+                                    </div>
+                                     <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Laptop className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">Desktop (Chrome, Edge)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App im Browser. In der Adressleiste erscheint rechts ein kleines Icon (oft ein Bildschirm mit einem Pfeil). Klicke darauf und bestätige die Installation.</p>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Rechtliches</CardTitle>
                         <CardDescription>Impressum und Datenschutzerklärung.</CardDescription>
                     </CardHeader>
@@ -416,7 +416,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.1
+                    Version 1.1.1
                 </span>
             </div>
         </div>

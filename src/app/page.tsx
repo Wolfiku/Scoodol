@@ -21,7 +21,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.1.1';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -204,9 +204,9 @@ export default function Page() {
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version {APP_VERSION}!</DialogTitle>
                 <DialogDescription className="pt-2 text-base">
-                    Aus **Skoolio Planner** wird jetzt **Scoodol**!
+                    Scoodol hat ein Update erhalten!
                     <br/><br/>
-                    Das größte neue Feature ist aber, dass du Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren kannst. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
+                    Das größte neue Feature ist, dass du Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren kannst. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2 mt-4">
