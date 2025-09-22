@@ -117,7 +117,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'skoolio-data.skplanexpo';
+            a.download = 'scoodol-data.json';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -263,49 +263,6 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 </Card>
                  <Card>
                     <CardHeader>
-                        <CardTitle>Hilfe &amp; Anleitung</CardTitle>
-                        <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Accordion type="single" collapsible>
-                            <AccordionItem value="install-pwa">
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-2">
-                                        <HelpCircle className="w-5 h-5" />
-                                        <span>Wie installiere ich die App (PWA)?</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-4 pt-4">
-                                    <p>Du kannst diese Web-App wie eine normale App auf deinem Gerät installieren, um schnell darauf zugreifen zu können.</p>
-                                    
-                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Tablet className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">iOS / iPadOS (Safari)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App in Safari, tippe auf das "Teilen"-Symbol (das Quadrat mit dem Pfeil nach oben) und wähle dann "Zum Home-Bildschirm".</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Smartphone className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">Android (Chrome)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App in Chrome. Je nach Version erscheint eine Aufforderung zur Installation oder du findest die Option "App installieren" bzw. "Zum Startbildschirm hinzufügen" im Browser-Menü (drei Punkte).</p>
-                                        </div>
-                                    </div>
-                                     <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
-                                        <Laptop className="w-8 h-8 text-primary mt-1" />
-                                        <div>
-                                            <h4 className="font-semibold">Desktop (Chrome, Edge)</h4>
-                                            <p className="text-sm text-muted-foreground">Öffne die App im Browser. In der Adressleiste erscheint rechts ein kleines Icon (oft ein Bildschirm mit einem Pfeil). Klicke darauf und bestätige die Installation.</p>
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    </CardContent>
-                </Card>
-                <Card>
-                     <CardHeader>
                         <CardTitle>Erweiterte Einstellungen</CardTitle>
                         <CardDescription>Passe das Verhalten der App an und sichere oder lösche deine Daten.</CardDescription>
                     </CardHeader>
@@ -348,7 +305,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     type="file" 
                                     ref={fileInputRef} 
                                     className="hidden" 
-                                    accept=".skplanexpo,application/json"
+                                    accept=".json"
                                     onChange={handleFileChange}
                                 />
                             </div>
@@ -389,6 +346,49 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         </AlertDialog>
                     </CardFooter>
                 </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Hilfe &amp; Anleitung</CardTitle>
+                        <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="install-pwa">
+                                <AccordionTrigger>
+                                    <div className="flex items-center gap-2">
+                                        <HelpCircle className="w-5 h-5" />
+                                        <span>Wie installiere ich die App (PWA)?</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-4 pt-4">
+                                    <p>Du kannst diese Web-App wie eine normale App auf deinem Gerät installieren, um schnell darauf zugreifen zu können.</p>
+                                    
+                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Tablet className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">iOS / iPadOS (Safari)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App in Safari, tippe auf das "Teilen"-Symbol (das Quadrat mit dem Pfeil nach oben) und wähle dann "Zum Home-Bildschirm".</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Smartphone className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">Android (Chrome)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App in Chrome. Je nach Version erscheint eine Aufforderung zur Installation oder du findest die Option "App installieren" bzw. "Zum Startbildschirm hinzufügen" im Browser-Menü (drei Punkte).</p>
+                                        </div>
+                                    </div>
+                                     <div className="flex items-start gap-4 p-3 rounded-lg bg-secondary">
+                                        <Laptop className="w-8 h-8 text-primary mt-1" />
+                                        <div>
+                                            <h4 className="font-semibold">Desktop (Chrome, Edge)</h4>
+                                            <p className="text-sm text-muted-foreground">Öffne die App im Browser. In der Adressleiste erscheint rechts ein kleines Icon (oft ein Bildschirm mit einem Pfeil). Klicke darauf und bestätige die Installation.</p>
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    </CardContent>
+                </Card>
             </div>
              <div className="flex justify-between items-center text-sm text-muted-foreground mt-8">
                 <span 
@@ -404,5 +404,3 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
-
-    

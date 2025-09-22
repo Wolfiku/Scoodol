@@ -179,9 +179,9 @@ export default function Page() {
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version {APP_VERSION}!</DialogTitle>
                 <DialogDescription className="pt-2">
-                    Diese Version bringt eine große Verbesserung: Du kannst den Skoolio Planner jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren. 
+                    Skoolio Planner heißt jetzt **Scoodol**!
                     <br/><br/>
-                    Das bedeutet schnelleren Zugriff, eine bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm aus.
+                    Diese Version bringt außerdem eine große Verbesserung: Du kannst Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2">

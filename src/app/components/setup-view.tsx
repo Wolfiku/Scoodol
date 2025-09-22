@@ -148,7 +148,7 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
                     <CardHeader>
-                        <CardTitle className="text-3xl">Willkommen bei Skoolio Planner!</CardTitle>
+                        <CardTitle className="text-3xl">Willkommen bei Scoodol!</CardTitle>
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -266,5 +266,3 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
 
     return null;
 }
-
-    
