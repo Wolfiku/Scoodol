@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: 'Scoodol',
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon-32x32.png',
+    apple: '/icons/icon-192x192.png',
+  },
 };
 
 const ptSans = PT_Sans({
