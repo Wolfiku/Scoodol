@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import initialTimetableData from "@/app/data/timetable.json";
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const APP_VERSION = '1.1';
 
@@ -50,6 +51,7 @@ export default function Page() {
   const { theme } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,26 +91,7 @@ export default function Page() {
         // Check for update notification
         const lastSeenVersion = localStorage.getItem('lastSeenVersion');
         if (lastSeenVersion !== APP_VERSION) {
-            toast({
-                title: `Willkommen zu Version ${APP_VERSION}!`,
-                description: "Du kannst die App jetzt als Web-App auf deinem Gerät installieren.",
-                duration: 20000, // Make it sticky
-                action: (
-                    <Button 
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            setView('settings');
-                            localStorage.setItem('lastSeenVersion', APP_VERSION);
-                        }}
-                    >
-                        <Info className="mr-2" /> Mehr erfahren
-                    </Button>
-                ),
-                onDismiss: () => {
-                    localStorage.setItem('lastSeenVersion', APP_VERSION);
-                }
-            });
+            setShowUpdateDialog(true);
         }
     }
   }, [isMobile, toast]);
@@ -155,6 +138,14 @@ export default function Page() {
     }
   };
 
+  const closeUpdateDialog = (navigateToSettings = false) => {
+      setShowUpdateDialog(false);
+      localStorage.setItem('lastSeenVersion', APP_VERSION);
+      if (navigateToSettings) {
+          setView('settings');
+      }
+  }
+
   const isHomeView = view === 'daily' || view === 'weekly';
 
 
@@ -183,6 +174,25 @@ export default function Page() {
   
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
+       <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle className="text-2xl">Willkommen zu Version {APP_VERSION}!</DialogTitle>
+                <DialogDescription className="pt-2">
+                    Diese Version bringt eine große Verbesserung: Du kannst den Skoolio Planner jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren. 
+                    <br/><br/>
+                    Das bedeutet schnelleren Zugriff, eine bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm aus.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2">
+                <Button onClick={() => closeUpdateDialog(true)}>
+                    <Info className="mr-2" /> Zur Anleitung
+                </Button>
+                <Button variant="ghost" onClick={() => closeUpdateDialog(false)}>Später</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {view === 'daily' && <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />}
       {view === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />}
       {view === 'homework' && <HomeworkPlanner />}
