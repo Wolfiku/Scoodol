@@ -6,7 +6,7 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings, Info } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
@@ -15,7 +15,9 @@ import SetupView from './components/setup-view';
 import { Loader2 } from 'lucide-react';
 import initialTimetableData from "@/app/data/timetable.json";
 import previewTimetableData from "@/app/data/preview-timetable.json";
+import { useToast } from '@/hooks/use-toast';
 
+const APP_VERSION = '1.1';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -48,7 +50,7 @@ export default function Page() {
   const { theme } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
-
+  const { toast } = useToast();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -83,8 +85,33 @@ export default function Page() {
             setTimeout(() => setIsInitialised(true), 500);
         };
         checkSetup();
+
+        // Check for update notification
+        const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+        if (lastSeenVersion !== APP_VERSION) {
+            toast({
+                title: `Willkommen zu Version ${APP_VERSION}!`,
+                description: "Du kannst die App jetzt als Web-App auf deinem Gerät installieren.",
+                duration: 20000, // Make it sticky
+                action: (
+                    <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setView('settings');
+                            localStorage.setItem('lastSeenVersion', APP_VERSION);
+                        }}
+                    >
+                        <Info className="mr-2" /> Mehr erfahren
+                    </Button>
+                ),
+                onDismiss: () => {
+                    localStorage.setItem('lastSeenVersion', APP_VERSION);
+                }
+            });
+        }
     }
-  }, [isMobile]);
+  }, [isMobile, toast]);
   
   const updateTimetable = (newTimetable: TimetableData) => {
     setTimetableData(newTimetable);
@@ -144,7 +171,7 @@ export default function Page() {
             Made in Firebase Studio <GeminiSparkle />
         </div>
          <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
-            Version 0.0.3
+            Version {APP_VERSION}
         </div>
       </div>
     );
