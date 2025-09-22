@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/gemini-icon.svg',
-    shortcut: '/gemini-icon.svg',
-    apple: '/gemini-icon.svg',
+    icon: '/calendar-icon.svg',
+    shortcut: '/calendar-icon.svg',
+    apple: '/calendar-icon.svg',
   },
 };
 
