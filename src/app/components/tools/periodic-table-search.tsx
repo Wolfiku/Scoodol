@@ -9,15 +9,26 @@ import { searchElement } from '@/app/actions';
 import type { FindElementOutput } from '@/ai/flows/find-element';
 import { Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PeriodicTableSearch() {
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState<FindElementOutput | null>(null);
+    const { toast } = useToast();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            toast({
+                variant: 'destructive',
+                title: 'Offline',
+                description: 'Diese Funktion benötigt eine Internetverbindung.',
+            });
+            return;
+        }
 
         setIsLoading(true);
         setResult(null);
@@ -114,3 +125,5 @@ export default function PeriodicTableSearch() {
     </Card>
   );
 }
+
+    

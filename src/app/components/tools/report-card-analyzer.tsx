@@ -26,6 +26,15 @@ export default function ReportCardAnalyzer() {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            toast({
+                variant: 'destructive',
+                title: 'Offline',
+                description: 'Diese Funktion benötigt eine Internetverbindung.',
+            });
+            return;
+        }
+
         setFileName(file.name);
         setIsAnalyzing(true);
         setAnalysisResult(null);
@@ -153,3 +162,5 @@ export default function ReportCardAnalyzer() {
     </Card>
   );
 }
+
+    

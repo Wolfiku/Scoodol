@@ -176,6 +176,15 @@ export default function HomeworkPlanner() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toast({
+            variant: 'destructive',
+            title: 'Offline',
+            description: 'Diese Funktion benötigt eine Internetverbindung.',
+        });
+        return;
+    }
+
     setIsScanning(true);
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -446,3 +455,5 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
+
+    

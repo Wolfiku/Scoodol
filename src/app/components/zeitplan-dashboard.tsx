@@ -113,7 +113,13 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   }, []);
 
   useEffect(() => {
-    if (!now || !isMounted) return;
+    if (!now || !isMounted || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        if (!isSchoolTime) {
+            setRemainingTime(null);
+        }
+        return;
+    };
+
     const currentMinute = now.getMinutes();
     if (isSchoolTime && currentMinute !== lastMinuteRef.current) {
       const fetchRemainingTime = async () => {
@@ -333,3 +339,5 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
+
+    

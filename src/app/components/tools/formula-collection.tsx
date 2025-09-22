@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { searchFormula } from '@/app/actions';
 import type { FindFormulaOutput } from '@/ai/flows/find-formula';
 import { Loader2, Wand2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const formulas = {
     "Mathematik": [
@@ -54,10 +55,20 @@ export default function FormulaCollection() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [searchResult, setSearchResult] = useState<FindFormulaOutput | null>(null);
+    const { toast } = useToast();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!searchTerm.trim()) return;
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            toast({
+                variant: 'destructive',
+                title: 'Offline',
+                description: 'Diese Funktion benötigt eine Internetverbindung.',
+            });
+            return;
+        }
 
         setIsLoading(true);
         setSearchResult(null);
@@ -150,3 +161,5 @@ export default function FormulaCollection() {
     </Card>
   );
 }
+
+    
