@@ -18,6 +18,8 @@ import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import Link from 'next/link';
+import ImpressumPage from './impressum/page';
+import DatenschutzPage from './datenschutz/page';
 
 const APP_VERSION = '1.1';
 
@@ -172,10 +174,30 @@ export default function Page() {
   if (!isSetupComplete && !isPreviewMode) {
       return <SetupView onSetupComplete={handleSetupComplete} isEditing={isEditingTimetable} />;
   }
+
+  const renderView = () => {
+    switch(view) {
+      case 'daily':
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />;
+      case 'weekly':
+        return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />;
+      case 'homework':
+        return <HomeworkPlanner />;
+      case 'smart-tool':
+        return <SmartToolsView />;
+      case 'settings':
+        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={(newTimetable) => updateTimetable(newTimetable)} />;
+      case 'impressum':
+        return <ImpressumPage />;
+      case 'datenschutz':
+        return <DatenschutzPage />;
+      default:
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />;
+    }
+  }
   
   return (
     <>
-      { view !== 'impressum' && view !== 'datenschutz' ? (
       <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
@@ -196,11 +218,7 @@ export default function Page() {
         </DialogContent>
       </Dialog>
       
-      {view === 'daily' && <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />}
-      {view === 'weekly' && <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />}
-      {view === 'homework' && <HomeworkPlanner />}
-      {view === 'smart-tool' && <SmartToolsView />}
-      {view === 'settings' && <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={(newTimetable) => updateTimetable(newTimetable)} />}
+      {renderView()}
 
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">
@@ -244,12 +262,6 @@ export default function Page() {
         </div>
       </div>
     </main>
-    ) : (
-      <>
-        {view === 'impressum' && <Link href="/impressum" />}
-        {view === 'datenschutz' && <Link href="/datenschutz" />}
-      </>
-    )}
     </>
   );
 }

@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -10,6 +10,7 @@ import { Camera, Edit, Info, Loader2, Save, Trash2 } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 type TimetableEntry = {
     id: string;
@@ -154,6 +155,14 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
                     <CardContent>
                          <Button size="lg" className="w-full" onClick={() => setMode('select')}>Los geht's!</Button>
                     </CardContent>
+                    <CardFooter className="flex justify-center gap-4 text-sm">
+                        <Button variant="link" asChild className="text-muted-foreground">
+                            <Link href="/impressum">Impressum</Link>
+                        </Button>
+                         <Button variant="link" asChild className="text-muted-foreground">
+                            <Link href="/datenschutz">Datenschutz</Link>
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
         )
