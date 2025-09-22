@@ -328,7 +328,7 @@ export default function HomeworkPlanner() {
                     onChange={(e) => setNewDueDate(e.target.value)}
                   />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="pt-4 sm:pt-0">
                     <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
                     <Button onClick={handleSaveHomework}>{editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}</Button>
                 </DialogFooter>
@@ -344,14 +344,16 @@ export default function HomeworkPlanner() {
                 <PlayCircle className="h-4 w-4" />
                 <AlertTitle className="text-primary font-bold">Fokus-Modus</AlertTitle>
                 <AlertDescription>
-                    Starte eine konzentrierte Lerneinheit mit allen anstehenden Aufgaben.
-                    <Button 
-                        size="sm" 
-                        className="mt-3 w-full sm:w-auto"
-                        onClick={handleStartFocusMode}
-                    >
-                        Fokus-Modus starten
-                    </Button>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <p>Starte eine konzentrierte Lerneinheit mit allen anstehenden Aufgaben.</p>
+                        <Button 
+                            size="sm" 
+                            className="mt-2 sm:mt-0 w-full sm:w-auto flex-shrink-0"
+                            onClick={handleStartFocusMode}
+                        >
+                            Fokus-Modus starten
+                        </Button>
+                    </div>
                 </AlertDescription>
             </Alert>
         )}
