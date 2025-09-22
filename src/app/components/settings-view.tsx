@@ -330,11 +330,16 @@ a.click();
                     </CardFooter>
                 </Card>
             </div>
-            <div 
-                className="text-center text-sm text-muted-foreground mt-8 cursor-pointer"
-                onClick={handleFooterTap}
-            >
-                made by @wolfiku, powered by limbo
+             <div className="flex justify-between items-center text-sm text-muted-foreground mt-8">
+                <span 
+                    className="cursor-pointer"
+                    onClick={handleFooterTap}
+                >
+                    made by @wolfiku, powered by limbo
+                </span>
+                <span>
+                    Version 1.0.1
+                </span>
             </div>
         </div>
     )

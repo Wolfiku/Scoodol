@@ -190,7 +190,7 @@ export default function ClassicTimetableView({ setView, isPreview = false }: { s
                       ))}
                        <tr>
                           <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
-                              Skoolio Planner by @wolfikuproduction
+                              Skoolio Planner v1.0.1 by @wolfikuproduction
                           </td>
                       </tr>
                   </tbody>
