@@ -1,22 +1,24 @@
 {
-  "name": "Scoodol",
   "short_name": "Scoodol",
-  "description": "Dein smarter Begleiter für den Schulalltag.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#fff",
-  "theme_color": "#fff",
+  "name": "Scoodol - Dein smarter Schulplaner",
+  "description": "Scoodol ist dein smarter Begleiter für den Schulalltag. Organisiere deinen Stundenplan, verwalte deine Hausaufgaben und nutze smarte Tools, um den Überblick zu behalten.",
   "icons": [
     {
-      "src": "calendar-icon.svg",
-      "sizes": "192x192",
+      "src": "/calendar-icon.svg",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "sizes": "any",
+      "purpose": "any"
     },
     {
-      "src": "calendar-icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
+      "src": "/calendar-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#2563eb"
 }
