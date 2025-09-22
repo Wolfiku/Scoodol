@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { searchFormula } from '@/app/actions';
 import type { FindFormulaOutput } from '@/ai/flows/find-formula';
-import { Loader2, Wand2 } from 'lucide-react';
+import { Loader2, Wand2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const formulas = {
@@ -59,7 +59,14 @@ export default function FormulaCollection() {
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!searchTerm.trim()) return;
+        const trimmedSearch = searchTerm.trim().toLowerCase();
+        if (!trimmedSearch) return;
+
+        if (trimmedSearch === '4. binomische formel' || trimmedSearch === 'vierte binomische formel') {
+            window.open('https://m.youtube.com/watch?v=EYbvhWEG6kE', '_blank');
+            toast({ title: 'Du wurdest weitergeleitet!', description: 'Die 4. Binomische Formel ist ein Geheimnis für sich...' });
+            return;
+        }
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             toast({
@@ -86,6 +93,8 @@ export default function FormulaCollection() {
         }
         return acc;
     }, {} as typeof formulas);
+    
+    const showBinomialSong = searchTerm.toLowerCase().includes('binomische');
 
 
   return (
@@ -150,6 +159,15 @@ export default function FormulaCollection() {
                                 <div key={formula.name} className="p-4 bg-secondary rounded-lg">
                                     <p className="font-semibold">{formula.name}</p>
                                     <p className="font-mono text-primary whitespace-pre-wrap">{formula.formula}</p>
+                                     {formula.name === 'Binomische Formeln' && (
+                                        <Button
+                                            variant="link"
+                                            className="p-0 h-auto mt-2"
+                                            onClick={() => window.open('https://m.youtube.com/watch?v=EYbvhWEG6kE', '_blank')}
+                                        >
+                                            <Music className="mr-2" /> Kennst du schon den Song dazu?
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -157,9 +175,16 @@ export default function FormulaCollection() {
                 </AccordionItem>
             ))}
         </Accordion>
+        
+         {showBinomialSong && !searchResult && (
+            <div className="mt-6 text-center">
+                <Button variant="outline" onClick={() => window.open('https://m.youtube.com/watch?v=EYbvhWEG6kE', '_blank')}>
+                   <Music className="mr-2" /> Kennst du schon den Song zu den binomischen Formeln?
+                </Button>
+            </div>
+        )}
+
       </CardContent>
     </Card>
   );
 }
-
-    

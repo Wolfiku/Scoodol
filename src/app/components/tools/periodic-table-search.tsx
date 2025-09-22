@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -18,10 +19,11 @@ export default function PeriodicTableSearch() {
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!query.trim()) return;
+        const trimmedQuery = query.trim().toLowerCase();
+        if (!trimmedQuery) return;
 
-        // Easter Egg for "wolfiku"
-        if (query.trim().toLowerCase() === 'wolfiku') {
+        // Easter Eggs
+        if (trimmedQuery === 'wolfiku') {
             setResult({
                 element: {
                     name: 'Wolfikum',
@@ -32,6 +34,22 @@ export default function PeriodicTableSearch() {
                     meltingPoint: 'kreative Hitze',
                     boilingPoint: 'sprudelnde Ideen',
                     density: 'sehr kompakt'
+                }
+            });
+            return;
+        }
+
+        if (trimmedQuery === 'stein der weisen') {
+             setResult({
+                element: {
+                    name: 'Stein der Weisen',
+                    symbol: 'Lapis',
+                    atomicNumber: 999,
+                    atomicMass: 'unendlich',
+                    description: 'Ein legendärer alchemistischer Gegenstand mit der Fähigkeit, unedle Metalle in Gold zu verwandeln und das Elixier des Lebens zu erzeugen. Angeblich erschaffen von Nicolas Flamel.',
+                    meltingPoint: 'unbekannt',
+                    boilingPoint: 'unbekannt',
+                    density: 'variabel'
                 }
             });
             return;
@@ -53,7 +71,7 @@ export default function PeriodicTableSearch() {
         setIsLoading(false);
     }
 
-    const renderProperty = (label: string, value?: string) => {
+    const renderProperty = (label: string, value?: string | number) => {
         if (!value) return null;
         return (
             <div className="flex justify-between text-sm py-2">
