@@ -107,8 +107,11 @@ export default function Page() {
             <Loader2 className="mr-2 animate-spin"/> App wird geladen...
           </p>
         </div>
-        <div className="absolute bottom-4 text-xs text-muted-foreground flex items-center">
+        <div className="absolute bottom-4 left-4 text-xs text-muted-foreground flex items-center">
             Made in Firebase Studio <GeminiSparkle />
+        </div>
+         <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+            Version 1.0.1
         </div>
       </div>
     );
