@@ -17,6 +17,7 @@ import initialTimetableData from "@/app/data/timetable.json";
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import Link from 'next/link';
 
 const APP_VERSION = '1.1';
 
@@ -173,20 +174,22 @@ export default function Page() {
   }
   
   return (
-    <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
+    <>
+      { view !== 'impressum' && view !== 'datenschutz' ? (
+      <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version {APP_VERSION}!</DialogTitle>
-                <DialogDescription className="pt-2">
-                    Skoolio Planner heißt jetzt **Scoodol**!
+                <DialogDescription className="pt-2 text-base">
+                    Aus **Skoolio Planner** wird jetzt **Scoodol**!
                     <br/><br/>
-                    Diese Version bringt außerdem eine große Verbesserung: Du kannst Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
+                    Das größte neue Feature ist aber, dass du Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren kannst. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
                 </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2">
-                <Button onClick={() => closeUpdateDialog(true)}>
-                    <Info className="mr-2" /> Zur Anleitung
+            <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2 mt-4">
+                <Button onClick={() => closeUpdateDialog(true)} size="lg">
+                    <Info className="mr-2" /> Zeig mir, wie's geht!
                 </Button>
                 <Button variant="ghost" onClick={() => closeUpdateDialog(false)}>Später</Button>
             </DialogFooter>
@@ -241,5 +244,12 @@ export default function Page() {
         </div>
       </div>
     </main>
+    ) : (
+      <>
+        {view === 'impressum' && <Link href="/impressum" />}
+        {view === 'datenschutz' && <Link href="/datenschutz" />}
+      </>
+    )}
+    </>
   );
 }

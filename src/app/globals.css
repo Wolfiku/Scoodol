@@ -147,4 +147,25 @@
   body {
     @apply bg-background text-foreground;
   }
+   .prose {
+    @apply text-foreground;
+  }
+  .prose h2 {
+    @apply text-2xl font-bold mt-8 mb-4;
+  }
+  .prose h3 {
+    @apply text-xl font-bold mt-6 mb-3;
+  }
+  .prose p, .prose ul, .prose li {
+    @apply mb-4 leading-relaxed;
+  }
+  .prose a {
+    @apply text-primary hover:underline;
+  }
+  .prose strong {
+    @apply font-bold;
+  }
+  .prose ul {
+    @apply list-disc pl-5;
+  }
 }
