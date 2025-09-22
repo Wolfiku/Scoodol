@@ -1,52 +1,53 @@
+
 {
   "Montag": [
-    { "id": "mo-1", "fach": "IT", "lehrer": "", "start": "08:00", "ende": "08:45", "hauptfach": false, "notizen": "", "materialien": "#" },
-    { "id": "mo-2", "fach": "IT", "lehrer": "", "start": "08:45", "ende": "09:30", "hauptfach": false, "notizen": "", "materialien": "#" },
-    { "id": "mo-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
-    { "id": "mo-3", "fach": "Reli / Ethik", "lehrer": "", "start": "09:45", "ende": "10:30", "hauptfach": false, "notizen": "", "materialien": "#" },
-    { "id": "mo-4", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "10:30", "ende": "11:15", "hauptfach": true, "notizen": "", "materialien": "#" },
-    { "id": "mo-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "mo-5", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "11:30", "ende": "12:15", "hauptfach": true, "notizen": "", "materialien": "#" },
-    { "id": "mo-6", "fach": "Deutsch", "lehrer": "Herr Platzer", "start": "12:15", "ende": "13:00", "hauptfach": true }
+    { "id": "p-mo-1", "fach": "Quantenphysik", "lehrer": "Dr. Schrödinger", "start": "08:00", "ende": "08:45", "hauptfach": true },
+    { "id": "p-mo-2", "fach": "Quantenphysik", "lehrer": "Dr. Schrödinger", "start": "08:45", "ende": "09:30", "hauptfach": true },
+    { "id": "p-mo-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
+    { "id": "p-mo-3", "fach": "KI-Ethik", "lehrer": "Prof. Asimov", "start": "09:45", "ende": "10:30", "hauptfach": false },
+    { "id": "p-mo-4", "fach": "Drachenkunde", "lehrer": "Hagrid", "start": "10:30", "ende": "11:15", "hauptfach": true },
+    { "id": "p-mo-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
+    { "id": "p-mo-5", "fach": "Drachenkunde", "lehrer": "Hagrid", "start": "11:30", "ende": "12:15", "hauptfach": true },
+    { "id": "p-mo-6", "fach": "Creative Writing", "lehrer": "Fr. Rowling", "start": "12:15", "ende": "13:00", "hauptfach": true }
   ],
   "Dienstag": [
-    { "id": "di-1", "fach": "Kunst", "lehrer": "", "start": "08:00", "ende": "08:45" },
-    { "id": "di-2", "fach": "Mathe", "lehrer": "Frau Beck", "start": "08:45", "ende": "09:30", "hauptfach": true },
-    { "id": "di-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
-    { "id": "di-3", "fach": "Deutsch", "lehrer": "Herr Platzer", "start": "09:45", "ende": "10:30", "hauptfach": true },
-    { "id": "di-4", "fach": "Physik", "lehrer": "Herr Bissinger", "start": "10:30", "ende": "11:15" },
-    { "id": "di-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "di-5", "fach": "Geo", "lehrer": "", "start": "11:30", "ende": "12:15" },
-    { "id": "di-6", "fach": "Wirtschaft und Recht", "lehrer": "", "start": "12:15", "ende": "13:00" }
+    { "id": "p-di-1", "fach": "Raumschiff-Design", "lehrer": "Elon M.", "start": "08:00", "ende": "08:45" },
+    { "id": "p-di-2", "fach": "Differentialgeometrie", "lehrer": "Dr. Riemann", "start": "08:45", "ende": "09:30", "hauptfach": true },
+    { "id": "p-di-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
+    { "id": "p-di-3", "fach": "Creative Writing", "lehrer": "Fr. Rowling", "start": "09:45", "ende": "10:30", "hauptfach": true },
+    { "id": "p-di-4", "fach": "Astrophysik", "lehrer": "Dr. Tyson", "start": "10:30", "ende": "11:15" },
+    { "id": "p-di-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
+    { "id": "p-di-5", "fach": "Alte Sprachen", "lehrer": "Prof. Tolkien", "start": "11:30", "ende": "12:15" },
+    { "id": "p-di-6", "fach": "Wirtschaft & Magie", "lehrer": "G. Gier", "start": "12:15", "ende": "13:00" }
   ],
   "Mittwoch": [
-    { "id": "mi-1", "fach": "Englisch", "lehrer": "Frau Stadler", "start": "08:00", "ende": "08:45", "hauptfach": true },
-    { "id": "mi-2", "fach": "Mathe", "lehrer": "Frau Beck", "start": "08:45", "ende": "09:30", "hauptfach": true },
-    { "id": "mi-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
-    { "id": "mi-3", "fach": "Deutsch", "lehrer": "Herr Platzer", "start": "09:45", "ende": "10:30", "hauptfach": true },
-    { "id": "mi-4", "fach": "Deutsch", "lehrer": "Herr Platzer", "start": "10:30", "ende": "11:15", "hauptfach": true },
-    { "id": "mi-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "mi-5", "fach": "Geschichte", "lehrer": "", "start": "11:30", "ende": "12:15" },
-    { "id": "mi-6", "fach": "Mathe", "lehrer": "Frau Beck", "start": "12:15", "ende": "13:00", "hauptfach": true }
+    { "id": "p-mi-1", "fach": "Drachenkunde", "lehrer": "Hagrid", "start": "08:00", "ende": "08:45", "hauptfach": true },
+    { "id": "p-mi-2", "fach": "Differentialgeometrie", "lehrer": "Dr. Riemann", "start": "08:45", "ende": "09:30", "hauptfach": true },
+    { "id": "p-mi-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
+    { "id": "p-mi-3", "fach": "Creative Writing", "lehrer": "Fr. Rowling", "start": "09:45", "ende": "10:30", "hauptfach": true },
+    { "id": "p-mi-4", "fach": "Creative Writing", "lehrer": "Fr. Rowling", "start": "10:30", "ende": "11:15", "hauptfach": true },
+    { "id": "p-mi-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
+    { "id": "p-mi-5", "fach": "Gesch. d. Zauberei", "lehrer": "Prof. Binns", "start": "11:30", "ende": "12:15" },
+    { "id": "p-mi-6", "fach": "Differentialgeometrie", "lehrer": "Dr. Riemann", "start": "12:15", "ende": "13:00", "hauptfach": true }
   ],
   "Donnerstag": [
-    { "id": "do-1", "fach": "Chemie", "lehrer": "Frau Bleicher", "start": "08:00", "ende": "08:45" },
-    { "id": "do-2", "fach": "Mathe", "lehrer": "Frau Beck", "start": "08:45", "ende": "09:30", "hauptfach": true },
-    { "id": "do-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
-    { "id": "do-3", "fach": "Physik", "lehrer": "Herr Bissinger", "start": "09:45", "ende": "10:30" },
-    { "id": "do-4", "fach": "Geo", "lehrer": "", "start": "10:30", "ende": "11:15" },
-    { "id": "do-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "do-5", "fach": "Sport", "lehrer": "Herr Stachel", "start": "11:30", "ende": "12:15" },
-    { "id": "do-6", "fach": "Sport", "lehrer": "Herr Stachel", "start": "12:15", "ende": "13:00" }
+    { "id": "p-do-1", "fach": "Molekularküche", "lehrer": "Fr. Bleicher", "start": "08:00", "ende": "08:45" },
+    { "id": "p-do-2", "fach": "Differentialgeometrie", "lehrer": "Dr. Riemann", "start": "08:45", "ende": "09:30", "hauptfach": true },
+    { "id": "p-do-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
+    { "id": "p-do-3", "fach": "Astrophysik", "lehrer": "Dr. Tyson", "start": "09:45", "ende": "10:30" },
+    { "id": "p-do-4", "fach": "Planetologie", "lehrer": "C. Sagan", "start": "10:30", "ende": "11:15" },
+    { "id": "p-do-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
+    { "id": "p-do-5", "fach": "Sport (Quidditch)", "lehrer": "Hr. Wood", "start": "11:30", "ende": "12:15" },
+    { "id": "p-do-6", "fach": "Sport (Quidditch)", "lehrer": "Hr. Wood", "start": "12:15", "ende": "13:00" }
   ],
   "Freitag": [
-    { "id": "fr-1", "fach": "Mathe", "lehrer": "Frau Beck", "start": "08:00", "ende": "08:45", "hauptfach": true },
-    { "id": "fr-2", "fach": "Physik", "lehrer": "Herr Bissinger", "start": "08:45", "ende": "09:30" },
-    { "id": "fr-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
-    { "id": "fr-3", "fach": "Ethik", "lehrer": "", "start": "09:45", "ende": "10:30" },
-    { "id": "fr-4", "fach": "Chemie", "lehrer": "Frau Bleicher", "start": "10:30", "ende": "11:15" },
-    { "id": "fr-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
-    { "id": "fr-5", "fach": "Geschichte", "lehrer": "", "start": "11:30", "ende": "12:15" },
-    { "id": "fr-6", "fach": "Wirtschaft und Recht", "lehrer": "", "start": "12:15", "ende": "13:00" }
+    { "id": "p-fr-1", "fach": "Differentialgeometrie", "lehrer": "Dr. Riemann", "start": "08:00", "ende": "08:45", "hauptfach": true },
+    { "id": "p-fr-2", "fach": "Astrophysik", "lehrer": "Dr. Tyson", "start": "08:45", "ende": "09:30" },
+    { "id": "p-fr-pause1", "fach": "Pause", "start": "09:30", "ende": "09:45" },
+    { "id": "p-fr-3", "fach": "KI-Ethik", "lehrer": "Prof. Asimov", "start": "09:45", "ende": "10:30" },
+    { "id": "p-fr-4", "fach": "Molekularküche", "lehrer": "Fr. Bleicher", "start": "10:30", "ende": "11:15" },
+    { "id": "p-fr-pause2", "fach": "Pause", "start": "11:15", "ende": "11:30" },
+    { "id": "p-fr-5", "fach": "Gesch. d. Zauberei", "lehrer": "Prof. Binns", "start": "11:30", "ende": "12:15" },
+    { "id": "p-fr-6", "fach": "Wirtschaft & Magie", "lehrer": "G. Gier", "start": "12:15", "ende": "13:00" }
   ]
 }
