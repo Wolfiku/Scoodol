@@ -353,7 +353,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version v1.1-hotfix
+                    Version 0.0.3
                 </span>
             </div>
         </div>

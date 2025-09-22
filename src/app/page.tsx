@@ -144,7 +144,7 @@ export default function Page() {
             Made in Firebase Studio <GeminiSparkle />
         </div>
          <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
-            Version v1.1-hotfix
+            Version 0.0.3
         </div>
       </div>
     );
