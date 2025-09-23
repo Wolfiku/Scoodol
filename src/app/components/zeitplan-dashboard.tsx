@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { getRemainingTime } from "@/app/actions";
 import {
   Card,
   CardContent,
@@ -113,29 +112,29 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   }, []);
 
   useEffect(() => {
-    if (!now || !isMounted || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-        if (!isSchoolTime) {
-            setRemainingTime(null);
-        }
-        return;
-    };
+    if (!now) return;
 
     const currentMinute = now.getMinutes();
     if (isSchoolTime && currentMinute !== lastMinuteRef.current) {
-      const fetchRemainingTime = async () => {
-        const currentTimeString = now.toLocaleTimeString("de-DE", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const result = await getRemainingTime(currentTimeString);
-        setRemainingTime(result);
-      };
-      fetchRemainingTime();
+        const schoolEndTime = new Date();
+        schoolEndTime.setHours(SCHOOL_END_HOUR, 0, 0, 0);
+        
+        const diffMs = schoolEndTime.getTime() - now.getTime();
+        
+        if (diffMs > 0) {
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const formattedTime = `${String(diffHours).padStart(2, '0')}:${String(diffMinutes).padStart(2, '0')}`;
+            setRemainingTime(formattedTime);
+        } else {
+            setRemainingTime("00:00");
+        }
+
       lastMinuteRef.current = currentMinute;
     } else if (!isSchoolTime) {
       setRemainingTime(null);
     }
-  }, [now, isSchoolTime, isMounted]);
+  }, [now, isSchoolTime]);
 
   const handleOpenDialog = (entry: TimetableEntry) => {
     setSelectedSubject(entry);
@@ -201,7 +200,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 <span className="font-semibold">
                   {remainingTime
                     ? `Schulende in: ${remainingTime}`
-                    : "Berechne verbleibende Zeit..."}
+                    : "Berechne..."}
                 </span>
               </div>
             ) : (
@@ -339,5 +338,3 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
-
-    
