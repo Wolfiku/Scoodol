@@ -56,9 +56,8 @@ type TimetableData = {
   [key: string]: TimetableEntry[];
 };
 
-export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (timetable: TimetableData) => void }) {
-    const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme } = useTheme();
-    const [startView, setStartView] = useState('daily');
+export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void }) {
+    const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
@@ -68,17 +67,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
      useEffect(() => {
         setIsMounted(true);
-        const savedStartView = localStorage.getItem('startView');
-        if (savedStartView) {
-            setStartView(savedStartView);
-        }
     }, []);
-
-    useEffect(() => {
-        if(isMounted) {
-          localStorage.setItem('startView', startView);
-        }
-    }, [startView, isMounted]);
 
     const handleModeChange = (mode: 'light' | 'dark') => {
         const currentParts = theme.split('-');
@@ -143,15 +132,8 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 const content = e.target?.result as string;
                 const importedData = JSON.parse(content);
 
-                if (importedData.timetable) {
-                    onTimetableImport(importedData.timetable);
-                }
-                if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
-                if (importedData.theme) setTheme(importedData.theme);
-                if (importedData.startView) setStartView(importedData.startView);
-
-                toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt." });
-
+                onTimetableImport(importedData);
+                toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt. Die App wird neu geladen." });
             } catch (error) {
                 toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei ist ungültig oder beschädigt." });
             }

@@ -52,7 +52,7 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, onTimetableImport: (timetable: TimetableData) => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
     const [isScanning, setIsScanning] = useState(false);

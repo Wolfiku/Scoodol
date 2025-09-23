@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 
 type Theme = 'light' | 'dark' | string;
 type ColorTheme = 'default' | 'ocean' | 'sunset' | 'forest';
+type StartView = 'daily' | 'weekly' | 'homework';
 
 type ThemeProviderState = {
   theme: Theme;
@@ -12,12 +13,15 @@ type ThemeProviderState = {
   colorTheme: ColorTheme;
   setTheme: (theme: Theme) => void;
   setColorTheme: (colorTheme: ColorTheme | string) => void;
+  startView: StartView;
+  setStartView: (view: StartView) => void;
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme | undefined>(undefined);
+  const [startView, setStartViewState] = useState<StartView>('daily');
   const [isMounted, setIsMounted] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
 
@@ -26,28 +30,38 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const isPreviewMode = sessionStorage.getItem('previewMode') === 'true';
     setIsPreview(isPreviewMode);
 
+    let initialTheme: Theme;
+    let initialStartView: StartView;
+
     if (isPreviewMode) {
-      setThemeState('light'); // Force default theme in preview
-      return;
+      initialTheme = 'light';
+      initialStartView = 'daily';
+    } else {
+      const storedTheme = localStorage.getItem('theme');
+      const storedStartView = localStorage.getItem('startView') as StartView | null;
+      
+      initialTheme = storedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      initialStartView = storedStartView || 'daily';
     }
 
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme) {
-      setThemeState(storedTheme);
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setThemeState(prefersDark ? 'dark' : 'light');
-    }
+    setThemeState(initialTheme);
+    setStartViewState(initialStartView);
   }, []);
   
   const setTheme = (newTheme: Theme) => {
-    if (isPreview) return; // Don't allow theme changes in preview mode
+    if (isPreview) return; 
     localStorage.setItem('theme', newTheme);
     setThemeState(newTheme);
   };
 
+  const setStartView = (newView: StartView) => {
+      if(isPreview) return;
+      localStorage.setItem('startView', newView);
+      setStartViewState(newView);
+  }
+
   const setColorTheme = (newColorTheme: ColorTheme | string) => {
-    if (isPreview) return; // Don't allow theme changes in preview mode
+    if (isPreview) return; 
     const currentMode = resolvedTheme;
     if (newColorTheme === 'default') {
       if (currentMode) setTheme(currentMode);
@@ -72,7 +86,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       document.body.classList.remove('light', 'dark');
       document.body.classList.add(resolvedTheme);
 
-      // remove old themes
       document.body.removeAttribute(`data-theme`);
 
       if (colorTheme && colorTheme !== 'default') {
@@ -84,10 +97,17 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [theme, resolvedTheme, colorTheme, isMounted]);
 
-  const value = { theme: theme || 'light', resolvedTheme, colorTheme, setTheme, setColorTheme };
+  const value = { 
+      theme: theme || 'light', 
+      resolvedTheme, 
+      colorTheme, 
+      setTheme, 
+      setColorTheme,
+      startView,
+      setStartView
+    };
 
   if (!isMounted) {
-    // Return a skeleton or null to avoid hydration mismatch
     return null;
   }
 

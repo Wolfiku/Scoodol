@@ -51,7 +51,7 @@ export default function Page() {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isEditingTimetable, setIsEditingTimetable] = useState(false);
   const isMobile = useIsMobile();
-  const { theme } = useTheme();
+  const { theme, setTheme, setStartView: setThemeStartView } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
@@ -99,7 +99,7 @@ export default function Page() {
             setShowUpdateDialog(true);
         }
     }
-  }, [isMobile, toast]);
+  }, [isMobile]);
   
   const updateTimetable = (newTimetable: TimetableData) => {
     setTimetableData(newTimetable);
@@ -123,11 +123,20 @@ export default function Page() {
     }
   }
   
-  const handleTimetableImport = (newTimetable: TimetableData) => {
-    updateTimetable(newTimetable);
+  const handleTimetableImport = (importedData: any) => {
+    if (importedData.timetable) {
+        updateTimetable(importedData.timetable);
+    }
+    if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
+    if (importedData.theme) setTheme(importedData.theme);
+    if (importedData.startView) {
+        setThemeStartView(importedData.startView);
+        setView(importedData.startView);
+    }
+
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
-    setView('daily');
+    // Reload to apply all settings correctly, especially theme
     window.location.reload();
   }
 
@@ -196,7 +205,7 @@ export default function Page() {
       case 'smart-tool':
         return <SmartToolsView />;
       case 'settings':
-        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={(newTimetable) => updateTimetable(newTimetable)} />;
+        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} />;
       case 'impressum':
         return <ImpressumPage />;
       case 'datenschutz':
