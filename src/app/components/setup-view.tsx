@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Trash2 } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -52,11 +52,12 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, onTimetableImport: (timetable: TimetableData) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const importFileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
 
      useEffect(() => {
@@ -144,6 +145,42 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
         onSetupComplete(timetable);
     }
     
+    const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = e.target?.result as string;
+                const importedData = JSON.parse(content);
+
+                if (importedData.timetable) {
+                    // We don't need to call onTimetableImport because onSetupComplete will handle it
+                    // The other data is just set in localStorage
+                    if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
+                    if (importedData.theme) localStorage.setItem('theme', importedData.theme); // Don't use setTheme hook here
+                    if (importedData.startView) localStorage.setItem('startView', importedData.startView);
+                    
+                    toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt. Die App wird neu geladen." });
+                    
+                    // Use onSetupComplete to trigger the app initialization
+                    onSetupComplete(importedData.timetable);
+                    
+                    setTimeout(() => window.location.reload(), 1000);
+
+
+                } else {
+                     toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei enthält keinen Stundenplan." });
+                }
+
+            } catch (error) {
+                toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei ist ungültig oder beschädigt." });
+            }
+        };
+        reader.readAsText(file);
+    }
+
     if (mode === 'welcome') {
         return (
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -152,8 +189,18 @@ export default function SetupView({ onSetupComplete, isEditing = false }: { onSe
                         <CardTitle className="text-3xl">Willkommen bei Scoodol!</CardTitle>
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                          <Button size="lg" className="w-full" onClick={() => setMode('select')}>Los geht's!</Button>
+                         <Button size="lg" variant="outline" className="w-full" onClick={() => importFileInputRef.current?.click()}>
+                            <Upload className="mr-2" /> Daten importieren
+                        </Button>
+                        <input 
+                            type="file" 
+                            ref={importFileInputRef} 
+                            className="hidden" 
+                            accept=".json"
+                            onChange={handleImportFileChange}
+                        />
                     </CardContent>
                     <CardFooter className="flex justify-center gap-4 text-sm">
                         <Button variant="link" asChild className="text-muted-foreground">

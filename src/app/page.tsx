@@ -172,7 +172,7 @@ export default function Page() {
   }
 
   if (!isSetupComplete && !isPreviewMode) {
-      return <SetupView onSetupComplete={handleSetupComplete} isEditing={isEditingTimetable} />;
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={updateTimetable} isEditing={isEditingTimetable} />;
   }
 
   const renderView = () => {
