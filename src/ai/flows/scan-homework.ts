@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -44,6 +45,7 @@ const prompt = ai.definePrompt({
 Your task is to extract all individual homework tasks from the provided image.
 
 For each task, identify the subject, the task description, and if mentioned, the due date.
+The output fields MUST be named 'subject', 'task', and 'dueDate'.
 If the image contains multiple tasks, create a separate entry for each one.
 Pay attention to keywords like "HA:" (Hausaufgabe), "due:", "bis:", or dates.
 
