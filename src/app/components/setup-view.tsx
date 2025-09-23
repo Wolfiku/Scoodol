@@ -107,13 +107,14 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             } else {
                 const newTimetable = createInitialTimetable();
                 Object.keys(result.timetable).forEach(day => {
-                    if(newTimetable[day]) {
-                        const daySchedule = result.timetable[day as keyof typeof result.timetable] || [];
+                    const dayName = day as keyof typeof result.timetable;
+                    if(newTimetable[dayName]) {
+                        const daySchedule = result.timetable[dayName] || [];
                         daySchedule.forEach(aiEntry => {
                             const slotIndex = timeSlots.findIndex(slot => slot.startsWith(aiEntry.start));
                             if(slotIndex !== -1) {
-                                newTimetable[day][slotIndex] = {
-                                    ...newTimetable[day][slotIndex],
+                                newTimetable[dayName][slotIndex] = {
+                                    ...newTimetable[dayName][slotIndex],
                                     fach: aiEntry.subject,
                                     lehrer: aiEntry.teacher || '',
                                     hauptfach: aiEntry.isMainSubject || false,
@@ -331,3 +332,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
+
+    
