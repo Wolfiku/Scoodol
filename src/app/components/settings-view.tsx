@@ -91,12 +91,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             const homeworkData = localStorage.getItem('homeworks');
             const themeData = localStorage.getItem('theme');
             const startViewData = localStorage.getItem('startView');
+            const profilePictureData = localStorage.getItem('profilePicture');
 
             const exportData = {
                 timetable: timetableData ? JSON.parse(timetableData) : null,
                 homeworks: homeworkData ? JSON.parse(homeworkData) : null,
                 theme: themeData,
                 startView: startViewData,
+                profilePicture: profilePictureData,
             }
 
             if (!timetableData) {
@@ -398,9 +400,11 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.1.3
+                    Version 1.1.4
                 </span>
             </div>
         </div>
     )
 }
+
+    

@@ -21,7 +21,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -108,8 +108,11 @@ export default function Page() {
     }
   }
 
-  const handleSetupComplete = (newTimetable: TimetableData) => {
+  const handleSetupComplete = (newTimetable: TimetableData, profilePicture?: string) => {
     updateTimetable(newTimetable);
+    if (profilePicture) {
+        localStorage.setItem("profilePicture", profilePicture);
+    }
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
     
@@ -133,6 +136,7 @@ export default function Page() {
         setThemeStartView(importedData.startView);
         setView(importedData.startView);
     }
+    if (importedData.profilePicture) localStorage.setItem('profilePicture', importedData.profilePicture);
 
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
@@ -284,3 +288,5 @@ export default function Page() {
     </>
   );
 }
+
+    
