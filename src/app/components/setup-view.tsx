@@ -11,6 +11,9 @@ import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { User } from 'lucide-react';
+
 
 type TimetableEntry = {
     id: string;
@@ -52,12 +55,14 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
+    const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importFileInputRef = useRef<HTMLInputElement>(null);
+    const profilePicInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
 
      useEffect(() => {
@@ -65,6 +70,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             const saved = localStorage.getItem("timetable");
             if (saved) {
                 setTimetable(JSON.parse(saved));
+            }
+            const savedPic = localStorage.getItem("profilePicture");
+            if (savedPic) {
+                setProfilePicture(savedPic);
             }
         }
     }, [isEditing]);
@@ -96,7 +105,6 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                     description: result.error || 'Die KI konnte keinen Stundenplan erkennen.',
                 });
             } else {
-                // Merge AI data with our structure
                 const newTimetable = createInitialTimetable();
                 Object.keys(result.timetable).forEach(day => {
                     if(newTimetable[day]) {
@@ -119,7 +127,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                     title: 'Stundenplan gescannt!',
                     description: 'Überprüfe die erkannten Daten und korrigiere sie bei Bedarf.',
                 });
-                setMode('manual'); // Switch to manual mode for corrections
+                setMode('manual');
             }
             setIsScanning(false);
         };
@@ -142,7 +150,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
     const handleSave = () => {
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
-        onSetupComplete(timetable);
+        onSetupComplete(timetable, profilePicture || undefined);
     }
     
     const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,13 +162,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             try {
                 const content = e.target?.result as string;
                 const importedData = JSON.parse(content);
-
-                if (importedData.timetable) {
-                    onTimetableImport(importedData);
-                    toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt." });
-                } else {
-                     toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei enthält keinen Stundenplan." });
-                }
+                onTimetableImport(importedData);
 
             } catch (error) {
                 toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei ist ungültig oder beschädigt." });
@@ -169,11 +171,30 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         reader.readAsText(file);
     }
 
+    const handleProfilePicChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            setProfilePicture(reader.result as string);
+        };
+    }
+
     if (mode === 'welcome') {
         return (
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
-                    <CardHeader>
+                    <CardHeader className="items-center">
+                        <Avatar className="h-24 w-24 mb-4 cursor-pointer" onClick={() => profilePicInputRef.current?.click()}>
+                           <AvatarImage src={profilePicture || undefined} />
+                            <AvatarFallback>
+                                <User className="h-12 w-12" />
+                            </AvatarFallback>
+                        </Avatar>
+                        <input type="file" accept="image/*" ref={profilePicInputRef} onChange={handleProfilePicChange} className="hidden" />
+
                         <CardTitle className="text-3xl">Willkommen bei Scoodol!</CardTitle>
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
