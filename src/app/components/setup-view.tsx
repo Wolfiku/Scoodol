@@ -156,20 +156,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                 const importedData = JSON.parse(content);
 
                 if (importedData.timetable) {
-                    // We don't need to call onTimetableImport because onSetupComplete will handle it
-                    // The other data is just set in localStorage
-                    if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
-                    if (importedData.theme) localStorage.setItem('theme', importedData.theme); // Don't use setTheme hook here
-                    if (importedData.startView) localStorage.setItem('startView', importedData.startView);
-                    
-                    toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt. Die App wird neu geladen." });
-                    
-                    // Use onSetupComplete to trigger the app initialization
-                    onSetupComplete(importedData.timetable);
-                    
-                    setTimeout(() => window.location.reload(), 1000);
-
-
+                    onTimetableImport(importedData);
+                    toast({ title: "Import erfolgreich", description: "Deine Daten wurden wiederhergestellt." });
                 } else {
                      toast({ variant: 'destructive', title: "Importfehler", description: "Die Datei enthält keinen Stundenplan." });
                 }

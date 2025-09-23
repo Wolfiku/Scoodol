@@ -93,7 +93,9 @@ export default function Page() {
 
         // Check for update notification
         const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-        if (lastSeenVersion !== APP_VERSION) {
+        const getMajorMinor = (version: string) => version.split('.').slice(0, 2).join('.');
+        
+        if (!lastSeenVersion || getMajorMinor(lastSeenVersion) !== getMajorMinor(APP_VERSION)) {
             setShowUpdateDialog(true);
         }
     }
@@ -119,6 +121,14 @@ export default function Page() {
     } else {
       setView('weekly');
     }
+  }
+  
+  const handleTimetableImport = (newTimetable: TimetableData) => {
+    updateTimetable(newTimetable);
+    setIsSetupComplete(true);
+    setIsEditingTimetable(false);
+    setView('daily');
+    window.location.reload();
   }
 
   const handleEditTimetable = () => {
@@ -172,7 +182,7 @@ export default function Page() {
   }
 
   if (!isSetupComplete && !isPreviewMode) {
-      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={updateTimetable} isEditing={isEditingTimetable} />;
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={isEditingTimetable} />;
   }
 
   const renderView = () => {
@@ -202,7 +212,7 @@ export default function Page() {
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="text-2xl">Willkommen zu Version {APP_VERSION}!</DialogTitle>
+                <DialogTitle className="text-2xl">Willkommen zu Version 1.1!</DialogTitle>
                 <DialogDescription className="pt-2 text-base">
                     Scoodol hat ein Update erhalten!
                     <br/><br/>
