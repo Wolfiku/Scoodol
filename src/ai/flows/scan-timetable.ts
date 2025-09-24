@@ -58,11 +58,11 @@ const prompt = ai.definePrompt({
 Your task is to analyze the provided image and convert it into a structured JSON format.
 
 - The output must be structured with keys for each day of the week: "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag".
-- For each day, provide an array of entries. Each entry must contain the subject ("subject"), start time ("start"), and end time ("end").
+- For each day, provide an array of entries.
+- The output fields MUST be named 'subject', 'teacher', 'room', 'start', 'end', 'isMainSubject'.
 - If available in the image, also extract the teacher's name ("teacher") and the room number ("room").
 - Determine if a subject is a main subject ("isMainSubject"). Main subjects are typically German, Math, English, and any other language.
 - Pay close attention to the time slots. Ensure the "start" and "end" times are in "HH:mm" format.
-- The output fields MUST be named 'subject', 'teacher', 'room', 'start', 'end', 'isMainSubject'.
 - Do not include breaks ("Pause") in the output.
 - If the image is not a timetable or is unreadable, set the 'error' field with a descriptive message in German.
 

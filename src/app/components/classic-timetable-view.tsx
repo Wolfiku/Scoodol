@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Download, Printer, Image as ImageIcon, ChevronLeft } from "lucide-react";
+import { User, Download, Printer, Image as ImageIcon, ChevronLeft, MapPin } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ type TimetableEntry = {
   id: string;
   fach: string;
   lehrer?: string;
+  room?: string;
   start: string;
   ende: string;
   hauptfach?: boolean;
@@ -139,6 +140,12 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                     <span>{entry.lehrer}</span>
                                   </div>
                                 )}
+                                {entry.room && (
+                                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                                    <MapPin className="w-3 h-3" />
+                                    <span>{entry.room}</span>
+                                  </div>
+                                )}
                                 {entry.hauptfach && (
                                    <Badge variant="default" className="mt-1">Hauptfach</Badge>
                                 )}
@@ -182,6 +189,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                   <div>
                                       <p style={{fontWeight: 'bold', margin: '0'}}>{entry.fach}</p>
                                       {entry.lehrer && <div className="teacher" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.lehrer}</div>}
+                                      {entry.room && <div className="room" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.room}</div>}
                                   </div>
                               ) : (
                                   <span>-</span>

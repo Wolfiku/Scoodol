@@ -31,6 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  MapPin,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -38,6 +39,7 @@ type TimetableEntry = {
   id: string;
   fach: string;
   lehrer?: string;
+  room?: string;
   start: string;
   ende: string;
   hauptfach?: boolean;
@@ -268,6 +270,10 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                   {entry.lehrer && <User className="w-4 h-4" />}
                   <span>{entry.lehrer}</span>
                 </div>
+                 <div className="flex items-center gap-2">
+                  {entry.room && <MapPin className="w-4 h-4" />}
+                  <span>{entry.room}</span>
+                </div>
               </CardContent>
             </Card>
           );
@@ -294,6 +300,11 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                   <User className="w-5 h-5 text-muted-foreground" />
                   <span className="font-semibold">Lehrer:</span>
                   <span>{selectedSubject.lehrer || 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
+                  <span className="font-semibold">Raum:</span>
+                  <span>{selectedSubject.room || 'N/A'}</span>
                 </div>
                  <div className="flex items-center gap-3">
                   {selectedSubject.hauptfach ? (

@@ -19,6 +19,7 @@ type TimetableEntry = {
     id: string;
     fach: string;
     lehrer?: string;
+    room?: string;
     start: string;
     ende: string;
     hauptfach?: boolean;
@@ -45,6 +46,7 @@ const createInitialTimetable = (): TimetableData => {
                 id: `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
                 fach: '',
                 lehrer: '',
+                room: '',
                 start: start,
                 ende: end,
                 hauptfach: false
@@ -117,6 +119,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                     ...newTimetable[dayName][slotIndex],
                                     fach: aiEntry.subject,
                                     lehrer: aiEntry.teacher || '',
+                                    room: aiEntry.room || '',
                                     hauptfach: aiEntry.isMainSubject || false,
                                 };
                             }
@@ -266,7 +269,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
          return (
             <div className="container mx-auto p-4 md:p-8">
                  <h2 className="text-3xl font-bold mb-2">Stundenplan bearbeiten</h2>
-                 <p className="text-muted-foreground mb-6">Trage deine Fächer und Lehrer ein. Du kannst leere Felder für Pausen oder Freistunden lassen.</p>
+                 <p className="text-muted-foreground mb-6">Trage deine Fächer, Lehrer und Räume ein. Du kannst leere Felder für Pausen oder Freistunden lassen.</p>
                  <div className="overflow-x-auto pb-20">
                      <Table className="border min-w-[800px]">
                          <TableHeader>
@@ -301,6 +304,11 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                                         value={entry.lehrer} 
                                                         onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
                                                         />
+                                                     <Input 
+                                                        placeholder="Raum" 
+                                                        value={entry.room} 
+                                                        onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)}
+                                                        />
                                                     <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer p-1">
                                                         <input 
                                                             type="checkbox" 
@@ -332,5 +340,3 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
-
-    
