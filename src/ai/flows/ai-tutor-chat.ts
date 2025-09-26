@@ -12,13 +12,15 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {Message, Part} from 'genkit';
 
+const MessageSchema = z.object({
+  role: z.enum(['user', 'model']),
+  content: z.array(z.object({
+    text: z.string(),
+  })),
+});
+
 const AiTutorChatInputSchema = z.object({
-  history: z.array(z.object({
-      role: z.enum(['user', 'model']),
-      content: z.array(z.object({
-          text: z.string(),
-      })),
-  })).describe('The history of the conversation.'),
+  history: z.array(MessageSchema).describe('The history of the conversation.'),
 });
 export type AiTutorChatInput = z.infer<typeof AiTutorChatInputSchema>;
 
