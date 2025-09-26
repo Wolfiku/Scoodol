@@ -35,11 +35,6 @@ export async function aiTutorChat(input: AiTutorChatInput): Promise<AiTutorChatO
   return aiTutorChatFlow(input);
 }
 
-const prompt = `You are a helpful and friendly AI Tutor for a student.
-Your name is Scoody.
-Keep your answers concise and easy to understand.
-Answer in German.
-`;
 
 const aiTutorChatFlow = ai.defineFlow(
   {
@@ -48,14 +43,13 @@ const aiTutorChatFlow = ai.defineFlow(
     outputSchema: AiTutorChatOutputSchema,
   },
   async (input) => {
-    const history: Message[] = input.history.map(msg => ({
-      role: msg.role,
-      content: msg.content as Part[],
-    }));
-      
+    
     const {output} = await ai.generate({
-      prompt: prompt,
-      history: history,
+      system: `You are a helpful and friendly AI Tutor for a student.
+Your name is Scoody.
+Keep your answers concise and easy to understand.
+Answer in German.`,
+      history: input.history as Message[],
       model: 'googleai/gemini-2.5-flash',
     });
 
