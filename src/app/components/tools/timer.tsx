@@ -26,14 +26,6 @@ export default function Timer() {
   const [seconds, setSeconds] = useState('');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    // Initialize audio on client-side
-    if (typeof window !== 'undefined') {
-        audioRef.current = new Audio('/alarm.mp3');
-    }
-  }, []);
 
   const calculateTotalSeconds = useCallback(() => {
     return (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
@@ -55,7 +47,7 @@ export default function Timer() {
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
       setIsFinished(true);
-      audioRef.current?.play();
+      // Removed audioRef.current?.play();
     }
     return () => {
       if (timerRef.current) {
@@ -76,10 +68,7 @@ export default function Timer() {
     setIsFinished(false);
     const totalSeconds = calculateTotalSeconds();
     setTimeLeft(totalSeconds);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    // Removed audio handling
   };
 
   const progress = initialTime > 0 ? (timeLeft / initialTime) * 100 : 0;
