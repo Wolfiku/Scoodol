@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Stopwatch as StopwatchIcon, Notebook } from 'lucide-react';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook } from 'lucide-react';
 import Calculator from './tools/calculator';
 import GradeCalculator from './tools/grade-calculator';
 import FormulaCollection from './tools/formula-collection';
@@ -24,7 +23,7 @@ const tools: { id: Tool; title: string; description: string; icon: React.ReactNo
     { id: 'periodic-table', title: 'Periodensystem', description: 'Suche nach chemischen Elementen.', icon: <Atom className="w-8 h-8" /> },
     { id: 'report-card-analyzer', title: 'Zeugnis-Analyse', description: 'Analysiere dein Zeugnis mit KI.', icon: <FileText className="w-8 h-8" /> },
     { id: 'timer', title: 'Timer', description: 'Stelle einen Countdown für Lernphasen.', icon: <TimerIcon className="w-8 h-8" /> },
-    { id: 'stopwatch', title: 'Stoppuhr', description: 'Stoppe die Zeit für Aufgaben oder Experimente.', icon: <StopwatchIcon className="w-8 h-8" /> },
+    { id: 'stopwatch', title: 'Stoppuhr', description: 'Stoppe die Zeit für Aufgaben oder Experimente.', icon: <TimerIcon className="w-8 h-8" /> },
     { id: 'notes', title: 'Notizen', description: 'Ein einfacher Notizblock für deine Gedanken.', icon: <Notebook className="w-8 h-8" /> },
 ];
 
