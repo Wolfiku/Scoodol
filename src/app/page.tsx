@@ -137,6 +137,8 @@ export default function Page() {
         setView(importedData.startView);
     }
     if (importedData.profilePicture) localStorage.setItem('profilePicture', importedData.profilePicture);
+    if (importedData.betaFeaturesEnabled) localStorage.setItem('betaFeaturesEnabled', importedData.betaFeaturesEnabled);
+
 
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
@@ -288,5 +290,3 @@ export default function Page() {
     </>
   );
 }
-
-    

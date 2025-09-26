@@ -107,7 +107,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       setStartView
     };
 
-  if (!isMounted) {
+  if (!theme) {
     return null;
   }
 

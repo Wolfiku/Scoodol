@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import Link from "next/link"
+import { Switch } from "@/components/ui/switch"
 
 
 const themes = [
@@ -59,6 +60,7 @@ type TimetableData = {
 export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
+    const [betaFeaturesEnabled, setBetaFeaturesEnabled] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
     const [resetInput, setResetInput] = useState('');
@@ -67,7 +69,15 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
      useEffect(() => {
         setIsMounted(true);
+        const savedBeta = localStorage.getItem("betaFeaturesEnabled");
+        setBetaFeaturesEnabled(savedBeta === 'true');
     }, []);
+    
+    useEffect(() => {
+        if(isMounted) {
+            localStorage.setItem("betaFeaturesEnabled", String(betaFeaturesEnabled));
+        }
+    }, [betaFeaturesEnabled, isMounted]);
 
     const handleModeChange = (mode: 'light' | 'dark') => {
         const currentParts = theme.split('-');
@@ -92,6 +102,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             const themeData = localStorage.getItem('theme');
             const startViewData = localStorage.getItem('startView');
             const profilePictureData = localStorage.getItem('profilePicture');
+            const betaFeaturesData = localStorage.getItem('betaFeaturesEnabled');
 
             const exportData = {
                 timetable: timetableData ? JSON.parse(timetableData) : null,
@@ -99,6 +110,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 theme: themeData,
                 startView: startViewData,
                 profilePicture: profilePictureData,
+                betaFeaturesEnabled: betaFeaturesData,
             }
 
             if (!timetableData) {
@@ -276,6 +288,19 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                  ))}
                              </RadioGroup>
                         </div>
+                         <div className="space-y-4 p-4 border rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="beta-features" className="flex flex-col gap-1">
+                                    <span className="font-bold flex items-center gap-2"><Wand2 className="w-5 h-5 text-primary" />Beta-Funktionen</span>
+                                    <span className="text-xs text-muted-foreground">Aktiviere experimentelle KI-Funktionen.</span>
+                                </Label>
+                                <Switch
+                                    id="beta-features"
+                                    checked={betaFeaturesEnabled}
+                                    onCheckedChange={setBetaFeaturesEnabled}
+                                />
+                            </div>
+                        </div>
                         <div className="space-y-2">
                             <Label>App-Daten</Label>
                             <div className="flex flex-col sm:flex-row gap-2">
@@ -406,5 +431,3 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
-
-    

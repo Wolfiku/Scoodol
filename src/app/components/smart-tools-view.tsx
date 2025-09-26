@@ -1,9 +1,10 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook } from 'lucide-react';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook, Sparkles } from 'lucide-react';
 import Calculator from './tools/calculator';
 import GradeCalculator from './tools/grade-calculator';
 import FormulaCollection from './tools/formula-collection';
@@ -12,11 +13,13 @@ import ReportCardAnalyzer from './tools/report-card-analyzer';
 import Timer from './tools/timer';
 import StopwatchTool from './tools/stopwatch';
 import Notes from './tools/notes';
+import AiTutor from './tools/ai-tutor';
 
 
-type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes';
+type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'ai-tutor';
 
-const tools: { id: Tool; title: string; description: string; icon: React.ReactNode }[] = [
+const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean }[] = [
+    { id: 'ai-tutor', title: 'AI Tutor', description: 'Chatte mit einer KI & vereinfache Texte.', icon: <Sparkles className="w-8 h-8" />, isBeta: true },
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
     { id: 'formula-collection', title: 'Formelsammlung', description: 'Finde Formeln für Mathe, Physik & Chemie.', icon: <BookText className="w-8 h-8" /> },
@@ -29,6 +32,18 @@ const tools: { id: Tool; title: string; description: string; icon: React.ReactNo
 
 export default function SmartToolsView() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [availableTools, setAvailableTools] = useState(allTools.filter(t => !t.isBeta));
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const betaEnabled = localStorage.getItem('betaFeaturesEnabled') === 'true';
+    if (betaEnabled) {
+      setAvailableTools(allTools);
+    } else {
+      setAvailableTools(allTools.filter(t => !t.isBeta));
+    }
+  }, []);
 
   const renderTool = () => {
     switch (selectedTool) {
@@ -48,6 +63,8 @@ export default function SmartToolsView() {
         return <StopwatchTool />;
       case 'notes':
         return <Notes />;
+      case 'ai-tutor':
+        return <AiTutor />;
       default:
         return null;
     }
@@ -69,7 +86,7 @@ export default function SmartToolsView() {
     <div>
         <h2 className="text-3xl font-bold mb-6">Smart Tools</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tools.map(tool => (
+            {availableTools.map(tool => (
                 <Card 
                     key={tool.id} 
                     className="cursor-pointer hover:shadow-lg transition-shadow"

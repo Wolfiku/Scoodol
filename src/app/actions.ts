@@ -8,6 +8,9 @@ import { scanTimetable as scanTimetableFlow } from "@/ai/flows/scan-timetable";
 import type { ScanTimetableOutput } from "@/ai/flows/scan-timetable";
 import { analyzeReportCard as analyzeReportCardFlow } from "@/ai/flows/analyze-report-card";
 import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
+import { aiTutorChat } from "@/ai/flows/ai-tutor-chat";
+import type { AiTutorChatInput } from "@/ai/flows/ai-tutor-chat";
+import { simplifyText } from "@/ai/flows/simplify-text";
 
 export async function searchFormula(query: string, formulas: string) {
   try {
@@ -57,5 +60,25 @@ export async function analyzeReportCard(photoDataUri: string): Promise<AnalyzeRe
     } catch (error) {
         console.error("Error analyzing report card:", error);
         return { error: "Bei der Analyse des Zeugnisses ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function getTutorChatReply(history: AiTutorChatInput["history"]) {
+    try {
+        const result = await aiTutorChat({ history });
+        return result;
+    } catch (error) {
+        console.error("Error in AI Tutor chat:", error);
+        return { error: "Entschuldigung, bei der Kommunikation mit dem Tutor ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function getSimplifiedText(text: string) {
+    try {
+        const result = await simplifyText({ text });
+        return result;
+    } catch (error) {
+        console.error("Error simplifying text:", error);
+        return { error: "Entschuldigung, beim Vereinfachen des Textes ist ein Fehler aufgetreten." };
     }
 }
