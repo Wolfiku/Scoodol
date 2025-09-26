@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,7 +20,7 @@ type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic
 
 const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean }[] = [
     { id: 'ai-tutor', title: 'AI Tutor', description: 'Chatte mit einer KI bei Fragen & Problemen.', icon: <Sparkles className="w-8 h-8" />, isBeta: true },
-    { id: 'text-simplifier', title: 'Text-Vereinfacher', description: 'Vereinfache komplizierte Texte & Aufgaben.', icon: <Wand2 className="w-8 h-8" />, isBeta: true },
+    { id: 'text-simplifier', title: 'Text-Vereinfacher', description: 'Vereinfache komplizierte Texte & Aufgaben.', icon: <Wand2 className="w-8 h-8" /> },
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
     { id: 'formula-collection', title: 'Formelsammlung', description: 'Finde Formeln für Mathe, Physik & Chemie.', icon: <BookText className="w-8 h-8" /> },
