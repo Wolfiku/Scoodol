@@ -43,13 +43,6 @@ export default function TextSimplifier() {
       <CardHeader>
         <CardTitle>Text-Vereinfacher</CardTitle>
         <CardDescription>Lässt komplizierte Texte oder Aufgabenstellungen von der KI umschreiben.</CardDescription>
-        <Alert variant="destructive" className="mt-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Beta-Funktion</AlertTitle>
-            <AlertDescription>
-              Dieses Tool ist experimentell. Die Antworten der KI können ungenau oder falsch sein. Überprüfe wichtige Informationen immer.
-            </AlertDescription>
-        </Alert>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
