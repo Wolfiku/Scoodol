@@ -67,7 +67,7 @@ export default function StopwatchTool() {
         <CardDescription>Messe die Zeit für deine Aufgaben.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
-        <div className="text-6xl font-mono font-bold text-center w-full bg-muted p-4 rounded-lg">
+        <div className="text-5xl font-mono font-bold text-center w-full bg-muted p-4 rounded-lg">
           {formatTime(time)}
         </div>
         <div className="grid grid-cols-2 gap-4 w-full">
