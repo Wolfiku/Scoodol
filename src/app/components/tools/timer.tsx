@@ -109,7 +109,7 @@ export default function Timer() {
                     style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' , transition: 'stroke-dashoffset 1s linear' }}
                 />
             </svg>
-            <div className={`absolute text-5xl font-mono font-bold ${isFinished ? 'animate-pulse text-destructive' : ''}`}>
+            <div className={`absolute text-4xl font-mono font-bold ${isFinished ? 'animate-pulse text-destructive' : ''}`}>
               {formatTime(timeLeft)}
             </div>
           </div>
