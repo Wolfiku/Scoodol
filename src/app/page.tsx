@@ -227,7 +227,8 @@ export default function Page() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version 1.2!</DialogTitle>
-                <DialogDescription className="pt-2 text-base">
+                <DialogDescription>
+                  <div className="pt-2 text-base">
                     Scoodol hat ein großes Update mit neuen Smart Tools erhalten!
                     <br/><br/>
                     <ul className="list-disc pl-5 space-y-2">
@@ -235,6 +236,7 @@ export default function Page() {
                         <li><b>Text-Vereinfacher (KI):</b> Vereinfacht komplizierte Aufgabenstellungen.</li>
                         <li><b>KI-Sprachauswahl:</b> Du kannst jetzt in den Einstellungen die Antwort-Sprache der KI wählen.</li>
                     </ul>
+                  </div>
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2 mt-4">
