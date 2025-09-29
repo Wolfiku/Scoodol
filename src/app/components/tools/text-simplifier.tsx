@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Wand2, AlertTriangle } from 'lucide-react';
+import { Loader2, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getSimplifiedText } from '@/app/actions';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function TextSimplifier() {
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const { aiLanguage } = useTheme();
     const [textToSimplify, setTextToSimplify] = useState('');
     const [simplifiedText, setSimplifiedText] = useState('');
 
@@ -23,7 +25,7 @@ export default function TextSimplifier() {
 
         setIsLoading(true);
         setSimplifiedText('');
-        const result = await getSimplifiedText(trimmedText);
+        const result = await getSimplifiedText(trimmedText, aiLanguage);
 
         if (result.error || !result.simplifiedText) {
              toast({

@@ -98,7 +98,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const dataUri = reader.result as string;
-            const result = await scanTimetableImage(dataUri);
+            // TODO: This should ideally use the globally selected language
+            const result = await scanTimetableImage(dataUri, 'German');
 
             if (result.error || !result.timetable) {
                 toast({

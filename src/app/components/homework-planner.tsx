@@ -36,6 +36,7 @@ import { scanHomeworkImage } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import FocusMode, { type FocusTask } from "./tools/focus-mode";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { useTheme } from "@/hooks/use-theme";
 
 
 type Homework = {
@@ -64,6 +65,7 @@ export default function HomeworkPlanner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showScanInfo, setShowScanInfo] = useState(false);
   const { toast } = useToast();
+  const { aiLanguage } = useTheme();
   
   useEffect(() => {
     setIsMounted(true);
@@ -190,7 +192,7 @@ export default function HomeworkPlanner() {
     reader.readAsDataURL(file);
     reader.onload = async () => {
         const dataUri = reader.result as string;
-        const result = await scanHomeworkImage(dataUri);
+        const result = await scanHomeworkImage(dataUri, aiLanguage);
         
         if (result.error || !result.tasks || result.tasks.length === 0) {
             toast({
@@ -457,5 +459,3 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
-
-    

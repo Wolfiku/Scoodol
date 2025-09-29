@@ -51,7 +51,7 @@ export default function Page() {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isEditingTimetable, setIsEditingTimetable] = useState(false);
   const isMobile = useIsMobile();
-  const { theme, setTheme, setStartView: setThemeStartView } = useTheme();
+  const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
@@ -127,9 +127,7 @@ export default function Page() {
   }
   
   const handleTimetableImport = (importedData: any) => {
-    if (importedData.timetable) {
-        updateTimetable(importedData.timetable);
-    }
+    if (importedData.timetable) updateTimetable(importedData.timetable);
     if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
     if (importedData.theme) setTheme(importedData.theme);
     if (importedData.startView) {
@@ -138,6 +136,7 @@ export default function Page() {
     }
     if (importedData.profilePicture) localStorage.setItem('profilePicture', importedData.profilePicture);
     if (importedData.betaFeaturesEnabled) localStorage.setItem('betaFeaturesEnabled', importedData.betaFeaturesEnabled);
+    if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage);
 
 
     setIsSetupComplete(true);

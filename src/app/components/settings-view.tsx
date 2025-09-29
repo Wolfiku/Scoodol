@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2 } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -58,7 +58,7 @@ type TimetableData = {
 };
 
 export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void }) {
-    const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView } = useTheme();
+    const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView, aiLanguage, setAiLanguage } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
     const [betaFeaturesEnabled, setBetaFeaturesEnabled] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +103,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             const startViewData = localStorage.getItem('startView');
             const profilePictureData = localStorage.getItem('profilePicture');
             const betaFeaturesData = localStorage.getItem('betaFeaturesEnabled');
+            const aiLanguageData = localStorage.getItem('aiLanguage');
 
             const exportData = {
                 timetable: timetableData ? JSON.parse(timetableData) : null,
@@ -111,6 +112,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 startView: startViewData,
                 profilePicture: profilePictureData,
                 betaFeaturesEnabled: betaFeaturesData,
+                aiLanguage: aiLanguageData,
             }
 
             if (!timetableData) {
@@ -247,6 +249,44 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         </div>
                     </CardContent>
                 </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>KI-Einstellungen</CardTitle>
+                        <CardDescription>Passe das Verhalten der künstlichen Intelligenz an.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                             <Label>Sprache der KI-Antworten</Label>
+                             <RadioGroup 
+                                value={aiLanguage}
+                                onValueChange={setAiLanguage}
+                                className="flex gap-4"
+                             >
+                                 <Label htmlFor="lang-german" className={cn("flex items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-colors", aiLanguage === 'German' ? 'border-primary' : 'border-border')}>
+                                    <RadioGroupItem value="German" id="lang-german" />
+                                    Deutsch
+                                 </Label>
+                                  <Label htmlFor="lang-english" className={cn("flex items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-colors", aiLanguage === 'English' ? 'border-primary' : 'border-border')}>
+                                    <RadioGroupItem value="English" id="lang-english" />
+                                    Englisch
+                                 </Label>
+                             </RadioGroup>
+                        </div>
+                         <div className="space-y-4 p-4 border rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="beta-features" className="flex flex-col gap-1">
+                                    <span className="font-bold flex items-center gap-2"><Wand2 className="w-5 h-5 text-primary" />Beta-Funktionen</span>
+                                    <span className="text-xs text-muted-foreground">Aktiviere den experimentellen AI-Tutor Chat.</span>
+                                </Label>
+                                <Switch
+                                    id="beta-features"
+                                    checked={betaFeaturesEnabled}
+                                    onCheckedChange={setBetaFeaturesEnabled}
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle>Stundenplan</CardTitle>
@@ -262,7 +302,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                  <Card>
                     <CardHeader>
                         <CardTitle>Erweiterte Einstellungen</CardTitle>
-                        <CardDescription>Passe das Verhalten der App an und sichere oder lösche deine Daten.</CardDescription>
+                        <CardDescription>Sichere oder lösche deine Daten.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
@@ -287,19 +327,6 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                      </Label>
                                  ))}
                              </RadioGroup>
-                        </div>
-                         <div className="space-y-4 p-4 border rounded-lg">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="beta-features" className="flex flex-col gap-1">
-                                    <span className="font-bold flex items-center gap-2"><Wand2 className="w-5 h-5 text-primary" />Beta-Funktionen</span>
-                                    <span className="text-xs text-muted-foreground">Aktiviere experimentelle KI-Funktionen.</span>
-                                </Label>
-                                <Switch
-                                    id="beta-features"
-                                    checked={betaFeaturesEnabled}
-                                    onCheckedChange={setBetaFeaturesEnabled}
-                                />
-                            </div>
                         </div>
                         <div className="space-y-2">
                             <Label>App-Daten</Label>

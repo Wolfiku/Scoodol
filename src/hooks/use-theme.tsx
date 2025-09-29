@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 type Theme = 'light' | 'dark' | string;
 type ColorTheme = 'default' | 'ocean' | 'sunset' | 'forest';
 type StartView = 'daily' | 'weekly' | 'homework';
+type AiLanguage = 'German' | 'English';
 
 type ThemeProviderState = {
   theme: Theme;
@@ -15,6 +16,8 @@ type ThemeProviderState = {
   setColorTheme: (colorTheme: ColorTheme | string) => void;
   startView: StartView;
   setStartView: (view: StartView) => void;
+  aiLanguage: AiLanguage;
+  setAiLanguage: (language: AiLanguage) => void;
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined);
@@ -22,6 +25,7 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undef
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setThemeState] = useState<Theme | undefined>(undefined);
   const [startView, setStartViewState] = useState<StartView>('daily');
+  const [aiLanguage, setAiLanguageState] = useState<AiLanguage>('German');
   const [isMounted, setIsMounted] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
 
@@ -32,20 +36,25 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
     let initialTheme: Theme;
     let initialStartView: StartView;
+    let initialAiLanguage: AiLanguage;
 
     if (isPreviewMode) {
       initialTheme = 'light';
       initialStartView = 'daily';
+      initialAiLanguage = 'German';
     } else {
       const storedTheme = localStorage.getItem('theme');
       const storedStartView = localStorage.getItem('startView') as StartView | null;
+      const storedAiLanguage = localStorage.getItem('aiLanguage') as AiLanguage | null;
       
       initialTheme = storedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       initialStartView = storedStartView || 'daily';
+      initialAiLanguage = storedAiLanguage || 'German';
     }
 
     setThemeState(initialTheme);
     setStartViewState(initialStartView);
+    setAiLanguageState(initialAiLanguage);
   }, []);
   
   const setTheme = (newTheme: Theme) => {
@@ -58,6 +67,12 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       if(isPreview) return;
       localStorage.setItem('startView', newView);
       setStartViewState(newView);
+  }
+  
+  const setAiLanguage = (newLanguage: AiLanguage) => {
+      if(isPreview) return;
+      localStorage.setItem('aiLanguage', newLanguage);
+      setAiLanguageState(newLanguage);
   }
 
   const setColorTheme = (newColorTheme: ColorTheme | string) => {
@@ -104,7 +119,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       setTheme, 
       setColorTheme,
       startView,
-      setStartView
+      setStartView,
+      aiLanguage,
+      setAiLanguage,
     };
 
   if (!theme) {

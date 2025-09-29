@@ -10,6 +10,7 @@ import { searchFormula } from '@/app/actions';
 import type { FindFormulaOutput } from '@/ai/flows/find-formula';
 import { Loader2, Wand2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/hooks/use-theme';
 
 const formulas = {
     "Mathematik": [
@@ -56,6 +57,7 @@ export default function FormulaCollection() {
     const [isLoading, setIsLoading] = useState(false);
     const [searchResult, setSearchResult] = useState<FindFormulaOutput | null>(null);
     const { toast } = useToast();
+    const { aiLanguage } = useTheme();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,7 +81,7 @@ export default function FormulaCollection() {
 
         setIsLoading(true);
         setSearchResult(null);
-        const result = await searchFormula(searchTerm, JSON.stringify(formulas));
+        const result = await searchFormula(searchTerm, JSON.stringify(formulas), aiLanguage);
         setSearchResult(result);
         setIsLoading(false);
     };

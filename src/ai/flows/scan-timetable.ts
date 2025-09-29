@@ -18,6 +18,7 @@ const ScanTimetableInputSchema = z.object({
     .describe(
       "A photo of a school timetable, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type ScanTimetableInput = z.infer<typeof ScanTimetableInputSchema>;
 
@@ -56,6 +57,7 @@ const prompt = ai.definePrompt({
   output: {schema: ScanTimetableOutputSchema},
   prompt: `You are an expert at analyzing and extracting information from German school timetables (Stundenpläne).
 Your task is to analyze the provided image and convert it into a structured JSON format.
+The user wants the error messages in the 'error' field to be in {{language}}.
 
 - The output must be structured with keys for each day of the week: "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag".
 - For each day, provide an array of entries.
@@ -64,7 +66,7 @@ Your task is to analyze the provided image and convert it into a structured JSON
 - Determine if a subject is a main subject ("isMainSubject"). Main subjects are typically German, Math, English, and any other language.
 - Pay close attention to the time slots. Ensure the "start" and "end" times are in "HH:mm" format.
 - Do not include breaks ("Pause") in the output.
-- If the image is not a timetable or is unreadable, set the 'error' field with a descriptive message in German.
+- If the image is not a timetable or is unreadable, set the 'error' field with a descriptive message in the requested language.
 
 Timetable Image:
 {{media url=photoDataUri}}

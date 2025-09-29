@@ -18,6 +18,7 @@ const AnalyzeReportCardInputSchema = z.object({
     .describe(
       "A photo of a school report card, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type AnalyzeReportCardInput = z.infer<typeof AnalyzeReportCardInputSchema>;
 
@@ -49,6 +50,7 @@ const prompt = ai.definePrompt({
   input: {schema: AnalyzeReportCardInputSchema},
   output: {schema: AnalyzeReportCardOutputSchema},
   prompt: `You are an expert in analyzing German school report cards. Your task is to extract detailed information from the provided image.
+The user wants the response in {{language}}.
 
 - Analyze the entire document to identify all subjects and their corresponding grades. Differentiate between oral, written, and final grades if possible.
 - Calculate the overall average grade.

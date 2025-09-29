@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -13,6 +14,7 @@ import {z} from 'genkit';
 
 const SimplifyTextInputSchema = z.object({
   text: z.string().describe('The text to be simplified.'),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type SimplifyTextInput = z.infer<typeof SimplifyTextInputSchema>;
 
@@ -32,7 +34,7 @@ const prompt = ai.definePrompt({
   input: {schema: SimplifyTextInputSchema},
   output: {schema: SimplifyTextOutputSchema},
   prompt: `You are an expert in education and language. Your task is to simplify the following text.
-Rewrite the text in simple, clear German. Use shorter sentences, easier words, and active voice.
+Rewrite the text in simple, clear {{language}}. Use shorter sentences, easier words, and active voice.
 The goal is to make the text understandable for a student who might have difficulties with complex instructions or language.
 
 Original Text:

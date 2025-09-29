@@ -18,6 +18,7 @@ const ScanHomeworkInputSchema = z.object({
     .describe(
       "A photo of a homework assignment, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type ScanHomeworkInput = z.infer<typeof ScanHomeworkInputSchema>;
 
@@ -43,6 +44,7 @@ const prompt = ai.definePrompt({
   output: {schema: ScanHomeworkOutputSchema},
   prompt: `You are an expert at analyzing images of homework assignments (e.g., from a textbook, a worksheet, or a whiteboard).
 Your task is to extract all individual homework tasks from the provided image.
+The user wants the response in {{language}}.
 
 For each task, identify the subject, the task description, and if mentioned, the due date.
 The output fields MUST be named 'subject', 'task', and 'dueDate'.

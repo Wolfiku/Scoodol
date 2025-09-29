@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,14 +13,12 @@ import ReportCardAnalyzer from './tools/report-card-analyzer';
 import Timer from './tools/timer';
 import StopwatchTool from './tools/stopwatch';
 import Notes from './tools/notes';
-import AiTutor from './tools/ai-tutor';
 import TextSimplifier from './tools/text-simplifier';
 
 
-type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'ai-tutor' | 'text-simplifier';
+type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'text-simplifier';
 
 const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean }[] = [
-    { id: 'ai-tutor', title: 'AI Tutor', description: 'Chatte mit einer KI bei Fragen & Problemen.', icon: <Sparkles className="w-8 h-8" />, isBeta: true },
     { id: 'text-simplifier', title: 'Text-Vereinfacher', description: 'Vereinfache komplizierte Texte & Aufgaben.', icon: <Wand2 className="w-8 h-8" /> },
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
@@ -64,8 +63,6 @@ export default function SmartToolsView() {
         return <StopwatchTool />;
       case 'notes':
         return <Notes />;
-      case 'ai-tutor':
-        return <AiTutor />;
       case 'text-simplifier':
         return <TextSimplifier />;
       default:

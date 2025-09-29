@@ -8,13 +8,11 @@ import { scanTimetable as scanTimetableFlow } from "@/ai/flows/scan-timetable";
 import type { ScanTimetableOutput } from "@/ai/flows/scan-timetable";
 import { analyzeReportCard as analyzeReportCardFlow } from "@/ai/flows/analyze-report-card";
 import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
-import { aiTutorChat } from "@/ai/flows/ai-tutor-chat";
-import type { AiTutorChatInput } from "@/ai/flows/ai-tutor-chat";
 import { simplifyText } from "@/ai/flows/simplify-text";
 
-export async function searchFormula(query: string, formulas: string) {
+export async function searchFormula(query: string, formulas: string, language: string) {
   try {
-    const result = await findFormula({ query, formulas });
+    const result = await findFormula({ query, formulas, language });
     return result;
   } catch (error) {
     console.error("Error searching for formula:", error);
@@ -22,9 +20,9 @@ export async function searchFormula(query: string, formulas: string) {
   }
 }
 
-export async function searchElement(query: string) {
+export async function searchElement(query: string, language: string) {
   try {
-    const result = await findElement({ query });
+    const result = await findElement({ query, language });
     return result;
   } catch (error) {
     console.error("Error searching for element:", error);
@@ -32,9 +30,9 @@ export async function searchElement(query: string) {
   }
 }
 
-export async function scanHomeworkImage(photoDataUri: string) {
+export async function scanHomeworkImage(photoDataUri: string, language: string) {
     try {
-        const result = await scanHomework({ photoDataUri });
+        const result = await scanHomework({ photoDataUri, language });
         return result;
     } catch (error) {
         console.error("Error scanning homework:", error);
@@ -42,9 +40,9 @@ export async function scanHomeworkImage(photoDataUri: string) {
     }
 }
 
-export async function scanTimetableImage(photoDataUri: string): Promise<ScanTimetableOutput> {
+export async function scanTimetableImage(photoDataUri: string, language: string): Promise<ScanTimetableOutput> {
     try {
-        const result = await scanTimetableFlow({ photoDataUri });
+        const result = await scanTimetableFlow({ photoDataUri, language });
         return result;
     } catch (error) {
         console.error("Error scanning timetable:", error);
@@ -53,9 +51,9 @@ export async function scanTimetableImage(photoDataUri: string): Promise<ScanTime
 }
 
 
-export async function analyzeReportCard(photoDataUri: string): Promise<AnalyzeReportCardOutput> {
+export async function analyzeReportCard(photoDataUri: string, language: string): Promise<AnalyzeReportCardOutput> {
     try {
-        const result = await analyzeReportCardFlow({ photoDataUri });
+        const result = await analyzeReportCardFlow({ photoDataUri, language });
         return result;
     } catch (error) {
         console.error("Error analyzing report card:", error);
@@ -63,19 +61,9 @@ export async function analyzeReportCard(photoDataUri: string): Promise<AnalyzeRe
     }
 }
 
-export async function getTutorChatReply(history: AiTutorChatInput["history"]) {
+export async function getSimplifiedText(text: string, language: string) {
     try {
-        const result = await aiTutorChat({ history });
-        return result;
-    } catch (error) {
-        console.error("Error in AI Tutor chat:", error);
-        return { error: "Entschuldigung, bei der Kommunikation mit dem Tutor ist ein Fehler aufgetreten." };
-    }
-}
-
-export async function getSimplifiedText(text: string) {
-    try {
-        const result = await simplifyText({ text });
+        const result = await simplifyText({ text, language });
         return result;
     } catch (error) {
         console.error("Error simplifying text:", error);

@@ -10,6 +10,7 @@ import { FileUp, Loader2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeReportCard } from '@/app/actions';
 import type { AnalyzeReportCardOutput } from '@/ai/flows/analyze-report-card';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function ReportCardAnalyzer() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -17,6 +18,7 @@ export default function ReportCardAnalyzer() {
     const [fileName, setFileName] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const { aiLanguage } = useTheme();
 
     const handleFileClick = () => {
         fileInputRef.current?.click();
@@ -43,7 +45,7 @@ export default function ReportCardAnalyzer() {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const dataUri = reader.result as string;
-            const result = await analyzeReportCard(dataUri);
+            const result = await analyzeReportCard(dataUri, aiLanguage);
 
             if (result.error) {
                  toast({
@@ -162,5 +164,3 @@ export default function ReportCardAnalyzer() {
     </Card>
   );
 }
-
-    

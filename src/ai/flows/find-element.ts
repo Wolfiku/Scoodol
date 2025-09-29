@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -13,6 +14,7 @@ import {z} from 'genkit';
 
 const FindElementInputSchema = z.object({
   query: z.string().describe('The user\'s search query for a chemical element or compound (e.g., "H2O", "Iron", "Wasserstoff").'),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type FindElementInput = z.infer<typeof FindElementInputSchema>;
 
@@ -54,10 +56,11 @@ const prompt = ai.definePrompt({
   output: {schema: FindElementOutputSchema},
   prompt: `You are an expert chemist. The user is searching for information about a chemical element or a chemical compound.
 Your task is to analyze the user's query and provide structured information about it, including physical properties like melting point, boiling point, and density.
+The user wants the response in {{language}}.
 
 - If the query refers to a single chemical element (like "Iron", "O", or "Wasserstoff"), populate the 'element' field. Include its melting point, boiling point, and density if available.
 - If the query refers to a chemical compound (like "H2O", "Water", or "Sodium Chloride"), populate the 'compound' field. Include its melting point, boiling point, and density if available.
-- If the query is ambiguous, not a chemical term, or you cannot find any information, set the 'error' field with a helpful message in German.
+- If the query is ambiguous, not a chemical term, or you cannot find any information, set the 'error' field with a helpful message in the requested language.
 - Do not populate both 'element' and 'compound' fields at the same time.
 
 User Query: {{{query}}}

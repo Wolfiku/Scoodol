@@ -10,12 +10,14 @@ import type { FindElementOutput } from '@/ai/flows/find-element';
 import { Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function PeriodicTableSearch() {
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState<FindElementOutput | null>(null);
     const { toast } = useToast();
+    const { aiLanguage } = useTheme();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -66,7 +68,7 @@ export default function PeriodicTableSearch() {
 
         setIsLoading(true);
         setResult(null);
-        const searchResult = await searchElement(query);
+        const searchResult = await searchElement(query, aiLanguage);
         setResult(searchResult);
         setIsLoading(false);
     }

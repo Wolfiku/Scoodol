@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -14,6 +15,7 @@ import {z} from 'genkit';
 const FindFormulaInputSchema = z.object({
   query: z.string().describe('The user\'s search query for a formula.'),
   formulas: z.string().describe('A JSON string of the existing formulas available to search through.'),
+  language: z.string().optional().describe("The language to respond in, e.g., 'German' or 'English'."),
 });
 export type FindFormulaInput = z.infer<typeof FindFormulaInputSchema>;
 
@@ -43,6 +45,7 @@ const prompt = ai.definePrompt({
   input: {schema: FindFormulaInputSchema},
   output: {schema: FindFormulaOutputSchema},
   prompt: `You are a helpful assistant for a student. The user is searching for a formula.
+The user wants the response in {{language}}.
 First, search the provided list of formulas to see if any of them match the user's query. The list is a JSON string.
 If you find a relevant formula in the list, return it in the 'foundFormula' field.
 
