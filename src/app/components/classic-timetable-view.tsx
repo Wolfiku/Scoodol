@@ -164,18 +164,18 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
           
           {/* Hidden table for printing and PNG export */}
           <div style={{ position: 'absolute', left: '-9999px', top: 'auto', zIndex: -100 }}>
-              <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif', width: '1000px', backgroundColor: 'white' }}>
+              <table id="timetable-for-print" style={{borderCollapse: 'collapse', fontFamily: 'Arial, sans-serif', width: '1000px', backgroundColor: 'white', tableLayout: 'fixed' }}>
                    <thead>
                       <tr>
-                          <th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }}>Stunde</th>
-                          {days.map((day) => (<th style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center', backgroundColor: '#f2f2f2' }} key={day}>{day}</th>))}
+                          <th style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', backgroundColor: '#f9f9f9', width: '120px' }}>Stunde</th>
+                          {days.map((day) => (<th style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', backgroundColor: '#f9f9f9' }} key={day}>{day}</th>))}
                       </tr>
                   </thead>
                   <tbody>
                       {timeSlots.map((slot, index) => (
                       <tr key={slot}>
-                          <td style={{border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}>
-                              <div>{index + 1}. Stunde</div>
+                          <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'middle', height: '100px'}}>
+                              <div style={{fontWeight: 'bold'}}>{index + 1}. Stunde</div>
                               <div style={{fontSize: '0.8em', color: '#666'}}>{slot}</div>
                           </td>
                           {days.map((day) => {
@@ -183,16 +183,24 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                           return (
                               <td 
                                   key={`${day}-${slot}`}
-                                  style={entry ? { backgroundColor: stringToHslColor(entry.fach, 50, 60), color: 'white', border: '1px solid #ccc', padding: '12px', textAlign: 'center' } : {border: '1px solid #ccc', padding: '12px', textAlign: 'center'}}
+                                  style={entry ? { 
+                                    backgroundColor: stringToHslColor(entry.fach, 70, 80), 
+                                    color: stringToHslColor(entry.fach, 70, 25), 
+                                    border: '1px solid #ddd', 
+                                    padding: '8px', 
+                                    textAlign: 'center',
+                                    verticalAlign: 'middle',
+                                    height: '100px'
+                                  } : {border: '1px solid #ddd', padding: '8px', textAlign: 'center'}}
                               >
                               {entry ? (
                                   <div>
-                                      <p style={{fontWeight: 'bold', margin: '0'}}>{entry.fach}</p>
-                                      {entry.lehrer && <div className="teacher" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.lehrer}</div>}
-                                      {entry.room && <div className="room" style={{fontSize: '0.8em', marginTop: '4px', color: 'rgba(255,255,255,0.8)'}}>{entry.room}</div>}
+                                      <p style={{fontWeight: 'bold', margin: '0 0 4px 0', fontSize: '1.1em'}}>{entry.fach}</p>
+                                      {entry.lehrer && <div className="teacher" style={{fontSize: '0.9em', marginTop: '4px'}}>{entry.lehrer}</div>}
+                                      {entry.room && <div className="room" style={{fontSize: '0.9em', marginTop: '4px', fontWeight: 'bold'}}>{entry.room}</div>}
                                   </div>
                               ) : (
-                                  <span>-</span>
+                                  <span style={{color: '#ccc'}}>-</span>
                               )}
                               </td>
                           );
@@ -200,7 +208,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       </tr>
                       ))}
                        <tr>
-                          <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px'}}>
+                          <td colSpan={days.length + 1} style={{textAlign: 'right', fontSize: '10px', color: '#aaa', padding: '8px', borderTop: '1px solid #ddd'}}>
                               Scoodol by @wolfikuproduction
                           </td>
                       </tr>
