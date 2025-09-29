@@ -6,7 +6,7 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings, Info } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings, Info, Timer } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
@@ -21,7 +21,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.2.0';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -165,11 +165,11 @@ export default function Page() {
     }
   };
 
-  const closeUpdateDialog = (navigateToSettings = false) => {
+  const closeUpdateDialog = (navigateTo?: string) => {
       setShowUpdateDialog(false);
       localStorage.setItem('lastSeenVersion', APP_VERSION);
-      if (navigateToSettings) {
-          setView('settings');
+      if (navigateTo) {
+          setView(navigateTo);
       }
   }
 
@@ -226,18 +226,22 @@ export default function Page() {
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="text-2xl">Willkommen zu Version 1.1!</DialogTitle>
+                <DialogTitle className="text-2xl">Willkommen zu Version 1.2!</DialogTitle>
                 <DialogDescription className="pt-2 text-base">
-                    Scoodol hat ein Update erhalten!
+                    Scoodol hat ein großes Update mit neuen Smart Tools erhalten!
                     <br/><br/>
-                    Das größte neue Feature ist, dass du Scoodol jetzt wie eine echte App auf deinem Handy, Tablet oder PC installieren kannst. Das bedeutet schnelleren Zugriff, bessere Offline-Nutzung und ein App-Feeling direkt von deinem Home-Bildschirm.
+                    <ul className="list-disc pl-5 space-y-2">
+                        <li><b>Timer & Stoppuhr:</b> Perfekt für Lernsessions und Zeitmanagement.</li>
+                        <li><b>Text-Vereinfacher (KI):</b> Vereinfacht komplizierte Aufgabenstellungen.</li>
+                        <li><b>KI-Sprachauswahl:</b> Du kannst jetzt in den Einstellungen die Antwort-Sprache der KI wählen.</li>
+                    </ul>
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2 mt-4">
-                <Button onClick={() => closeUpdateDialog(true)} size="lg">
-                    <Info className="mr-2" /> Zeig mir, wie's geht!
+                <Button onClick={() => closeUpdateDialog('smart-tool')} size="lg">
+                    <Sparkles className="mr-2" /> Zu den neuen Tools!
                 </Button>
-                <Button variant="ghost" onClick={() => closeUpdateDialog(false)}>Später</Button>
+                <Button variant="ghost" onClick={() => closeUpdateDialog()}>Später</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>

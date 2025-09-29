@@ -276,7 +276,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="beta-features" className="flex flex-col gap-1">
                                     <span className="font-bold flex items-center gap-2"><Wand2 className="w-5 h-5 text-primary" />Beta-Funktionen</span>
-                                    <span className="text-xs text-muted-foreground">Aktiviere den experimentellen AI-Tutor Chat.</span>
+                                    <span className="text-xs text-muted-foreground">Aktiviere experimentelle & unfertige Features.</span>
                                 </Label>
                                 <Switch
                                     id="beta-features"
@@ -452,7 +452,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.1.4
+                    Version 1.2.0
                 </span>
             </div>
         </div>
