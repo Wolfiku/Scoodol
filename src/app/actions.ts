@@ -9,6 +9,8 @@ import type { ScanTimetableOutput } from "@/ai/flows/scan-timetable";
 import { analyzeReportCard as analyzeReportCardFlow } from "@/ai/flows/analyze-report-card";
 import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
 import { simplifyText } from "@/ai/flows/simplify-text";
+import { scanVocabulary } from "@/ai/flows/scan-vocabulary";
+import type { ScanVocabularyOutput } from "@/ai/flows/scan-vocabulary";
 
 export async function searchFormula(query: string, formulas: string, language: string) {
   try {
@@ -68,5 +70,15 @@ export async function getSimplifiedText(text: string, language: string) {
     } catch (error) {
         console.error("Error simplifying text:", error);
         return { error: "Entschuldigung, beim Vereinfachen des Textes ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function scanVocabularyImage(photoDataUri: string, language: string): Promise<ScanVocabularyOutput> {
+    try {
+        const result = await scanVocabulary({ photoDataUri, language });
+        return result;
+    } catch (error) {
+        console.error("Error scanning vocabulary:", error);
+        return { error: "Beim Scannen der Vokabeln ist ein Fehler aufgetreten." };
     }
 }
