@@ -20,6 +20,18 @@ type Vocabulary = {
   german: string;
 };
 
+const shuffleArray = (array: any[]) => {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+    }
+    return array;
+}
+
+
 export default function VokabelPage() {
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>([]);
   const [isMounted, setIsMounted] = useState(false);
@@ -32,6 +44,10 @@ export default function VokabelPage() {
   const [showScanInfo, setShowScanInfo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [isQuizActive, setIsQuizActive] = useState(false);
+  const [quizList, setQuizList] = useState<Vocabulary[]>([]);
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
   const router = useRouter();
@@ -141,6 +157,18 @@ export default function VokabelPage() {
     }
   }
 
+  const startQuiz = () => {
+    setQuizList(shuffleArray([...vocabulary]));
+    setCurrentQuizIndex(0);
+    setIsQuizActive(true);
+  }
+
+  const endQuiz = () => {
+    setIsQuizActive(false);
+    setQuizList([]);
+    setCurrentQuizIndex(0);
+  }
+
   if (!isMounted) {
       return (
         <div className="container mx-auto p-4 md:p-8 flex items-center justify-center min-h-screen">
@@ -149,6 +177,27 @@ export default function VokabelPage() {
       );
   }
   
+  if (isQuizActive) {
+      const currentVocab = quizList[currentQuizIndex];
+      return (
+          <div className="container mx-auto p-4 md:p-8 flex flex-col items-center justify-center min-h-[80vh]">
+              <Card className="w-full max-w-md text-center">
+                  <CardHeader>
+                      <CardTitle>Lern-Quiz</CardTitle>
+                      <CardDescription>Wische nach links (falsch) oder rechts (richtig).</CardDescription>
+                  </CardHeader>
+                  <CardContent className="py-12">
+                      <p className="text-3xl font-bold">{currentVocab?.foreign}</p>
+                  </CardContent>
+                  <CardFooter className="flex-col gap-4">
+                        <Button className="w-full">Vokabel aufdecken</Button>
+                        <Button variant="ghost" onClick={endQuiz}>Quiz beenden</Button>
+                  </CardFooter>
+              </Card>
+          </div>
+      )
+  }
+
   return (
     <div className="container mx-auto p-4 md:p-8">
         <Button variant="ghost" onClick={() => router.push('/')} className="mb-4">
@@ -262,10 +311,12 @@ export default function VokabelPage() {
         </ScrollArea>
         {vocabulary.length > 0 &&
             <CardFooter className="border-t pt-6">
-                <Button className="w-full" size="lg">Lern-Quiz starten</Button>
+                <Button className="w-full" size="lg" onClick={startQuiz}>Lern-Quiz starten</Button>
             </CardFooter>
         }
       </Card>
     </div>
   );
 }
+
+    
