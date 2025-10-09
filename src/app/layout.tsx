@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/hooks/use-theme';
@@ -27,14 +27,23 @@ const faviconHref = `data:image/svg+xml,${encodeURIComponent(calendarIconSvg)}`;
 
 
 export const metadata: Metadata = {
+  // Disables the default favicon handling.
+  // See: https://nextjs.org/docs/app/api-reference/functions/generate-metadata#icons
+  metadataBase: null,
   title: 'Scoodol',
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: faviconHref,
-    shortcut: faviconHref,
     apple: faviconHref,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' },
+  ],
 };
 
 const ptSans = PT_Sans({
