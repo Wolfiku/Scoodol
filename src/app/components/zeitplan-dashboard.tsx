@@ -89,20 +89,12 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay() - 1);
   const [isMounted, setIsMounted] = useState(false);
-  const [activeView, setActiveView] = useState<'morning' | 'afternoon'>('morning');
-
 
   useEffect(() => {
     setIsMounted(true);
     const today = new Date().getDay();
     const dayIndex = today > 0 && today < 6 ? today - 1 : 0; 
     setCurrentDayIndex(dayIndex);
-
-    const currentHour = new Date().getHours();
-    if (currentHour >= 13) {
-      setActiveView('afternoon');
-    }
-
   }, []);
 
   const changeDay = (offset: number) => {
@@ -181,12 +173,23 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-  const { morningSchedule, afternoonSchedule } = useMemo(() => {
-      const schedule = timetable[weekDays[currentDayIndex]] || [];
-      const morning = schedule.slice(0, AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
-      const afternoon = schedule.slice(AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
-      return { morningSchedule: morning, afternoonSchedule: afternoon };
-  }, [timetable, currentDayIndex]);
+    const { morningSchedule, afternoonSchedule } = useMemo(() => {
+        const schedule = timetable[weekDays[currentDayIndex]] || [];
+        const morning = schedule.slice(0, AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
+        const afternoon = schedule.slice(AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
+        return { morningSchedule: morning, afternoonSchedule: afternoon };
+    }, [timetable, currentDayIndex]);
+
+    const activeView = useMemo(() => {
+        if (!now) return 'morning';
+        const schoolEnd = parseTime(schoolEndTime);
+        const hasAfternoon = afternoonSchedule.length > 0;
+        
+        if (hasAfternoon && now > schoolEnd) {
+            return 'afternoon';
+        }
+        return 'morning';
+    }, [now, schoolEndTime, afternoonSchedule]);
   
   const dailyTimetable = activeView === 'morning' ? morningSchedule : afternoonSchedule;
 
@@ -247,23 +250,9 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         </div>
       </header>
 
-      <div className="flex gap-2 mb-2">
-            <Button 
-                onClick={() => setActiveView('morning')}
-                variant={activeView === 'morning' ? 'default' : 'outline'}
-                className="w-full"
-            >
-                <Sunrise className="mr-2" /> Vormittag
-            </Button>
-            {afternoonSchedule.length > 0 && (
-                 <Button 
-                    onClick={() => setActiveView('afternoon')}
-                    variant={activeView === 'afternoon' ? 'default' : 'outline'}
-                    className="w-full"
-                >
-                    <Sunset className="mr-2" /> Nachmittag
-                </Button>
-            )}
+       <div className="flex items-center gap-2 text-xl font-semibold text-muted-foreground">
+            {activeView === 'morning' ? <Sunrise className="text-amber-500" /> : <Sunset className="text-orange-500" />}
+            <span>{activeView === 'morning' ? 'Vormittag' : 'Nachmittag'}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
