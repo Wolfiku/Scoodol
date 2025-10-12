@@ -50,6 +50,11 @@ type TimetableEntry = {
   materialien?: string;
 };
 
+type ProcessedTimetableEntry = TimetableEntry & {
+    rowspan: number;
+    isContinuation: boolean;
+};
+
 type TimetableData = {
   [key: string]: TimetableEntry[];
 };
@@ -174,11 +179,49 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   };
   
     const { morningSchedule, afternoonSchedule } = useMemo(() => {
-        const schedule = timetable[weekDays[currentDayIndex]] || [];
-        const morning = schedule.slice(0, AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
-        const afternoon = schedule.slice(AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
+        const daySchedule = timetable[weekDays[currentDayIndex]] || [];
+        const processedSchedule: ProcessedTimetableEntry[] = [];
+        let i = 0;
+        while (i < daySchedule.length) {
+            const currentEntry = daySchedule[i];
+            if (!currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
+                processedSchedule.push({ ...currentEntry, rowspan: 1, isContinuation: false });
+                i++;
+                continue;
+            }
+
+            let rowspan = 1;
+            while (
+                i + rowspan < daySchedule.length &&
+                daySchedule[i + rowspan].fach === currentEntry.fach &&
+                daySchedule[i + rowspan].lehrer === currentEntry.lehrer &&
+                daySchedule[i + rowspan].room === currentEntry.room
+            ) {
+                rowspan++;
+            }
+            
+            processedSchedule.push({
+                ...currentEntry,
+                ende: daySchedule[i + rowspan - 1].ende,
+                rowspan,
+                isContinuation: false,
+            });
+
+            for (let j = 1; j < rowspan; j++) {
+                processedSchedule.push({ ...daySchedule[i + j], rowspan: 0, isContinuation: true });
+            }
+            i += rowspan;
+        }
+
+        const filteredSchedule = processedSchedule.filter(entry => !entry.isContinuation && entry.fach && entry.fach.trim() !== "");
+        const morning = filteredSchedule.filter((_, index) => index < AFTERNOON_START_HOUR_INDEX && daySchedule[index]?.start < schoolEndTime);
+        const afternoon = filteredSchedule.filter((_, index) => {
+            const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
+            return originalIndex >= AFTERNOON_START_HOUR_INDEX || daySchedule[originalIndex]?.start >= schoolEndTime;
+        });
+
         return { morningSchedule: morning, afternoonSchedule: afternoon };
-    }, [timetable, currentDayIndex]);
+    }, [timetable, currentDayIndex, schoolEndTime]);
 
     const activeView = useMemo(() => {
         if (!now) return 'morning';
@@ -299,6 +342,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 </div>
                 <CardDescription className="text-base">
                   {entry.start} - {entry.ende}
+                   {entry.rowspan > 1 && <span className="text-xs text-primary/80 ml-2">(Doppelstunde)</span>}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex justify-between items-center text-muted-foreground">
@@ -391,3 +435,5 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
+
+    
