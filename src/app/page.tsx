@@ -33,6 +33,7 @@ type TimetableEntry = {
   id: string;
   fach: string;
   lehrer?: string;
+  room?: string;
   start: string;
   ende: string;
   hauptfach?: boolean;
@@ -44,6 +45,11 @@ type TimetableData = {
   [key: string]: TimetableEntry[];
 };
 
+type TimetableSettings = {
+    schoolStartTime: string;
+    schoolEndTime: string;
+}
+
 
 export default function Page() {
   const [view, setView] = useState('daily');
@@ -54,6 +60,7 @@ export default function Page() {
   const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
+  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
 
@@ -64,10 +71,15 @@ export default function Page() {
           setIsPreviewMode(true);
           sessionStorage.removeItem('previewMode'); // Immediately remove after checking
           setTimetableData(previewTimetableData);
+          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
         } else {
             const savedTimetable = localStorage.getItem("timetable");
             if(savedTimetable) {
                 setTimetableData(JSON.parse(savedTimetable));
+            }
+            const savedSettings = localStorage.getItem("timetableSettings");
+            if (savedSettings) {
+                setTimetableSettings(JSON.parse(savedSettings));
             }
         }
         
@@ -96,7 +108,8 @@ export default function Page() {
         const getMajorMinor = (version: string) => version.split('.').slice(0, 2).join('.');
         
         if (!lastSeenVersion || getMajorMinor(lastSeenVersion) !== getMajorMinor(APP_VERSION)) {
-            setShowUpdateDialog(true);
+            // Temporarily disable update dialog
+            // setShowUpdateDialog(true);
         }
     }
   }, [isMobile]);
@@ -108,8 +121,16 @@ export default function Page() {
     }
   }
 
-  const handleSetupComplete = (newTimetable: TimetableData, profilePicture?: string) => {
+  const updateTimetableSettings = (newSettings: TimetableSettings) => {
+      setTimetableSettings(newSettings);
+      if (!isPreviewMode) {
+          localStorage.setItem("timetableSettings", JSON.stringify(newSettings));
+      }
+  }
+
+  const handleSetupComplete = (newTimetable: TimetableData, newSettings: TimetableSettings, profilePicture?: string) => {
     updateTimetable(newTimetable);
+    updateTimetableSettings(newSettings);
     if (profilePicture) {
         localStorage.setItem("profilePicture", profilePicture);
     }
@@ -128,6 +149,7 @@ export default function Page() {
   
   const handleTimetableImport = (importedData: any) => {
     if (importedData.timetable) updateTimetable(importedData.timetable);
+    if (importedData.timetableSettings) updateTimetableSettings(importedData.timetableSettings);
     if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
     if (importedData.theme) setTheme(importedData.theme);
     if (importedData.startView) {
@@ -202,7 +224,7 @@ export default function Page() {
   const renderView = () => {
     switch(view) {
       case 'daily':
-        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />;
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
       case 'weekly':
         return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />;
       case 'homework':
@@ -216,7 +238,7 @@ export default function Page() {
       case 'datenschutz':
         return <DatenschutzPage />;
       default:
-        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} onTimetableUpdate={updateTimetable} />;
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
     }
   }
   
@@ -230,8 +252,7 @@ export default function Page() {
                 <DialogDescription>
                   <div className="pt-2 text-base">
                     Scoodol hat ein großes Update mit neuen Smart Tools erhalten!
-                    <br/><br/>
-                    <ul className="list-disc pl-5 space-y-2">
+                    <ul className="list-disc pl-5 space-y-2 mt-4">
                         <li><b>Timer & Stoppuhr:</b> Perfekt für Lernsessions und Zeitmanagement.</li>
                         <li><b>Text-Vereinfacher (KI):</b> Vereinfacht komplizierte Aufgabenstellungen.</li>
                         <li><b>KI-Sprachauswahl:</b> Du kannst jetzt in den Einstellungen die Antwort-Sprache der KI wählen.</li>

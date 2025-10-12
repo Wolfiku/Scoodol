@@ -51,18 +51,21 @@ type TimetableData = {
   [key: string]: TimetableEntry[];
 };
 
+type TimetableSettings = {
+    schoolStartTime: string;
+    schoolEndTime: string;
+}
+
 type Props = {
   setView: (view: string) => void;
   isPreview?: boolean;
   timetable: TimetableData;
+  timetableSettings: TimetableSettings;
   onTimetableUpdate: (timetable: TimetableData) => void;
 };
 
-
-const SCHOOL_START_HOUR = 8;
-const SCHOOL_END_HOUR = 13;
-
 const parseTime = (timeStr: string) => {
+  if (!timeStr || !timeStr.includes(':')) return new Date();
   const [hours, minutes] = timeStr.split(":").map(Number);
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
@@ -70,8 +73,9 @@ const parseTime = (timeStr: string) => {
 };
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+const AFTERNOON_START_HOUR = 13; // 7th period typically starts around 13:00
 
-export default function ZeitplanDashboard({ setView, isPreview = false, timetable, onTimetableUpdate }: Props) {
+export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
@@ -99,12 +103,16 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
       return prevIndex;
     });
   };
+  
+  const { schoolStartTime, schoolEndTime } = timetableSettings;
 
   const isSchoolTime = useMemo(() => {
-    if (!now) return false;
+    if (!now || !schoolStartTime || !schoolEndTime) return false;
     const currentHour = now.getHours();
-    return currentHour >= SCHOOL_START_HOUR && currentHour < SCHOOL_END_HOUR;
-  }, [now]);
+    const [startHour] = schoolStartTime.split(':').map(Number);
+    const [endHour] = schoolEndTime.split(':').map(Number);
+    return currentHour >= startHour && currentHour < endHour;
+  }, [now, schoolStartTime, schoolEndTime]);
 
   useEffect(() => {
     const updateTime = () => setNow(new Date());
@@ -114,14 +122,16 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   }, []);
 
   useEffect(() => {
-    if (!now) return;
+    if (!now || !isSchoolTime) {
+        setRemainingTime(null);
+        return;
+    };
 
     const currentMinute = now.getMinutes();
-    if (isSchoolTime && currentMinute !== lastMinuteRef.current) {
-        const schoolEndTime = new Date();
-        schoolEndTime.setHours(SCHOOL_END_HOUR, 0, 0, 0);
+    if (currentMinute !== lastMinuteRef.current) {
+        const morningEndTime = parseTime(schoolEndTime);
         
-        const diffMs = schoolEndTime.getTime() - now.getTime();
+        const diffMs = morningEndTime.getTime() - now.getTime();
         
         if (diffMs > 0) {
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -133,10 +143,8 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         }
 
       lastMinuteRef.current = currentMinute;
-    } else if (!isSchoolTime) {
-      setRemainingTime(null);
     }
-  }, [now, isSchoolTime]);
+  }, [now, isSchoolTime, schoolEndTime]);
 
   const handleOpenDialog = (entry: TimetableEntry) => {
     setSelectedSubject(entry);
@@ -162,7 +170,11 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-  const dailyTimetable = timetable[weekDays[currentDayIndex]] || [];
+  const dailyTimetable = useMemo(() => {
+      const schedule = timetable[weekDays[currentDayIndex]] || [];
+      return schedule.filter(entry => entry.fach && entry.fach.trim() !== "");
+  }, [timetable, currentDayIndex]);
+
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
@@ -201,7 +213,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 <Sun className="w-5 h-5" />
                 <span className="font-semibold">
                   {remainingTime
-                    ? `Schulende in: ${remainingTime}`
+                    ? `Schulende (Vormittag) in: ${remainingTime}`
                     : "Berechne..."}
                 </span>
               </div>

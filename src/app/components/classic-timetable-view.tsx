@@ -43,19 +43,17 @@ type Props = {
 
 
 const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
-const timeSlots = [
-  "08:00 - 08:45",
-  "08:45 - 09:30",
-  "09:45 - 10:30",
-  "10:30 - 11:15",
-  "11:30 - 12:15",
-  "12:15 - 13:00",
+const allTimeSlots = [
+  "08:00 - 08:45", "08:45 - 09:30", "09:45 - 10:30", "10:30 - 11:15",
+  "11:30 - 12:15", "12:15 - 13:00", "13:30 - 14:15", "14:15 - 15:00",
+  "15:15 - 16:00", "16:00 - 16:45"
 ];
 
 
 
 // Function to generate a color from a string
 const stringToHslColor = (str: string, s: number, l: number) => {
+  if (!str) return `hsl(0, 0%, 95%)`;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -66,13 +64,22 @@ const stringToHslColor = (str: string, s: number, l: number) => {
 
 export default function ClassicTimetableView({ setView, isPreview = false, timetable }: Props) {
 
+  // Determine which time slots are actually used across the week
+  const usedTimeSlots = allTimeSlots.filter((slot, index) => {
+    return days.some(day => {
+      const schedule = timetable[day] || [];
+      const entry = schedule.find(e => e.start === slot.split(' - ')[0]);
+      return entry && entry.fach.trim() !== '' && entry.fach !== 'Pause';
+    });
+  });
+
   const getEntry = (day: string, timeSlot: string) => {
     const daySchedule = timetable[day];
     if (!daySchedule) return null;
 
     const [start] = timeSlot.split(" - ");
     return daySchedule.find(
-      (entry) => entry.start === start && entry.fach !== "Pause"
+      (entry) => entry.start === start && entry.fach && entry.fach.trim() !== ""
     );
   };
   
@@ -110,7 +117,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
               <Table id="timetable-print-view" className="border min-w-[700px] md:min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="border-r">Stunde</TableHead>
+                    <TableHead className="border-r w-[120px]">Stunde</TableHead>
                     {days.map((day) => (
                       <TableHead key={day} className="text-center border-r">
                         {day}
@@ -119,19 +126,19 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timeSlots.map((slot, index) => (
+                  {usedTimeSlots.map((slot, index) => (
                     <TableRow key={slot}>
                       <TableCell className="font-medium border-r">
                         <div className="flex flex-col">
-                          <span>{index + 1}. Stunde</span>
+                          <span>{allTimeSlots.indexOf(slot) + 1}. Stunde</span>
                           <span className="text-xs text-muted-foreground">{slot}</span>
                         </div>
                       </TableCell>
                       {days.map((day) => {
                         const entry = getEntry(day, slot);
                         return (
-                          <TableCell key={`${day}-${slot}`} className="text-center border-r">
-                            {entry ? (
+                          <TableCell key={`${day}-${slot}`} className="text-center border-r p-2">
+                            {entry && entry.fach !== 'Pause' ? (
                               <div>
                                 <p className="font-bold">{entry.fach}</p>
                                 {entry.lehrer && (
@@ -172,10 +179,10 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       </tr>
                   </thead>
                   <tbody>
-                      {timeSlots.map((slot, index) => (
+                      {usedTimeSlots.map((slot, index) => (
                       <tr key={slot}>
-                          <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'middle', height: '100px'}}>
-                              <div style={{fontWeight: 'bold'}}>{index + 1}. Stunde</div>
+                          <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'middle', height: '100px', minHeight: '100px'}}>
+                              <div style={{fontWeight: 'bold'}}>{allTimeSlots.indexOf(slot) + 1}. Stunde</div>
                               <div style={{fontSize: '0.8em', color: '#666'}}>{slot}</div>
                           </td>
                           {days.map((day) => {
@@ -183,20 +190,21 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                           return (
                               <td 
                                   key={`${day}-${slot}`}
-                                  style={entry ? { 
-                                    backgroundColor: stringToHslColor(entry.fach, 70, 80), 
+                                  style={entry && entry.fach !== 'Pause' ? { 
+                                    backgroundColor: stringToHslColor(entry.fach, 70, 85), 
                                     color: stringToHslColor(entry.fach, 70, 25), 
                                     border: '1px solid #ddd', 
                                     padding: '8px', 
                                     textAlign: 'center',
                                     verticalAlign: 'middle',
-                                    height: '100px'
-                                  } : {border: '1px solid #ddd', padding: '8px', textAlign: 'center'}}
+                                    height: '100px',
+                                    minHeight: '100px'
+                                  } : {border: '1px solid #ddd', padding: '8px', textAlign: 'center', verticalAlign: 'middle'}}
                               >
-                              {entry ? (
+                              {entry && entry.fach !== 'Pause' ? (
                                   <div>
                                       <p style={{fontWeight: 'bold', margin: '0 0 4px 0', fontSize: '1.1em'}}>{entry.fach}</p>
-                                      {entry.lehrer && <div className="teacher" style={{fontSize: '0.9em', marginTop: '4px'}}>{entry.lehrer}</div>}
+                                      {entry.lehrer && <div className="teacher" style={{fontSize: '0.9em', marginTop: '4px', color: 'inherit'}}>{entry.lehrer}</div>}
                                       {entry.room && <div className="room" style={{fontSize: '0.9em', marginTop: '4px', fontWeight: 'bold'}}>{entry.room}</div>}
                                   </div>
                               ) : (

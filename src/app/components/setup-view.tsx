@@ -6,13 +6,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, Clock } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 
 type TimetableEntry = {
@@ -31,10 +32,16 @@ type TimetableData = {
     [key: string]: TimetableEntry[];
 };
 
+type TimetableSettings = {
+    schoolStartTime: string;
+    schoolEndTime: string;
+}
+
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 const timeSlots = [
     "08:00 - 08:45", "08:45 - 09:30", "09:45 - 10:30", "10:30 - 11:15",
-    "11:30 - 12:15", "12:15 - 13:00"
+    "11:30 - 12:15", "12:15 - 13:00", "13:30 - 14:15", "14:15 - 15:00",
+    "15:15 - 16:00", "16:00 - 16:45"
 ];
 
 const createInitialTimetable = (): TimetableData => {
@@ -57,9 +64,10 @@ const createInitialTimetable = (): TimetableData => {
 }
 
 
-export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
+    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,9 +77,13 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
      useEffect(() => {
         if(isEditing) {
-            const saved = localStorage.getItem("timetable");
-            if (saved) {
-                setTimetable(JSON.parse(saved));
+            const savedTimetable = localStorage.getItem("timetable");
+            if (savedTimetable) {
+                setTimetable(JSON.parse(savedTimetable));
+            }
+            const savedSettings = localStorage.getItem("timetableSettings");
+            if (savedSettings) {
+                setTimetableSettings(JSON.parse(savedSettings));
             }
             const savedPic = localStorage.getItem("profilePicture");
             if (savedPic) {
@@ -115,7 +127,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         const daySchedule = result.timetable[dayName] || [];
                         daySchedule.forEach(aiEntry => {
                             const slotIndex = timeSlots.findIndex(slot => slot.startsWith(aiEntry.start));
-                            if(slotIndex !== -1) {
+                            if(slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
                                 newTimetable[dayName][slotIndex] = {
                                     ...newTimetable[dayName][slotIndex],
                                     fach: aiEntry.subject,
@@ -155,7 +167,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
     const handleSave = () => {
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
-        onSetupComplete(timetable, profilePicture || undefined);
+        onSetupComplete(timetable, timetableSettings, profilePicture || undefined);
     }
     
     const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,14 +251,36 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                         <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                <Input 
+                                    id="start-time"
+                                    type="time" 
+                                    value={timetableSettings.schoolStartTime} 
+                                    onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                <Input 
+                                    id="end-time"
+                                    type="time" 
+                                    value={timetableSettings.schoolEndTime} 
+                                    onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="relative flex pt-4 items-center">
+                            <div className="flex-grow border-t border-muted"></div>
+                            <span className="flex-shrink mx-4 text-muted-foreground text-sm">Stundenplan erstellen</span>
+                            <div className="flex-grow border-t border-muted"></div>
+                        </div>
+
                         <Button className="w-full" size="lg" onClick={() => { setMode('manual'); }}>
                             <Edit className="mr-2" /> Manuell eingeben
                         </Button>
-                        <div className="relative flex py-2 items-center">
-                            <div className="flex-grow border-t border-muted"></div>
-                            <span className="flex-shrink mx-4 text-muted-foreground">ODER</span>
-                            <div className="flex-grow border-t border-muted"></div>
-                        </div>
                         <Button className="w-full" size="lg" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
                             {isScanning ? <Loader2 className="mr-2 animate-spin"/> : <Camera className="mr-2" />}
                             {isScanning ? "Scanne..." : "Stundenplan scannen (KI)"}
