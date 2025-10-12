@@ -157,39 +157,18 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                      // Only render row if at least one day has a non-continuation entry for this slot
                      const shouldRenderRow = days.some(day => {
                         const entry = getEntry(day, slotIndex);
-                        return entry && !entry.isContinuation && entry.fach && entry.fach.trim() !== '';
+                        return entry && !entry.isContinuation;
                      });
                      if(!shouldRenderRow) return null;
 
                     return (
                         <TableRow key={slotIndex}>
-                            {days.map((day, dayIndex) => {
-                                const entry = getEntry(day, slotIndex);
-                                if (dayIndex === 0) {
-                                  // Find the first actual entry in this row to display time info
-                                  let firstEntryInRow = null;
-                                  for (const d of days) {
-                                    const e = getEntry(d, slotIndex);
-                                    if(e && !e.isContinuation) {
-                                      firstEntryInRow = e;
-                                      break;
-                                    }
-                                  }
-
-                                    return (
-                                        <TableCell key={`${day}-${slotIndex}-time`} className="font-medium border-r align-top" rowSpan={firstEntryInRow?.rowspan || 1}>
-                                            <div className="flex flex-col">
-                                                <span>{slotIndex + 1}. Stunde</span>
-                                                {firstEntryInRow && (
-                                                    <span className="text-xs text-muted-foreground">{firstEntryInRow.start} - {firstEntryInRow.ende}</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    );
-                                }
-                                return null;
-                            }).filter(Boolean)}
-
+                            <TableCell className="font-medium border-r align-top">
+                                <div className="flex flex-col">
+                                    <span>{slotIndex + 1}. Stunde</span>
+                                    <span className="text-xs text-muted-foreground">{timetable.Montag[slotIndex].start} - {timetable.Montag[slotIndex].ende}</span>
+                                </div>
+                            </TableCell>
 
                             {days.map((day) => {
                                 const entry = getEntry(day, slotIndex);
@@ -215,9 +194,6 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                         )}
                                         {entry.hauptfach && (
                                         <Badge variant="default" className="mt-1">Hauptfach</Badge>
-                                        )}
-                                        {entry.rowspan > 1 && (
-                                            <Badge variant="secondary" className="mt-1">Doppelstunde</Badge>
                                         )}
                                     </div>
                                     ) : (
@@ -246,31 +222,16 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       {timetable.Montag.map((_, slotIndex) => {
                          const shouldRenderRow = days.some(day => {
                             const entry = getEntry(day, slotIndex);
-                            return entry && !entry.isContinuation && entry.fach && entry.fach.trim() !== '';
+                            return entry && !entry.isContinuation;
                          });
                          if(!shouldRenderRow) return null;
                          
                         return (
                             <tr key={slotIndex}>
-                                {days.map((day, dayIndex) => {
-                                    if(dayIndex === 0) {
-                                      let firstEntryInRow = null;
-                                      for (const d of days) {
-                                        const e = getEntry(d, slotIndex);
-                                        if(e && !e.isContinuation) {
-                                          firstEntryInRow = e;
-                                          break;
-                                        }
-                                      }
-                                        return (
-                                            <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'top', height: '100px' }} rowSpan={firstEntryInRow?.rowspan || 1}>
-                                                <div style={{fontWeight: 'bold'}}>{slotIndex + 1}. Stunde</div>
-                                                {firstEntryInRow && <div style={{fontSize: '0.8em', color: '#666'}}>{firstEntryInRow.start} - {firstEntryInRow.ende}</div>}
-                                            </td>
-                                        );
-                                    }
-                                    return null;
-                                }).filter(Boolean)}
+                                <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'top', height: '100px' }}>
+                                    <div style={{fontWeight: 'bold'}}>{slotIndex + 1}. Stunde</div>
+                                    <div style={{fontSize: '0.8em', color: '#666'}}>{timetable.Montag[slotIndex].start} - {timetable.Montag[slotIndex].ende}</div>
+                                </td>
 
                                 {days.map((day) => {
                                     const entry = getEntry(day, slotIndex);
@@ -289,7 +250,6 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                                     <p style={{fontWeight: 'bold', margin: '0 0 4px 0', fontSize: '1.1em'}}>{entry.fach}</p>
                                                     {entry.lehrer && <div style={{fontSize: '0.9em', marginTop: '4px', color: 'inherit'}}>{entry.lehrer}</div>}
                                                     {entry.room && <div style={{fontSize: '0.9em', marginTop: '4px', fontWeight: 'bold'}}>{entry.room}</div>}
-                                                     {entry.rowspan > 1 && <div style={{fontSize: '0.8em', marginTop: '8px', opacity: 0.8}}>Doppelstunde</div>}
                                                 </div>
                                             ) : <span style={{color: '#ccc'}}>-</span>}
                                         </td>

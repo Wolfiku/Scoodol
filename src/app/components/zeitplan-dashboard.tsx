@@ -216,15 +216,15 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         const filteredSchedule = processedSchedule.filter(entry => !entry.isContinuation && entry.fach && entry.fach.trim() !== "");
         const morning = filteredSchedule.filter((_, index) => {
              const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
-             return originalIndex < AFTERNOON_START_HOUR_INDEX && daySchedule[originalIndex]?.start < schoolEndTime
+             return originalIndex < AFTERNOON_START_HOUR_INDEX;
         });
         const afternoon = filteredSchedule.filter((_, index) => {
             const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
-            return originalIndex >= AFTERNOON_START_HOUR_INDEX || daySchedule[originalIndex]?.start >= schoolEndTime;
+            return originalIndex >= AFTERNOON_START_HOUR_INDEX;
         });
 
         return { morningSchedule: morning, afternoonSchedule: afternoon };
-    }, [timetable, currentDayIndex, schoolEndTime]);
+    }, [timetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
         if (!now) return 'morning';
@@ -278,7 +278,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 <Sun className="w-5 h-5" />
                 <span className="font-semibold">
                   {remainingTime
-                    ? `Schulende (Vormittag) in: ${remainingTime}`
+                    ? `Schulende in: ${remainingTime}`
                     : "Berechne..."}
                 </span>
               </div>
