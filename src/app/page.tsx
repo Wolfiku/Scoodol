@@ -21,7 +21,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -108,8 +108,7 @@ export default function Page() {
         const getMajorMinor = (version: string) => version.split('.').slice(0, 2).join('.');
         
         if (!lastSeenVersion || getMajorMinor(lastSeenVersion) !== getMajorMinor(APP_VERSION)) {
-            // Temporarily disable update dialog
-            // setShowUpdateDialog(true);
+            setShowUpdateDialog(true);
         }
     }
   }, [isMobile]);
@@ -248,23 +247,21 @@ export default function Page() {
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="text-2xl">Willkommen zu Version 1.2!</DialogTitle>
+                <DialogTitle className="text-2xl">Willkommen zu Version 1.3!</DialogTitle>
                 <DialogDescription>
                   <div className="pt-2 text-base">
-                    Scoodol hat ein großes Update mit neuen Smart Tools erhalten!
+                    Scoodol hat ein großes Update erhalten!
                     <ul className="list-disc pl-5 space-y-2 mt-4">
-                        <li><b>Timer & Stoppuhr:</b> Perfekt für Lernsessions und Zeitmanagement.</li>
-                        <li><b>Text-Vereinfacher (KI):</b> Vereinfacht komplizierte Aufgabenstellungen.</li>
-                        <li><b>KI-Sprachauswahl:</b> Du kannst jetzt in den Einstellungen die Antwort-Sprache der KI wählen.</li>
+                        <li><b>Nachmittagsunterricht:</b> Der Stundenplan unterstützt jetzt bis zu 10 Stunden und eine separate Nachmittagsansicht.</li>
+                        <li><b>Quality of Life:</b> Viele kleine Verbesserungen an der Benutzeroberfläche, wie eine bessere Darstellung von Doppelstunden.</li>
                     </ul>
                   </div>
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2 mt-4">
-                <Button onClick={() => closeUpdateDialog('smart-tool')} size="lg">
-                    <Sparkles className="mr-2" /> Zu den neuen Tools!
+                <Button onClick={() => closeUpdateDialog('daily')} size="lg">
+                    Super!
                 </Button>
-                <Button variant="ghost" onClick={() => closeUpdateDialog()}>Später</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
