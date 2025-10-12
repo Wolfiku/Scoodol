@@ -312,5 +312,3 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     </div>
   );
 }
-
-    

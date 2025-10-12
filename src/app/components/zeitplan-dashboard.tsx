@@ -214,7 +214,10 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         }
 
         const filteredSchedule = processedSchedule.filter(entry => !entry.isContinuation && entry.fach && entry.fach.trim() !== "");
-        const morning = filteredSchedule.filter((_, index) => index < AFTERNOON_START_HOUR_INDEX && daySchedule[index]?.start < schoolEndTime);
+        const morning = filteredSchedule.filter((_, index) => {
+             const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
+             return originalIndex < AFTERNOON_START_HOUR_INDEX && daySchedule[originalIndex]?.start < schoolEndTime
+        });
         const afternoon = filteredSchedule.filter((_, index) => {
             const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
             return originalIndex >= AFTERNOON_START_HOUR_INDEX || daySchedule[originalIndex]?.start >= schoolEndTime;
@@ -435,5 +438,3 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
-
-    

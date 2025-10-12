@@ -35,13 +35,16 @@ export default function GradeCalculator() {
         let valid = true;
 
         grades.forEach(g => {
-            const grade = parseFloat(g.grade.replace(',', '.'));
+            const gradeVal = g.grade.trim();
+            if (gradeVal === '') return;
+
+            const grade = parseFloat(gradeVal.replace(',', '.'));
             const weight = parseFloat(g.weight.replace(',', '.'));
 
-            if (!isNaN(grade) && !isNaN(weight) && weight > 0) {
+            if (!isNaN(grade) && grade >= 1 && grade <= 6 && !isNaN(weight) && weight > 0) {
                 totalWeightedGrade += grade * weight;
                 totalWeight += weight;
-            } else if (g.grade || g.weight) { // only invalidate if fields are filled but incorrect
+            } else {
                 valid = false;
             }
         });
@@ -65,6 +68,7 @@ export default function GradeCalculator() {
             <div key={grade.id} className="flex gap-2 items-center">
               <Input
                 type="text"
+                inputMode="decimal"
                 placeholder={`Note ${index + 1}`}
                 value={grade.grade}
                 onChange={e => handleGradeChange(grade.id, 'grade', e.target.value)}
@@ -72,6 +76,7 @@ export default function GradeCalculator() {
               />
               <Input
                 type="text"
+                inputMode="decimal"
                 placeholder="Gewichtung"
                 value={grade.weight}
                 onChange={e => handleGradeChange(grade.id, 'weight', e.target.value)}
