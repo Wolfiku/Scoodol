@@ -331,17 +331,17 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                                 <div className="flex flex-col gap-1">
                                                     <Input 
                                                         placeholder="Fach" 
-                                                        value={entry.fach} 
+                                                        value={entry.fach || ''} 
                                                         onChange={e => handleInputChange(day, slotIndex, 'fach', e.target.value)}
                                                     />
                                                     <Input 
                                                         placeholder="Lehrer" 
-                                                        value={entry.lehrer} 
+                                                        value={entry.lehrer || ''} 
                                                         onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
                                                         />
                                                      <Input 
                                                         placeholder="Raum" 
-                                                        value={entry.room} 
+                                                        value={entry.room || ''} 
                                                         onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)}
                                                         />
                                                     <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer p-1">
