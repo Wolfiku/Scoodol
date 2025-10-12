@@ -32,8 +32,11 @@ import {
   ChevronRight,
   Calendar,
   MapPin,
+  Sunrise,
+  Sunset,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type TimetableEntry = {
   id: string;
@@ -73,7 +76,7 @@ const parseTime = (timeStr: string) => {
 };
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
-const AFTERNOON_START_HOUR = 13; // 7th period typically starts around 13:00
+const AFTERNOON_START_HOUR_INDEX = 6; // 7th period is at index 6
 
 export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate }: Props) {
   const [now, setNow] = useState<Date | null>(null);
@@ -86,12 +89,20 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay() - 1);
   const [isMounted, setIsMounted] = useState(false);
+  const [activeView, setActiveView] = useState<'morning' | 'afternoon'>('morning');
+
 
   useEffect(() => {
     setIsMounted(true);
     const today = new Date().getDay();
     const dayIndex = today > 0 && today < 6 ? today - 1 : 0; 
     setCurrentDayIndex(dayIndex);
+
+    const currentHour = new Date().getHours();
+    if (currentHour >= 13) {
+      setActiveView('afternoon');
+    }
+
   }, []);
 
   const changeDay = (offset: number) => {
@@ -170,20 +181,25 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-  const dailyTimetable = useMemo(() => {
+  const { morningSchedule, afternoonSchedule } = useMemo(() => {
       const schedule = timetable[weekDays[currentDayIndex]] || [];
-      return schedule.filter(entry => entry.fach && entry.fach.trim() !== "");
+      const morning = schedule.slice(0, AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
+      const afternoon = schedule.slice(AFTERNOON_START_HOUR_INDEX).filter(entry => entry.fach && entry.fach.trim() !== "");
+      return { morningSchedule: morning, afternoonSchedule: afternoon };
   }, [timetable, currentDayIndex]);
-
+  
+  const dailyTimetable = activeView === 'morning' ? morningSchedule : afternoonSchedule;
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
-    return dailyTimetable.find((entry) => {
+    const fullDaySchedule = timetable[weekDays[currentDayIndex]] || [];
+    return fullDaySchedule.find((entry) => {
+      if (!entry.start || !entry.ende) return false;
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
       return now >= start && now < end;
     });
-  }, [now, dailyTimetable, currentDayIndex]);
+  }, [now, timetable, currentDayIndex]);
   
   return (
     <div className="flex flex-col gap-8">
@@ -231,6 +247,25 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         </div>
       </header>
 
+      <div className="flex gap-2 mb-2">
+            <Button 
+                onClick={() => setActiveView('morning')}
+                variant={activeView === 'morning' ? 'default' : 'outline'}
+                className="w-full"
+            >
+                <Sunrise className="mr-2" /> Vormittag
+            </Button>
+            {afternoonSchedule.length > 0 && (
+                 <Button 
+                    onClick={() => setActiveView('afternoon')}
+                    variant={activeView === 'afternoon' ? 'default' : 'outline'}
+                    className="w-full"
+                >
+                    <Sunset className="mr-2" /> Nachmittag
+                </Button>
+            )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {dailyTimetable.map((entry) => {
           const isCurrent = currentSubject?.id === entry.id;
@@ -260,9 +295,9 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             <Card
               key={entry.id}
               onClick={() => handleOpenDialog(entry)}
-              className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 rounded-xl ${
-                isCurrent ? "border-accent shadow-accent/20 shadow-lg" : ""
-              }`}
+              className={cn(`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 rounded-xl`,
+                isCurrent && "border-accent shadow-accent/20 shadow-lg"
+              )}
             >
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -291,6 +326,12 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
           );
         })}
       </div>
+      {dailyTimetable.length === 0 && (
+        <Card className="text-center p-8 text-muted-foreground">
+            <p>Für den {activeView === 'morning' ? 'Vormittag' : 'Nachmittag'} ist kein Unterricht eingetragen.</p>
+        </Card>
+      )}
+
 
       <Dialog
         open={!!selectedSubject}
