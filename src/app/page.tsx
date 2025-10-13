@@ -251,9 +251,9 @@ export default function Page() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version 1.3!</DialogTitle>
-                <DialogDescription>
-                  <div className="pt-2 text-base">
-                    Scoodol hat ein großes Update erhalten!
+                <DialogDescription asChild>
+                  <div className="pt-2 text-base text-muted-foreground">
+                    <p>Scoodol hat ein großes Update erhalten!</p>
                     <ul className="list-disc pl-5 space-y-2 mt-4">
                         <li><b>Nachmittagsunterricht:</b> Der Stundenplan unterstützt jetzt bis zu 10 Stunden und eine separate Nachmittagsansicht.</li>
                         <li><b>Quality of Life:</b> Viele kleine Verbesserungen an der Benutzeroberfläche, wie eine bessere Darstellung von Doppelstunden.</li>
@@ -316,5 +316,7 @@ export default function Page() {
     </>
   );
 }
+
+    
 
     
