@@ -235,7 +235,9 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         if (!now) return 'morning';
         
         const isToday = new Date().getDay() - 1 === currentDayIndex;
-        if (!isToday) return 'morning';
+        if (!isToday) {
+            return 'morning';
+        }
 
         const schoolEnd = parseTime(schoolEndTime);
         const hasAfternoon = afternoonSchedule.length > 0;
