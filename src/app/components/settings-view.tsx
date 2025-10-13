@@ -198,7 +198,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             <div className="space-y-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Design &amp; Layout</CardTitle>
+                        <CardTitle>Design & Layout</CardTitle>
                         <CardDescription>Passe das Aussehen der App an deine Wünsche an.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -387,7 +387,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Hilfe &amp; Anleitung</CardTitle>
+                        <CardTitle>Hilfe & Anleitung</CardTitle>
                         <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -452,7 +452,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.3.0
+                    Version 1.3.1
                 </span>
             </div>
         </div>
