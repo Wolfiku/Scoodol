@@ -270,26 +270,29 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="start-time" className="text-sm font-medium">Schulstart</Label>
-                                <Input 
-                                    id="start-time"
-                                    type="time" 
-                                    value={timetableSettings.schoolStartTime} 
-                                    onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                    className="w-full mt-1"
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="end-time" className="text-sm font-medium">Schulende</Label>
-                                <Input 
-                                    id="end-time"
-                                    type="time" 
-                                    value={timetableSettings.schoolEndTime} 
-                                    onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                    className="w-full mt-1"
-                                />
+                        <div className="space-y-4 rounded-lg border p-4">
+                            <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
+                            <div style={{ marginLeft: '-10px' }}>
+                                <div className="space-y-1 mb-4">
+                                    <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                    <Input 
+                                        id="start-time"
+                                        type="time" 
+                                        value={timetableSettings.schoolStartTime} 
+                                        onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                    <Input 
+                                        id="end-time"
+                                        type="time" 
+                                        value={timetableSettings.schoolEndTime} 
+                                        onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
+                                        className="w-full"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -396,18 +399,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-    
 
     
