@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useMemo } from "react";
 import {
   Table,
   TableHeader,
@@ -59,7 +60,7 @@ type ProcessedEntry = TimetableEntry & { rowspan: number; isContinuation: boolea
 export default function ClassicTimetableView({ setView, isPreview = false, timetable }: Props) {
 
   // Process timetable to handle double periods
-  const processedTimetable = days.reduce((acc, day) => {
+  const processedTimetable = useMemo(() => days.reduce((acc, day) => {
     const daySchedule = timetable[day] || [];
     const processedDay: ProcessedEntry[] = [];
     let i = 0;
@@ -99,7 +100,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     }
     acc[day] = processedDay;
     return acc;
-  }, {} as { [day: string]: ProcessedEntry[] });
+  }, {} as { [day: string]: ProcessedEntry[] }), [timetable]);
     
   const getEntry = (day: string, slotIndex: number) => {
     const daySchedule = processedTimetable[day];
@@ -108,9 +109,12 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
   };
   
   // Find the maximum number of slots to render based on actual subjects
-  const maxSlots = Math.max(0, ...Object.values(timetable).map(daySchedule => daySchedule.length));
+  const maxSlots = useMemo(() => Math.max(0, ...Object.values(timetable).map(daySchedule => {
+      const lastEntryIndex = daySchedule.map(d => d.fach && d.fach !== 'Pause').lastIndexOf(true);
+      return lastEntryIndex + 1;
+  })), [timetable]);
 
-  const timeSlots = Array.from({ length: maxSlots }, (_, i) => {
+  const timeSlots = useMemo(() => Array.from({ length: maxSlots }, (_, i) => {
     // Find the first valid entry for this slot index across all days to get the time
     for (const day of days) {
       const entry = timetable[day]?.[i];
@@ -120,7 +124,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     }
     // Fallback if no entry is found for this slot
     return { start: '--:--', ende: '--:--' };
-  });
+  }), [maxSlots, timetable]);
 
 
   return (
@@ -170,9 +174,9 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                      // Only render row if at least one day has a non-continuation entry for this slot
                      const shouldRenderRow = days.some(day => {
                         const entry = getEntry(day, slotIndex);
-                        return entry && !entry.isContinuation;
+                        return entry && !entry.isContinuation && entry.fach && entry.fach !== 'Pause';
                      });
-                     if(!shouldRenderRow) return null;
+                     if(!shouldRenderRow && slotIndex > 0) return null; // Always show first hour
 
                     return (
                         <TableRow key={slotIndex}>
@@ -235,9 +239,9 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       {timeSlots.map((slot, slotIndex) => {
                          const shouldRenderRow = days.some(day => {
                             const entry = getEntry(day, slotIndex);
-                            return entry && !entry.isContinuation;
+                            return entry && !entry.isContinuation && entry.fach && entry.fach !== 'Pause';
                          });
-                         if(!shouldRenderRow) return null;
+                         if(!shouldRenderRow && slotIndex > 0) return null;
                          
                         return (
                             <tr key={slotIndex}>
@@ -285,3 +289,5 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     </div>
   );
 }
+
+    

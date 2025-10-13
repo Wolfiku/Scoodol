@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,24 +38,47 @@ type TimetableSettings = {
 }
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
-const timeSlots = [
-    "08:00 - 08:45", "08:45 - 09:30", "09:45 - 10:30", "10:30 - 11:15",
-    "11:30 - 12:15", "12:15 - 13:00", "13:30 - 14:15", "14:15 - 15:00",
-    "15:15 - 16:00", "16:00 - 16:45"
-];
+const LESSON_COUNT = 10; // Max 10 lessons per day
+const LESSON_DURATION = 45; // 45 minutes per lesson
+const SHORT_BREAK = 15; // 15 minutes break
+const LONG_BREAK = 15; // 15 minutes lunch break
 
-const createInitialTimetable = (): TimetableData => {
+const generateTimeSlots = (startTime: string): { start: string, ende: string }[] => {
+    const slots = [];
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    let currentTime = new Date();
+    currentTime.setHours(startHour, startMinute, 0, 0);
+
+    for (let i = 0; i < LESSON_COUNT; i++) {
+        const lessonStart = new Date(currentTime);
+        currentTime.setMinutes(currentTime.getMinutes() + LESSON_DURATION);
+        const lessonEnd = new Date(currentTime);
+        
+        slots.push({
+            start: lessonStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+            ende: lessonEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+        });
+
+        // Add breaks
+        if (i === 1 || i === 3 || i === 5 || i === 7) { // After 2nd, 4th, 6th, 8th lesson
+            currentTime.setMinutes(currentTime.getMinutes() + SHORT_BREAK);
+        }
+    }
+    return slots;
+};
+
+const createInitialTimetable = (startTime: string): TimetableData => {
     const timetable: TimetableData = {};
+    const timeSlots = generateTimeSlots(startTime);
     weekDays.forEach(day => {
         timetable[day] = timeSlots.map((slot, index) => {
-            const [start, end] = slot.split(' - ');
             return {
                 id: `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
                 fach: '',
                 lehrer: '',
                 room: '',
-                start: start,
-                ende: end,
+                start: slot.start,
+                ende: slot.ende,
                 hauptfach: false
             };
         });
@@ -63,28 +86,9 @@ const createInitialTimetable = (): TimetableData => {
     return timetable;
 }
 
-const padTimetable = (timetable: TimetableData): TimetableData => {
-    const fullTimetable = createInitialTimetable();
-    const paddedTimetable = { ...fullTimetable };
-    
-    weekDays.forEach(day => {
-        if (timetable[day]) {
-            // Copy existing entries up to the max length of the new template
-            for (let i = 0; i < timeSlots.length; i++) {
-                if(timetable[day][i]) {
-                    paddedTimetable[day][i] = { ...fullTimetable[day][i], ...timetable[day][i] };
-                }
-            }
-        }
-    });
-
-    return paddedTimetable;
-}
-
-
 export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
-    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
+    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable('08:00'));
     const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -94,15 +98,17 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     const { toast } = useToast();
 
      useEffect(() => {
-        if(isEditing) {
-            const savedTimetable = localStorage.getItem("timetable");
-            if (savedTimetable) {
-                const parsedTimetable = JSON.parse(savedTimetable);
-                setTimetable(padTimetable(parsedTimetable));
-            }
+        if (isEditing) {
             const savedSettings = localStorage.getItem("timetableSettings");
             if (savedSettings) {
-                setTimetableSettings(JSON.parse(savedSettings));
+                const parsedSettings = JSON.parse(savedSettings);
+                setTimetableSettings(parsedSettings);
+                const savedTimetable = localStorage.getItem("timetable");
+                if (savedTimetable) {
+                    setTimetable(JSON.parse(savedTimetable));
+                } else {
+                     setTimetable(createInitialTimetable(parsedSettings.schoolStartTime));
+                }
             }
             const savedPic = localStorage.getItem("profilePicture");
             if (savedPic) {
@@ -110,6 +116,15 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             }
         }
     }, [isEditing]);
+    
+    // Regenerate timetable when start time changes in setup
+    useEffect(() => {
+        if(mode === 'manual' || isEditing) {
+             setTimetable(createInitialTimetable(timetableSettings.schoolStartTime));
+        }
+    }, [timetableSettings.schoolStartTime, mode, isEditing]);
+
+    const timeSlots = useMemo(() => generateTimeSlots(timetableSettings.schoolStartTime), [timetableSettings.schoolStartTime]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -139,13 +154,13 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                     description: result.error || 'Die KI konnte keinen Stundenplan erkennen.',
                 });
             } else {
-                const newTimetable = createInitialTimetable();
+                const newTimetable = createInitialTimetable(timetableSettings.schoolStartTime);
                 Object.keys(result.timetable).forEach(day => {
                     const dayName = day as keyof typeof result.timetable;
                     if(newTimetable[dayName]) {
                         const daySchedule = result.timetable[dayName] || [];
                         daySchedule.forEach(aiEntry => {
-                            const slotIndex = timeSlots.findIndex(slot => slot.startsWith(aiEntry.start));
+                            const slotIndex = timeSlots.findIndex(slot => slot.start === aiEntry.start);
                             if(slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
                                 newTimetable[dayName][slotIndex] = {
                                     ...newTimetable[dayName][slotIndex],
@@ -279,7 +294,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                 type="time" 
                                 value={timetableSettings.schoolStartTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                className="w-auto text-2xl h-14 p-2"
+                                className="w-auto text-2xl h-16 p-2"
                             />
                         </div>
                         <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50">
@@ -292,7 +307,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                 type="time" 
                                 value={timetableSettings.schoolEndTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                className="w-auto text-2xl h-14 p-2"
+                                className="w-auto text-2xl h-16 p-2"
                             />
                         </div>
                     </CardContent>
@@ -352,11 +367,11 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                          </TableHeader>
                          <TableBody>
                              {timeSlots.map((slot, slotIndex) => (
-                                 <TableRow key={slot}>
+                                 <TableRow key={`${slot.start}-${slot.ende}`}>
                                      <TableCell className="font-medium">
                                         <div className="flex flex-col">
                                             <span>{slotIndex + 1}. Stunde</span>
-                                            <span className="text-xs text-muted-foreground">{slot}</span>
+                                            <span className="text-xs text-muted-foreground">{slot.start} - {slot.ende}</span>
                                         </div>
                                      </TableCell>
                                      {weekDays.map(day => {
@@ -412,3 +427,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
+
+    

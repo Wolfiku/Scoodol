@@ -83,7 +83,6 @@ const parseTime = (timeStr: string) => {
 };
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
-const AFTERNOON_START_HOUR_INDEX = 6; // 7th period is at index 6
 
 export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate }: Props) {
   const [now, setNow] = useState<Date | null>(null);
@@ -182,8 +181,16 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-    const { morningSchedule, afternoonSchedule } = useMemo(() => {
+    const { morningSchedule, afternoonSchedule, afternoonStartIndex } = useMemo(() => {
         const daySchedule = timetable[weekDays[currentDayIndex]] || [];
+        
+        let firstAfternoonIndex = daySchedule.findIndex(entry => {
+            if(!entry.start) return false;
+            const startHour = parseInt(entry.start.split(':')[0], 10);
+            return startHour >= 13; // Typical afternoon start
+        });
+        if(firstAfternoonIndex === -1) firstAfternoonIndex = daySchedule.length;
+
         const processedSchedule: ProcessedTimetableEntry[] = [];
         let i = 0;
         while (i < daySchedule.length) {
@@ -218,16 +225,16 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         }
 
         const filteredSchedule = processedSchedule.filter(entry => !entry.isContinuation && entry.fach && entry.fach.trim() !== "");
-        const morning = filteredSchedule.filter((_, index) => {
-             const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
-             return originalIndex < AFTERNOON_START_HOUR_INDEX;
+        const morning = filteredSchedule.filter((entry) => {
+             const originalIndex = daySchedule.findIndex(d => d.id === entry.id);
+             return originalIndex < firstAfternoonIndex;
         });
-        const afternoon = filteredSchedule.filter((_, index) => {
-            const originalIndex = daySchedule.findIndex(d => d.id === filteredSchedule[index].id);
-            return originalIndex >= AFTERNOON_START_HOUR_INDEX;
+        const afternoon = filteredSchedule.filter((entry) => {
+            const originalIndex = daySchedule.findIndex(d => d.id === entry.id);
+            return originalIndex >= firstAfternoonIndex;
         });
 
-        return { morningSchedule: morning, afternoonSchedule: afternoon };
+        return { morningSchedule: morning, afternoonSchedule: afternoon, afternoonStartIndex: firstAfternoonIndex };
     }, [timetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
@@ -465,3 +472,5 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
+
+    
