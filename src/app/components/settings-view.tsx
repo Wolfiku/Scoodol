@@ -297,6 +297,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     type="time" 
                                     value={timetableSettings.schoolStartTime} 
                                     onChange={e => onSettingsChange({ ...timetableSettings, schoolStartTime: e.target.value })} 
+                                    className="w-fit"
                                 />
                             </div>
                             <div className="space-y-1">
@@ -306,6 +307,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     type="time" 
                                     value={timetableSettings.schoolEndTime} 
                                     onChange={e => onSettingsChange({ ...timetableSettings, schoolEndTime: e.target.value })} 
+                                    className="w-fit"
                                 />
                             </div>
                         </div>
