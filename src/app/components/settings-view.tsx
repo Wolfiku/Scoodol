@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -26,7 +26,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
 
-
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
     { value: "ocean", label: "Ozean", lightIcon: Droplets, darkIcon: Droplets, lightColor: "bg-blue-500", darkColor: "bg-blue-800" },
@@ -41,6 +40,9 @@ const startViews = [
 ]
 
 const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
+const STANDARD_LESSON_DURATION = 45;
+const MAX_LESSONS_MORNING = 6;
+
 
 type TimetableSettings = {
     schoolStartTime: string;
@@ -48,6 +50,12 @@ type TimetableSettings = {
     firstBreakDuration: number;
     secondBreakDuration: number;
 }
+
+const parseTimeToMinutes = (time: string): number => {
+    if (!time) return 0;
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+};
 
 export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView, aiLanguage, setAiLanguage } = useTheme();
@@ -60,6 +68,9 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const [tapCount, setTapCount] = useState(0);
 
     const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings>(timetableSettings);
+    const [showValidationDialog, setShowValidationDialog] = useState(false);
+    const [calculatedDuration, setCalculatedDuration] = useState(0);
+
 
     useEffect(() => {
         setLocalTimetableSettings(timetableSettings);
@@ -173,10 +184,28 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             setTapCount(0);
         }
     }
-
-    const handleTimeSettingsSave = () => {
+    
+    const proceedWithSave = () => {
         onSettingsChange(localTimetableSettings);
         toast({ title: "Zeiten gespeichert", description: "Die neuen Schul- und Pausenzeiten wurden übernommen."});
+        setShowValidationDialog(false);
+    }
+
+    const handleTimeSettingsSave = () => {
+        const morningStartMinutes = parseTimeToMinutes(localTimetableSettings.schoolStartTime);
+        const morningEndMinutes = parseTimeToMinutes(localTimetableSettings.schoolEndTime);
+        const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
+        const totalBreakMinutes = (localTimetableSettings.firstBreakDuration || 0) + (localTimetableSettings.secondBreakDuration || 0);
+        const netTeachingMinutes = totalMorningMinutes - totalBreakMinutes;
+        const lessonDuration = netTeachingMinutes > 0 ? Math.floor(netTeachingMinutes / MAX_LESSONS_MORNING) : 0;
+        
+        setCalculatedDuration(lessonDuration);
+
+        if (lessonDuration !== STANDARD_LESSON_DURATION) {
+            setShowValidationDialog(true);
+        } else {
+            proceedWithSave();
+        }
     }
 
     const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime 
@@ -206,6 +235,26 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
     return (
         <div className="pb-16">
+            <AlertDialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="text-amber-500" />
+                        Ungewöhnliche Stundendauer
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Basierend auf deinen Einstellungen dauert eine Unterrichtsstunde <strong>{calculatedDuration} Minuten</strong>. Das ist unüblich.
+                        <br/><br/>
+                        Bist du sicher, dass deine Schul- und Pausenzeiten korrekt sind?
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen & Prüfen</AlertDialogCancel>
+                    <AlertDialogAction onClick={proceedWithSave}>Trotzdem speichern</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <h2 className="text-3xl font-bold mb-6">Einstellungen</h2>
             <div className="space-y-6">
                 <Card>
