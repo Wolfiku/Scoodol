@@ -274,7 +274,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2"><Clock />Allgemeine Schulzeiten</CardTitle>
                             </CardHeader>
-                            <CardContent className="flex flex-col gap-4">
+                            <CardContent className="space-y-4">
                                 <div>
                                     <Label htmlFor="start-time" className="text-sm font-medium">Schulstart</Label>
                                     <Input 
@@ -282,7 +282,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                         type="time" 
                                         value={timetableSettings.schoolStartTime} 
                                         onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                        className="w-full mt-1"
+                                        className="w-auto mt-1"
                                     />
                                 </div>
                                 <div>
@@ -292,7 +292,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                         type="time" 
                                         value={timetableSettings.schoolEndTime} 
                                         onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                        className="w-full mt-1"
+                                        className="w-auto mt-1"
                                     />
                                 </div>
                             </CardContent>
@@ -405,4 +405,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
 
     
+
 
