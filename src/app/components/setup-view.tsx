@@ -270,8 +270,9 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <div className="space-y-4">
-                            <div>
+                         <div className="space-y-4 rounded-lg border p-4">
+                             <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
+                            <div className="space-y-1">
                                 <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
                                 <Input 
                                     id="start-time"
@@ -280,7 +281,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                     onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
                                 />
                             </div>
-                            <div>
+                            <div className="space-y-1">
                                 <Label htmlFor="end-time">Schulende (Vormittag)</Label>
                                 <Input 
                                     id="end-time"
@@ -394,5 +395,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
+
+    
 
     

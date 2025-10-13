@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
+import VokabelPage from './vokabel/page';
 
 const APP_VERSION = '1.3.1';
 
@@ -231,11 +232,13 @@ export default function Page() {
       case 'smart-tool':
         return <SmartToolsView />;
       case 'settings':
-        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} />;
+        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={timetableSettings} onSettingsChange={updateTimetableSettings} />;
       case 'impressum':
         return <ImpressumPage />;
       case 'datenschutz':
         return <DatenschutzPage />;
+      case 'vokabel':
+          return <VokabelPage />
       default:
         return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
     }
@@ -313,3 +316,5 @@ export default function Page() {
     </>
   );
 }
+
+    

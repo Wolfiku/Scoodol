@@ -200,9 +200,9 @@ export default function VokabelPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-        <Button variant="ghost" onClick={() => router.push('/')} className="mb-4">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Zurück zur Hauptseite
+            Zurück
         </Button>
       <Card className="h-full flex flex-col min-h-[70vh]">
         <CardHeader>
@@ -318,5 +318,7 @@ export default function VokabelPage() {
     </div>
   );
 }
+
+    
 
     

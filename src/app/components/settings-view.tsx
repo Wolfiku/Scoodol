@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -42,22 +42,12 @@ const startViews = [
 
 const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 
-type TimetableEntry = {
-  id: string;
-  fach: string;
-  lehrer?: string;
-  start: string;
-  ende: string;
-  hauptfach?: boolean;
-  notizen?: string;
-  materialien?: string;
-};
+type TimetableSettings = {
+    schoolStartTime: string;
+    schoolEndTime: string;
+}
 
-type TimetableData = {
-  [key: string]: TimetableEntry[];
-};
-
-export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void }) {
+export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView, aiLanguage, setAiLanguage } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
     const [betaFeaturesEnabled, setBetaFeaturesEnabled] = useState(false);
@@ -98,6 +88,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const handleExport = () => {
         try {
             const timetableData = localStorage.getItem('timetable');
+            const timetableSettingsData = localStorage.getItem('timetableSettings');
             const homeworkData = localStorage.getItem('homeworks');
             const themeData = localStorage.getItem('theme');
             const startViewData = localStorage.getItem('startView');
@@ -107,6 +98,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
             const exportData = {
                 timetable: timetableData ? JSON.parse(timetableData) : null,
+                timetableSettings: timetableSettingsData ? JSON.parse(timetableSettingsData) : null,
                 homeworks: homeworkData ? JSON.parse(homeworkData) : null,
                 theme: themeData,
                 startView: startViewData,
@@ -289,13 +281,34 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 </Card>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Stundenplan</CardTitle>
-                        <CardDescription>Verwalte deinen Stundenplan.</CardDescription>
+                        <CardTitle>Stundenplan & Zeiten</CardTitle>
+                        <CardDescription>Verwalte deinen Stundenplan und die Schulzeiten.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                          <Button onClick={onEditTimetable}>
                             <Edit className="mr-2"/> Stundenplan bearbeiten
                         </Button>
+                        <div className="space-y-4 rounded-lg border p-4">
+                             <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
+                            <div className="space-y-1">
+                                <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                <Input 
+                                    id="start-time"
+                                    type="time" 
+                                    value={timetableSettings.schoolStartTime} 
+                                    onChange={e => onSettingsChange({ ...timetableSettings, schoolStartTime: e.target.value })} 
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                <Input 
+                                    id="end-time"
+                                    type="time" 
+                                    value={timetableSettings.schoolEndTime} 
+                                    onChange={e => onSettingsChange({ ...timetableSettings, schoolEndTime: e.target.value })} 
+                                />
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -458,3 +471,5 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
+
+    
