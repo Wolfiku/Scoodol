@@ -35,64 +35,64 @@ type TimetableData = {
 type TimetableSettings = {
     schoolStartTime: string;
     schoolEndTime: string;
+    firstBreakDuration: number;
+    secondBreakDuration: number;
 }
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+const LESSONS_BEFORE_FIRST_BREAK = 2;
+const LESSONS_BEFORE_SECOND_BREAK = 2;
 const MAX_LESSONS = 10;
 
-const generateTimeSlots = (startTime: string, endTime: string): { start: string, ende: string }[] => {
+const parseTimeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
+const formatMinutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const generateTimeSlots = (settings: TimetableSettings): { start: string, ende: string }[] => {
     const slots = [];
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-
-    const startDate = new Date();
-    startDate.setHours(startHour, startMinute, 0, 0);
-
-    const endDate = new Date();
-    endDate.setHours(endHour, endMinute, 0, 0);
-
-    const totalDurationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
+    const morningStartMinutes = parseTimeToMinutes(settings.schoolStartTime);
+    const morningEndMinutes = parseTimeToMinutes(settings.schoolEndTime);
     
-    // Fallback to a default if duration is negative or zero
-    if (totalDurationMinutes <= 0) {
-        let currentTime = startDate;
-        for (let i = 0; i < MAX_LESSONS; i++) {
-             const lessonStart = new Date(currentTime);
-             currentTime.setMinutes(currentTime.getMinutes() + 45);
-             const lessonEnd = new Date(currentTime);
-             slots.push({
-                start: lessonStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                ende: lessonEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-            });
-        }
-        return slots;
-    }
-    
-    const lessonDuration = Math.floor(totalDurationMinutes / 5) > 45 ? 45 : Math.floor(totalDurationMinutes / 5);
-    const breakDuration = Math.floor((totalDurationMinutes - (5 * lessonDuration)) / 4);
+    const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
+    if (totalMorningMinutes <= 0) return Array(MAX_LESSONS).fill({ start: '00:00', ende: '00:00'});
 
-    let currentTime = startDate;
+    const numberOfLessonsInMorning = 6;
+    const totalBreakMinutes = settings.firstBreakDuration + settings.secondBreakDuration;
+    const netTeachingMinutes = totalMorningMinutes - totalBreakMinutes;
+    const lessonDuration = Math.round(netTeachingMinutes / numberOfLessonsInMorning);
+
+    let currentTime = morningStartMinutes;
 
     for (let i = 0; i < MAX_LESSONS; i++) {
-        const lessonStart = new Date(currentTime);
-        currentTime.setMinutes(currentTime.getMinutes() + lessonDuration);
-        const lessonEnd = new Date(currentTime);
+        const lessonStart = currentTime;
+        const lessonEnd = currentTime + lessonDuration;
         
         slots.push({
-            start: lessonStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-            ende: lessonEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+            start: formatMinutesToTime(lessonStart),
+            ende: formatMinutesToTime(lessonEnd),
         });
 
-        if (i === 1 || i === 3 || i === 5 || i === 7) { 
-             if(breakDuration > 0) currentTime.setMinutes(currentTime.getMinutes() + breakDuration);
+        currentTime = lessonEnd;
+
+        if (i + 1 === LESSONS_BEFORE_FIRST_BREAK) {
+             currentTime += settings.firstBreakDuration;
+        } else if (i + 1 === LESSONS_BEFORE_FIRST_BREAK + LESSONS_BEFORE_SECOND_BREAK) {
+            currentTime += settings.secondBreakDuration;
         }
     }
     return slots;
 };
 
-const createInitialTimetable = (startTime: string, endTime: string): TimetableData => {
+const createInitialTimetable = (settings: TimetableSettings): TimetableData => {
     const timetable: TimetableData = {};
-    const timeSlots = generateTimeSlots(startTime, endTime);
+    const timeSlots = generateTimeSlots(settings);
     weekDays.forEach(day => {
         timetable[day] = timeSlots.map((slot, index) => {
             return {
@@ -111,8 +111,8 @@ const createInitialTimetable = (startTime: string, endTime: string): TimetableDa
 
 export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
-    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
-    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable(timetableSettings.schoolStartTime, timetableSettings.schoolEndTime));
+    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
+    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable(timetableSettings));
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,11 +126,11 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             if (savedSettings) {
                 const parsedSettings = JSON.parse(savedSettings);
                 setTimetableSettings(parsedSettings);
-                const savedTimetable = localStorage.getItem("timetable");
+                 const savedTimetable = localStorage.getItem("timetable");
                 if (savedTimetable) {
                     setTimetable(JSON.parse(savedTimetable));
                 } else {
-                     setTimetable(createInitialTimetable(parsedSettings.schoolStartTime, parsedSettings.schoolEndTime));
+                     setTimetable(createInitialTimetable(parsedSettings));
                 }
             }
             const savedPic = localStorage.getItem("profilePicture");
@@ -140,14 +140,14 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         }
     }, [isEditing]);
     
-    // Regenerate timetable when start time changes in setup
+    // Regenerate timetable when settings change during setup
     useEffect(() => {
-        if(mode === 'manual' || isEditing) {
-             setTimetable(createInitialTimetable(timetableSettings.schoolStartTime, timetableSettings.schoolEndTime));
+        if(mode === 'manual' || mode === 'select' || isEditing) {
+             setTimetable(createInitialTimetable(timetableSettings));
         }
-    }, [timetableSettings.schoolStartTime, timetableSettings.schoolEndTime, mode, isEditing]);
+    }, [timetableSettings, mode, isEditing]);
 
-    const timeSlots = useMemo(() => generateTimeSlots(timetableSettings.schoolStartTime, timetableSettings.schoolEndTime), [timetableSettings.schoolStartTime, timetableSettings.schoolEndTime]);
+    const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -177,13 +177,14 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                     description: result.error || 'Die KI konnte keinen Stundenplan erkennen.',
                 });
             } else {
-                const newTimetable = createInitialTimetable(timetableSettings.schoolStartTime, timetableSettings.schoolEndTime);
+                const newTimetable = createInitialTimetable(timetableSettings);
+                const scannedTimeSlots = generateTimeSlots(timetableSettings);
                 Object.keys(result.timetable).forEach(day => {
                     const dayName = day as keyof typeof result.timetable;
                     if(newTimetable[dayName]) {
                         const daySchedule = result.timetable[dayName] || [];
                         daySchedule.forEach(aiEntry => {
-                            const slotIndex = timeSlots.findIndex(slot => slot.start === aiEntry.start);
+                            const slotIndex = scannedTimeSlots.findIndex(slot => slot.start === aiEntry.start);
                             if(slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
                                 newTimetable[dayName][slotIndex] = {
                                     ...newTimetable[dayName][slotIndex],
@@ -303,8 +304,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
                     <CardHeader>
-                        <CardTitle className="text-2xl">Deine Schulzeiten</CardTitle>
-                        <CardDescription>Wann beginnt und endet dein Unterricht am Vormittag?</CardDescription>
+                        <CardTitle className="text-2xl">Deine Schul- & Pausenzeiten</CardTitle>
+                        <CardDescription>Passe die Zeiten an deinen Schultag an.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6">
                         <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50">
@@ -317,21 +318,46 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                 type="time" 
                                 value={timetableSettings.schoolStartTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                className="w-auto text-2xl h-16 p-2"
+                                className="w-auto text-2xl h-14 p-2"
                             />
                         </div>
                         <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50">
                             <Label htmlFor="end-time" className="flex items-center gap-2 text-lg font-semibold text-foreground">
                                 <Sunset className="text-orange-500" />
-                                Schulende
+                                Schulende (Vormittag)
                             </Label>
                             <Input 
                                 id="end-time"
                                 type="time" 
                                 value={timetableSettings.schoolEndTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                className="w-auto text-2xl h-16 p-2"
+                                className="w-auto text-2xl h-14 p-2"
                             />
+                        </div>
+                         <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50 col-span-1 sm:col-span-2">
+                             <Label className="text-lg font-semibold text-foreground">Pausendauer (Minuten)</Label>
+                            <div className="flex items-center gap-4">
+                                <div className="text-center">
+                                    <Label htmlFor="break1" className="text-sm">1. Pause</Label>
+                                     <Input 
+                                        id="break1"
+                                        type="number" 
+                                        value={timetableSettings.firstBreakDuration} 
+                                        onChange={e => setTimetableSettings(prev => ({ ...prev, firstBreakDuration: parseInt(e.target.value) || 0 }))} 
+                                        className="w-20 text-center text-xl h-12 p-2"
+                                    />
+                                </div>
+                                <div className="text-center">
+                                     <Label htmlFor="break2" className="text-sm">2. Pause</Label>
+                                     <Input 
+                                        id="break2"
+                                        type="number" 
+                                        value={timetableSettings.secondBreakDuration} 
+                                        onChange={e => setTimetableSettings(prev => ({ ...prev, secondBreakDuration: parseInt(e.target.value) || 0 }))} 
+                                        className="w-20 text-center text-xl h-12 p-2"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                     <CardFooter>
@@ -450,3 +476,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
+
+    

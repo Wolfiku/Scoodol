@@ -45,6 +45,8 @@ const RESET_CONFIRMATION_CODE = 'LÖSCHEN';
 type TimetableSettings = {
     schoolStartTime: string;
     schoolEndTime: string;
+    firstBreakDuration: number;
+    secondBreakDuration: number;
 }
 
 export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void }) {
@@ -174,10 +176,13 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
     const handleTimeSettingsSave = () => {
         onSettingsChange(localTimetableSettings);
-        toast({ title: "Zeiten gespeichert", description: "Die neuen Schulzeiten wurden übernommen."});
+        toast({ title: "Zeiten gespeichert", description: "Die neuen Schul- und Pausenzeiten wurden übernommen."});
     }
 
-    const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime;
+    const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime 
+        || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime
+        || localTimetableSettings.firstBreakDuration !== timetableSettings.firstBreakDuration
+        || localTimetableSettings.secondBreakDuration !== timetableSettings.secondBreakDuration;
 
 
     if (!isMounted) {
@@ -297,14 +302,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 <Card>
                     <CardHeader>
                         <CardTitle>Stundenplan & Zeiten</CardTitle>
-                        <CardDescription>Verwalte deinen Stundenplan und die Schulzeiten.</CardDescription>
+                        <CardDescription>Verwalte deinen Stundenplan und die Schul- und Pausenzeiten.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <Button onClick={onEditTimetable}>
                             <Edit className="mr-2"/> Stundenplan bearbeiten
                         </Button>
                         <div className="space-y-4 rounded-lg border p-4">
-                             <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
+                             <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schul- & Pausenzeiten</h3>
                              <div className="grid sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
@@ -323,6 +328,26 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                         type="time" 
                                         value={localTimetableSettings.schoolEndTime} 
                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
+                                        className="w-full sm:w-auto"
+                                    />
+                                </div>
+                                 <div className="space-y-1">
+                                    <Label htmlFor="break1">1. große Pause (in Min.)</Label>
+                                    <Input 
+                                        id="break1"
+                                        type="number" 
+                                        value={localTimetableSettings.firstBreakDuration} 
+                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
+                                        className="w-full sm:w-auto"
+                                    />
+                                </div>
+                                 <div className="space-y-1">
+                                    <Label htmlFor="break2">2. große Pause (in Min.)</Label>
+                                    <Input 
+                                        id="break2"
+                                        type="number" 
+                                        value={localTimetableSettings.secondBreakDuration} 
+                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
                                         className="w-full sm:w-auto"
                                     />
                                 </div>
@@ -505,3 +530,5 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
+
+    

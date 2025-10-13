@@ -49,6 +49,8 @@ type TimetableData = {
 type TimetableSettings = {
     schoolStartTime: string;
     schoolEndTime: string;
+    firstBreakDuration: number;
+    secondBreakDuration: number;
 }
 
 
@@ -61,7 +63,7 @@ export default function Page() {
   const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
-  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
+  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
 
@@ -72,7 +74,7 @@ export default function Page() {
           setIsPreviewMode(true);
           sessionStorage.removeItem('previewMode'); // Immediately remove after checking
           setTimetableData(previewTimetableData);
-          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
+          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
         } else {
             const savedTimetable = localStorage.getItem("timetable");
             if(savedTimetable) {
@@ -106,9 +108,8 @@ export default function Page() {
 
         // Check for update notification
         const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-        const getMajorMinor = (version: string) => version.split('.').slice(0, 2).join('.');
         
-        if (!lastSeenVersion || getMajorMinor(lastSeenVersion) !== getMajorMinor(APP_VERSION)) {
+        if (lastSeenVersion !== APP_VERSION) {
             setShowUpdateDialog(true);
         }
     }
@@ -251,7 +252,7 @@ export default function Page() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle className="text-2xl">Willkommen zu Version 1.4!</DialogTitle>
-                <DialogDescription asChild>
+                <DialogDescription>
                   <div className="pt-2 text-base text-muted-foreground">
                     <p>Scoodol hat ein Update erhalten! Wir haben im Hintergrund viele kleine Fehler behoben, um die App stabiler und schneller zu machen.</p>
                   </div>
@@ -312,3 +313,5 @@ export default function Page() {
     </>
   );
 }
+
+    

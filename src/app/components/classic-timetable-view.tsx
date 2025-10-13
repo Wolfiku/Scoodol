@@ -60,47 +60,50 @@ type ProcessedEntry = TimetableEntry & { rowspan: number; isContinuation: boolea
 export default function ClassicTimetableView({ setView, isPreview = false, timetable }: Props) {
 
   // Process timetable to handle double periods
-  const processedTimetable = useMemo(() => days.reduce((acc, day) => {
-    const daySchedule = timetable[day] || [];
-    const processedDay: ProcessedEntry[] = [];
-    let i = 0;
-    while (i < daySchedule.length) {
-      const currentEntry = daySchedule[i];
-      if (!currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
-        processedDay.push({ ...currentEntry, rowspan: 1, isContinuation: false, originalIndex: i });
-        i++;
-        continue;
-      }
-      
-      let rowspan = 1;
-      // Check for consecutive identical subjects
-      while (
-        i + rowspan < daySchedule.length &&
-        daySchedule[i + rowspan].fach === currentEntry.fach &&
-        daySchedule[i + rowspan].lehrer === currentEntry.lehrer &&
-        daySchedule[i + rowspan].room === currentEntry.room
-      ) {
-        rowspan++;
-      }
-      
-      // The first entry of a block gets the rowspan
-      processedDay.push({ 
-        ...currentEntry, 
-        ende: daySchedule[i + rowspan - 1].ende, // Update end time to the last class of the block
-        rowspan, 
-        isContinuation: false,
-        originalIndex: i
-      });
-      
-      // Subsequent entries in the block are marked as continuations
-      for (let j = 1; j < rowspan; j++) {
-        processedDay.push({ ...daySchedule[i + j], rowspan: 0, isContinuation: true, originalIndex: i+j });
-      }
-      i += rowspan;
+  const processedTimetable = useMemo(() => {
+    if (!timetable || Object.keys(timetable).length === 0) {
+      return {};
     }
-    acc[day] = processedDay;
-    return acc;
-  }, {} as { [day: string]: ProcessedEntry[] }), [timetable]);
+    return days.reduce((acc, day) => {
+      const daySchedule = timetable[day] || [];
+      const processedDay: ProcessedEntry[] = [];
+      let i = 0;
+      while (i < daySchedule.length) {
+        const currentEntry = daySchedule[i];
+        if (!currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
+          processedDay.push({ ...currentEntry, rowspan: 1, isContinuation: false, originalIndex: i });
+          i++;
+          continue;
+        }
+        
+        let rowspan = 1;
+        // Check for consecutive identical subjects
+        while (
+          i + rowspan < daySchedule.length &&
+          daySchedule[i + rowspan].fach === currentEntry.fach &&
+          daySchedule[i + rowspan].lehrer === currentEntry.lehrer &&
+          daySchedule[i + rowspan].room === currentEntry.room
+        ) {
+          rowspan++;
+        }
+        
+        processedDay.push({ 
+          ...currentEntry, 
+          ende: daySchedule[i + rowspan - 1].ende, // Update end time to the last class of the block
+          rowspan, 
+          isContinuation: false,
+          originalIndex: i
+        });
+        
+        for (let j = 1; j < rowspan; j++) {
+          processedDay.push({ ...daySchedule[i + j], rowspan: 0, isContinuation: true, originalIndex: i+j });
+        }
+        i += rowspan;
+      }
+      acc[day] = processedDay;
+      return acc;
+    }, {} as { [day: string]: ProcessedEntry[] })
+  }, [timetable]);
     
   const getEntry = (day: string, slotIndex: number) => {
     const daySchedule = processedTimetable[day];
@@ -108,11 +111,9 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     return daySchedule.find(entry => entry.originalIndex === slotIndex);
   };
   
-  // Find the maximum number of slots to render based on actual subjects
   const maxSlots = useMemo(() => {
     if (!timetable || Object.keys(timetable).length === 0) return 0;
     
-    // Find the highest index that has a subject in any day of the week.
     let lastUsedSlot = -1;
     days.forEach(day => {
         const daySchedule = timetable[day] || [];
@@ -121,7 +122,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                 if (i > lastUsedSlot) {
                     lastUsedSlot = i;
                 }
-                break; // Move to the next day
+                break; 
             }
         }
     });
@@ -130,14 +131,12 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
 
 
   const timeSlots = useMemo(() => Array.from({ length: maxSlots }, (_, i) => {
-    // Find the first valid entry for this slot index across all days to get the time
     for (const day of days) {
       const entry = timetable[day]?.[i];
       if (entry && entry.start && entry.ende) {
         return { start: entry.start, ende: entry.ende };
       }
     }
-    // Fallback if no entry is found for this slot
     return { start: '--:--', ende: '--:--' };
   }), [maxSlots, timetable]);
 
@@ -256,10 +255,10 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                     const entry = getEntry(day, slotIndex);
                                     if (!entry || entry.isContinuation) return null;
 
-                                    const style = entry.fach && entry.fach !== 'Pause' ? { 
+                                    const style: React.CSSProperties = entry.fach && entry.fach !== 'Pause' ? { 
                                         backgroundColor: stringToHslColor(entry.fach, 70, 85), 
                                         color: stringToHslColor(entry.fach, 70, 25), 
-                                        border: '1px solid #ddd', padding: '8px', textAlign: 'center', verticalAlign: 'middle', height: '100px'
+                                        border: '1px solid #ddd', padding: '8px', textAlign: 'center', verticalAlign: 'middle'
                                     } : {border: '1px solid #ddd', padding: '8px', textAlign: 'center', verticalAlign: 'middle'};
 
                                     return (
@@ -291,3 +290,5 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     </div>
   );
 }
+
+    
