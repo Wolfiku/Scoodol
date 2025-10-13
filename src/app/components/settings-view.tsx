@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -56,6 +56,13 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const [resetInput, setResetInput] = useState('');
     const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
     const [tapCount, setTapCount] = useState(0);
+
+    const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings>(timetableSettings);
+
+    useEffect(() => {
+        setLocalTimetableSettings(timetableSettings);
+    }, [timetableSettings]);
+
 
      useEffect(() => {
         setIsMounted(true);
@@ -164,6 +171,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             setTapCount(0);
         }
     }
+
+    const handleTimeSettingsSave = () => {
+        onSettingsChange(localTimetableSettings);
+        toast({ title: "Zeiten gespeichert", description: "Die neuen Schulzeiten wurden übernommen."});
+    }
+
+    const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime;
+
 
     if (!isMounted) {
         return null;
@@ -296,8 +311,8 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <Input 
                                         id="start-time"
                                         type="time" 
-                                        value={timetableSettings.schoolStartTime} 
-                                        onChange={e => onSettingsChange({ ...timetableSettings, schoolStartTime: e.target.value })} 
+                                        value={localTimetableSettings.schoolStartTime} 
+                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
                                         className="w-full sm:w-auto"
                                     />
                                 </div>
@@ -306,12 +321,15 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <Input 
                                         id="end-time"
                                         type="time" 
-                                        value={timetableSettings.schoolEndTime} 
-                                        onChange={e => onSettingsChange({ ...timetableSettings, schoolEndTime: e.target.value })} 
+                                        value={localTimetableSettings.schoolEndTime} 
+                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
                                         className="w-full sm:w-auto"
                                     />
                                 </div>
                             </div>
+                            <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged}>
+                                <Save className="mr-2 h-4 w-4" /> Zeiten speichern
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
