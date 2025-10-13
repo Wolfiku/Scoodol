@@ -100,16 +100,23 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     acc[day] = processedDay;
     return acc;
   }, {} as { [day: string]: ProcessedEntry[] });
-
-  // Get all unique start times to build the rows
-  const allTimeSlots = Array.from(new Set(Object.values(timetable).flat().map(e => e.start))).sort();
-  
+    
   const getEntry = (day: string, slotIndex: number) => {
     const daySchedule = processedTimetable[day];
     if (!daySchedule) return null;
     return daySchedule.find(entry => entry.originalIndex === slotIndex);
   };
   
+  // Find the maximum number of slots to render based on actual subjects
+  const maxSlots = Math.max(...days.map(day => {
+    const daySchedule = timetable[day] || [];
+    const lastEntryIndex = daySchedule.map(e => e.fach && e.fach.trim() !== '' && e.fach !== 'Pause').lastIndexOf(true);
+    return lastEntryIndex + 1;
+  }));
+
+  const timeSlots = Array.from({ length: maxSlots }, (_, i) => timetable.Montag[i] || {});
+
+
   return (
     <div className="relative pb-20">
       <Card>
@@ -153,7 +160,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timetable.Montag.map((_, slotIndex) => {
+                  {timeSlots.map((slot, slotIndex) => {
                      // Only render row if at least one day has a non-continuation entry for this slot
                      const shouldRenderRow = days.some(day => {
                         const entry = getEntry(day, slotIndex);
@@ -166,7 +173,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                             <TableCell className="font-medium border-r align-top">
                                 <div className="flex flex-col">
                                     <span>{slotIndex + 1}. Stunde</span>
-                                    <span className="text-xs text-muted-foreground">{timetable.Montag[slotIndex].start} - {timetable.Montag[slotIndex].ende}</span>
+                                    <span className="text-xs text-muted-foreground">{slot.start} - {slot.ende}</span>
                                 </div>
                             </TableCell>
 
@@ -219,7 +226,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       </tr>
                   </thead>
                   <tbody>
-                      {timetable.Montag.map((_, slotIndex) => {
+                      {timeSlots.map((slot, slotIndex) => {
                          const shouldRenderRow = days.some(day => {
                             const entry = getEntry(day, slotIndex);
                             return entry && !entry.isContinuation;
@@ -230,7 +237,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                             <tr key={slotIndex}>
                                 <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'top', height: '100px' }}>
                                     <div style={{fontWeight: 'bold'}}>{slotIndex + 1}. Stunde</div>
-                                    <div style={{fontSize: '0.8em', color: '#666'}}>{timetable.Montag[slotIndex].start} - {timetable.Montag[slotIndex].ende}</div>
+                                    <div style={{fontSize: '0.8em', color: '#666'}}>{slot.start} - {slot.ende}</div>
                                 </td>
 
                                 {days.map((day) => {
