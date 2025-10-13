@@ -290,25 +290,27 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         </Button>
                         <div className="space-y-4 rounded-lg border p-4">
                              <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
-                            <div className="space-y-1">
-                                <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
-                                <Input 
-                                    id="start-time"
-                                    type="time" 
-                                    value={timetableSettings.schoolStartTime} 
-                                    onChange={e => onSettingsChange({ ...timetableSettings, schoolStartTime: e.target.value })} 
-                                    className="w-fit"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="end-time">Schulende (Vormittag)</Label>
-                                <Input 
-                                    id="end-time"
-                                    type="time" 
-                                    value={timetableSettings.schoolEndTime} 
-                                    onChange={e => onSettingsChange({ ...timetableSettings, schoolEndTime: e.target.value })} 
-                                    className="w-fit"
-                                />
+                             <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                    <Input 
+                                        id="start-time"
+                                        type="time" 
+                                        value={timetableSettings.schoolStartTime} 
+                                        onChange={e => onSettingsChange({ ...timetableSettings, schoolStartTime: e.target.value })} 
+                                        className="w-full sm:w-auto"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                    <Input 
+                                        id="end-time"
+                                        type="time" 
+                                        value={timetableSettings.schoolEndTime} 
+                                        onChange={e => onSettingsChange({ ...timetableSettings, schoolEndTime: e.target.value })} 
+                                        className="w-full sm:w-auto"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </CardContent>
