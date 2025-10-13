@@ -109,10 +109,25 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
   };
   
   // Find the maximum number of slots to render based on actual subjects
-  const maxSlots = useMemo(() => Math.max(0, ...Object.values(timetable).map(daySchedule => {
-      const lastEntryIndex = daySchedule.map(d => d.fach && d.fach !== 'Pause').lastIndexOf(true);
-      return lastEntryIndex + 1;
-  })), [timetable]);
+  const maxSlots = useMemo(() => {
+    if (!timetable || Object.keys(timetable).length === 0) return 0;
+    
+    // Find the highest index that has a subject in any day of the week.
+    let lastUsedSlot = -1;
+    days.forEach(day => {
+        const daySchedule = timetable[day] || [];
+        for (let i = daySchedule.length - 1; i >= 0; i--) {
+            if (daySchedule[i].fach && daySchedule[i].fach.trim() !== '' && daySchedule[i].fach !== 'Pause') {
+                if (i > lastUsedSlot) {
+                    lastUsedSlot = i;
+                }
+                break; // Move to the next day
+            }
+        }
+    });
+    return lastUsedSlot + 1;
+  }, [timetable]);
+
 
   const timeSlots = useMemo(() => Array.from({ length: maxSlots }, (_, i) => {
     // Find the first valid entry for this slot index across all days to get the time
@@ -171,13 +186,6 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                 </TableHeader>
                 <TableBody>
                   {timeSlots.map((slot, slotIndex) => {
-                     // Only render row if at least one day has a non-continuation entry for this slot
-                     const shouldRenderRow = days.some(day => {
-                        const entry = getEntry(day, slotIndex);
-                        return entry && !entry.isContinuation && entry.fach && entry.fach !== 'Pause';
-                     });
-                     if(!shouldRenderRow && slotIndex > 0) return null; // Always show first hour
-
                     return (
                         <TableRow key={slotIndex}>
                             <TableCell className="font-medium border-r align-top">
@@ -237,12 +245,6 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                   </thead>
                   <tbody>
                       {timeSlots.map((slot, slotIndex) => {
-                         const shouldRenderRow = days.some(day => {
-                            const entry = getEntry(day, slotIndex);
-                            return entry && !entry.isContinuation && entry.fach && entry.fach !== 'Pause';
-                         });
-                         if(!shouldRenderRow && slotIndex > 0) return null;
-                         
                         return (
                             <tr key={slotIndex}>
                                 <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'top', height: '100px' }}>
@@ -289,5 +291,3 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     </div>
   );
 }
-
-    
