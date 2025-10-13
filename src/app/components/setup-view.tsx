@@ -251,7 +251,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-4">
                             <div>
                                 <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
                                 <Input 
@@ -375,5 +375,3 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
-
-    
