@@ -336,7 +336,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <Input 
                                         id="break1"
                                         type="number" 
-                                        value={localTimetableSettings.firstBreakDuration} 
+                                        value={localTimetableSettings.firstBreakDuration || ''} 
                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
                                         className="w-full sm:w-auto"
                                     />
@@ -346,7 +346,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <Input 
                                         id="break2"
                                         type="number" 
-                                        value={localTimetableSettings.secondBreakDuration} 
+                                        value={localTimetableSettings.secondBreakDuration || ''} 
                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
                                         className="w-full sm:w-auto"
                                     />
