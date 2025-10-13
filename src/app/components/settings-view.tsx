@@ -469,7 +469,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.3.1
+                    Version 1.3.4
                 </span>
             </div>
         </div>
