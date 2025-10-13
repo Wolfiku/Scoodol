@@ -274,7 +274,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2"><Clock />Allgemeine Schulzeiten</CardTitle>
                             </CardHeader>
-                            <CardContent className="grid grid-cols-2 gap-4">
+                            <CardContent className="flex flex-col gap-4">
                                 <div>
                                     <Label htmlFor="start-time" className="text-sm font-medium">Schulstart</Label>
                                     <Input 
@@ -405,3 +405,4 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
 
     
+
