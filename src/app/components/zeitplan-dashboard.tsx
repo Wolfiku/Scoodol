@@ -361,9 +361,9 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                     <Badge variant="secondary">Nebenfach</Badge>
                   )}
                 </div>
-                <CardDescription className="text-base">
-                  {entry.start} - {entry.ende}
-                   {entry.rowspan > 1 && <span className="text-xs text-primary/80 ml-2">(Doppelstunde)</span>}
+                <CardDescription className="text-base flex items-center gap-2">
+                  <span>{entry.start} - {entry.ende}</span>
+                   {(entry.rowspan > 1) && <Badge variant="outline" className="text-primary border-primary">Doppelstunde</Badge>}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex justify-between items-center text-muted-foreground">
@@ -386,7 +386,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         </Card>
       )}
 
-      {afternoonSchedule.length > 0 && (
+      {(afternoonSchedule.length > 0 && new Date().getDay() -1 !== currentDayIndex) && (
          <div className="mt-4 flex justify-center">
             {activeView === 'morning' ? (
                 <Button variant="outline" onClick={() => setManualView('afternoon')}>
@@ -472,5 +472,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
+
+    
 
     
