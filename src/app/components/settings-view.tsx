@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -404,6 +404,18 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
                 <Card>
                     <CardHeader>
+                        <CardTitle>News & Updates</CardTitle>
+                        <CardDescription>Hier bekommst du neue Informationen zum Projekt.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button variant="outline" asChild>
+                           <Link href="https://wolfikuproduction.de/scoodolnews" target="_blank" rel="noopener noreferrer"><Rss className="mr-2"/>Zu den News</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Hilfe & Anleitung</CardTitle>
                         <CardDescription>Hier findest du nützliche Tipps zur Verwendung der App.</CardDescription>
                     </CardHeader>
@@ -469,7 +481,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.3.4
+                    Version 1.3.5
                 </span>
             </div>
         </div>
@@ -477,3 +489,4 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 }
 
     
+
