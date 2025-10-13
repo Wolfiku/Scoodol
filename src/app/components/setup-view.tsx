@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, Clock } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, Clock, ArrowRight } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -83,7 +83,7 @@ const padTimetable = (timetable: TimetableData): TimetableData => {
 
 
 export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
-    const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
+    const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable);
     const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00' });
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
@@ -235,7 +235,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                         <Button size="lg" className="w-full" onClick={() => setMode('select')}>Los geht's!</Button>
+                         <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Los geht's!</Button>
                          <Button size="lg" variant="outline" className="w-full" onClick={() => importFileInputRef.current?.click()}>
                             <Upload className="mr-2" /> Daten importieren
                         </Button>
@@ -260,6 +260,45 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         )
     }
 
+    if (mode === 'time-setup') {
+        return (
+             <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                <Card className="w-full max-w-lg">
+                    <CardHeader className="text-center">
+                        <CardTitle className="text-2xl">Schulzeiten festlegen</CardTitle>
+                        <CardDescription>Wann beginnt und endet dein Vormittagsunterricht?</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6 p-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="start-time">Schulstart</Label>
+                            <Input 
+                                id="start-time"
+                                type="time" 
+                                value={timetableSettings.schoolStartTime} 
+                                onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
+                                className="w-full"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="end-time">Schulende</Label>
+                            <Input 
+                                id="end-time"
+                                type="time" 
+                                value={timetableSettings.schoolEndTime} 
+                                onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
+                                className="w-full"
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button className="w-full" size="lg" onClick={() => setMode('select')}>
+                            Weiter <ArrowRight className="ml-2" />
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
+        )
+    }
 
     if (mode === 'select') {
         return (
@@ -270,38 +309,6 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                         <CardDescription>Wähle eine Methode, um deinen Stundenplan hinzuzufügen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-4 rounded-lg border p-4">
-                            <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schulzeiten</h3>
-                            <div style={{ marginLeft: '-10px' }}>
-                                <div className="space-y-1 mb-4">
-                                    <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
-                                    <Input 
-                                        id="start-time"
-                                        type="time" 
-                                        value={timetableSettings.schoolStartTime} 
-                                        onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                        className="w-full"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="end-time">Schulende (Vormittag)</Label>
-                                    <Input 
-                                        id="end-time"
-                                        type="time" 
-                                        value={timetableSettings.schoolEndTime} 
-                                        onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                        className="w-full"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="relative flex pt-4 items-center">
-                            <div className="flex-grow border-t border-muted"></div>
-                            <span className="flex-shrink mx-4 text-muted-foreground text-sm">Stundenplan erstellen</span>
-                            <div className="flex-grow border-t border-muted"></div>
-                        </div>
-
                         <Button className="w-full" size="lg" onClick={() => { setMode('manual'); }}>
                             <Edit className="mr-2" /> Manuell eingeben
                         </Button>
