@@ -34,6 +34,8 @@ import {
   MapPin,
   Sunrise,
   Sunset,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -94,6 +96,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay() - 1);
   const [isMounted, setIsMounted] = useState(false);
+  const [manualView, setManualView] = useState<'morning' | 'afternoon' | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -106,6 +109,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     setCurrentDayIndex(prevIndex => {
       const newIndex = prevIndex + offset;
       if (newIndex >= 0 && newIndex < weekDays.length) {
+        setManualView(null); // Reset manual view when changing day
         return newIndex;
       }
       return prevIndex;
@@ -227,7 +231,12 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }, [timetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
+        if (manualView) return manualView;
         if (!now) return 'morning';
+        
+        const isToday = new Date().getDay() - 1 === currentDayIndex;
+        if (!isToday) return 'morning';
+
         const schoolEnd = parseTime(schoolEndTime);
         const hasAfternoon = afternoonSchedule.length > 0;
         
@@ -235,7 +244,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             return 'afternoon';
         }
         return 'morning';
-    }, [now, schoolEndTime, afternoonSchedule]);
+    }, [now, schoolEndTime, afternoonSchedule, currentDayIndex, manualView]);
   
   const dailyTimetable = activeView === 'morning' ? morningSchedule : afternoonSchedule;
 
@@ -366,6 +375,22 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         <Card className="text-center p-8 text-muted-foreground">
             <p>Für den {activeView === 'morning' ? 'Vormittag' : 'Nachmittag'} ist kein Unterricht eingetragen.</p>
         </Card>
+      )}
+
+      {afternoonSchedule.length > 0 && (
+         <div className="mt-4 flex justify-center">
+            {activeView === 'morning' ? (
+                <Button variant="outline" onClick={() => setManualView('afternoon')}>
+                    <ArrowDown className="mr-2 h-4 w-4" />
+                    Zum Nachmittag wechseln
+                </Button>
+            ) : (
+                 <Button variant="outline" onClick={() => setManualView('morning')}>
+                    <ArrowUp className="mr-2 h-4 w-4" />
+                    Zum Vormittag wechseln
+                </Button>
+            )}
+         </div>
       )}
 
 
