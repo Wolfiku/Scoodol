@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, Clock, ArrowRight } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -263,30 +263,36 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     if (mode === 'time-setup') {
         return (
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
-                <Card className="w-full max-w-lg">
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-2xl">Schulzeiten festlegen</CardTitle>
-                        <CardDescription>Wann beginnt und endet dein Vormittagsunterricht?</CardDescription>
+                <Card className="w-full max-w-lg text-center">
+                    <CardHeader>
+                        <CardTitle className="text-2xl">Deine Schulzeiten</CardTitle>
+                        <CardDescription>Wann beginnt und endet dein Unterricht am Vormittag?</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6 p-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="start-time">Schulstart</Label>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6">
+                        <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50">
+                            <Label htmlFor="start-time" className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                                <Sunrise className="text-amber-500" />
+                                Schulstart
+                            </Label>
                             <Input 
                                 id="start-time"
                                 type="time" 
                                 value={timetableSettings.schoolStartTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                className="w-full"
+                                className="w-auto text-2xl h-14 p-2"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="end-time">Schulende</Label>
+                        <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-secondary/50">
+                            <Label htmlFor="end-time" className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                                <Sunset className="text-orange-500" />
+                                Schulende
+                            </Label>
                             <Input 
                                 id="end-time"
                                 type="time" 
                                 value={timetableSettings.schoolEndTime} 
                                 onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                className="w-full"
+                                className="w-auto text-2xl h-14 p-2"
                             />
                         </div>
                     </CardContent>
@@ -406,5 +412,3 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
-
-    
