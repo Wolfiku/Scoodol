@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -14,6 +14,16 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 
 type TimetableEntry = {
@@ -41,11 +51,13 @@ type TimetableSettings = {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 const LESSONS_BEFORE_FIRST_BREAK = 2;
-const LESSONS_BEFORE_SECOND_BREAK = 2; // This is lessons AFTER the first break, so 2+2=4 lessons before second break
+const LESSONS_BEFORE_SECOND_BREAK = 2; 
 const MAX_LESSONS_MORNING = 6;
 const MAX_LESSONS_TOTAL = 10;
+const STANDARD_LESSON_DURATION = 45;
 
 const parseTimeToMinutes = (time: string): number => {
+    if (!time) return 0;
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
 };
@@ -62,16 +74,17 @@ export const generateTimeSlots = (settings: TimetableSettings): { start: string,
     const morningStartMinutes = parseTimeToMinutes(settings.schoolStartTime);
     const morningEndMinutes = parseTimeToMinutes(settings.schoolEndTime);
     
-    const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
-    if (totalMorningMinutes <= 0) return Array(MAX_LESSONS_TOTAL).fill({ start: '00:00', ende: '00:00'});
+    if (morningStartMinutes >= morningEndMinutes) {
+        return Array(MAX_LESSONS_TOTAL).fill({ start: '00:00', ende: '00:00'});
+    }
     
-    const totalBreakMinutes = settings.firstBreakDuration + settings.secondBreakDuration;
+    const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
+    const totalBreakMinutes = (settings.firstBreakDuration || 0) + (settings.secondBreakDuration || 0);
     const netTeachingMinutes = totalMorningMinutes - totalBreakMinutes;
     const lessonDuration = netTeachingMinutes > 0 ? Math.floor(netTeachingMinutes / MAX_LESSONS_MORNING) : 0;
 
     let currentTime = morningStartMinutes;
 
-    // Generate morning slots
     for (let i = 0; i < MAX_LESSONS_MORNING; i++) {
         const lessonStart = currentTime;
         const lessonEnd = currentTime + lessonDuration;
@@ -84,23 +97,29 @@ export const generateTimeSlots = (settings: TimetableSettings): { start: string,
         currentTime = lessonEnd;
 
         if (i + 1 === LESSONS_BEFORE_FIRST_BREAK) {
-             currentTime += settings.firstBreakDuration;
+             currentTime += settings.firstBreakDuration || 0;
         } else if (i + 1 === LESSONS_BEFORE_FIRST_BREAK + LESSONS_BEFORE_SECOND_BREAK) {
-            currentTime += settings.secondBreakDuration;
+            currentTime += settings.secondBreakDuration || 0;
         }
     }
     
-    // Fill remaining slots for afternoon (with default duration of 45min)
+    // Afternoon starts where the morning ended (including the last break if applicable)
+    let afternoonStartTime = currentTime;
+    // But if the school end time is before the calculated end of lessons, use the school end time.
+    if (morningEndMinutes < afternoonStartTime) {
+        afternoonStartTime = morningEndMinutes;
+    }
+
     const afternoonLessonDuration = 45;
     for (let i = MAX_LESSONS_MORNING; i < MAX_LESSONS_TOTAL; i++) {
-        const lessonStart = currentTime;
-        const lessonEnd = currentTime + afternoonLessonDuration;
+        const lessonStart = afternoonStartTime;
+        const lessonEnd = afternoonStartTime + afternoonLessonDuration;
         
         slots.push({
             start: formatMinutesToTime(lessonStart),
             ende: formatMinutesToTime(lessonEnd),
         });
-        currentTime = lessonEnd;
+        afternoonStartTime = lessonEnd;
     }
 
     return slots;
@@ -135,6 +154,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     const importFileInputRef = useRef<HTMLInputElement>(null);
     const profilePicInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const [showValidationDialog, setShowValidationDialog] = useState(false);
+    const [calculatedDuration, setCalculatedDuration] = useState(0);
 
      useEffect(() => {
         if (isEditing) {
@@ -255,9 +276,26 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         setTimetable(newTimetable);
     }
     
-    const handleSave = () => {
+    const proceedWithSave = () => {
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
         onSetupComplete(timetable, timetableSettings, profilePicture || undefined);
+    }
+
+    const handleSave = () => {
+        const morningStartMinutes = parseTimeToMinutes(timetableSettings.schoolStartTime);
+        const morningEndMinutes = parseTimeToMinutes(timetableSettings.schoolEndTime);
+        const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
+        const totalBreakMinutes = (timetableSettings.firstBreakDuration || 0) + (timetableSettings.secondBreakDuration || 0);
+        const netTeachingMinutes = totalMorningMinutes - totalBreakMinutes;
+        const lessonDuration = netTeachingMinutes > 0 ? Math.floor(netTeachingMinutes / MAX_LESSONS_MORNING) : 0;
+        
+        setCalculatedDuration(lessonDuration);
+
+        if (lessonDuration !== STANDARD_LESSON_DURATION) {
+            setShowValidationDialog(true);
+        } else {
+            proceedWithSave();
+        }
     }
     
     const handleImportFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,6 +474,27 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     if (mode === 'manual' || mode === 'scan') {
          return (
             <div className="container mx-auto p-4 md:p-8">
+                <AlertDialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="text-amber-500" />
+                            Ungewöhnliche Stundendauer
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Basierend auf deinen Einstellungen dauert eine Unterrichtsstunde <strong>{calculatedDuration} Minuten</strong>. Das ist unüblich.
+                            <br/><br/>
+                            Bist du sicher, dass deine Schul- und Pausenzeiten korrekt sind?
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Abbrechen & Prüfen</AlertDialogCancel>
+                        <AlertDialogAction onClick={proceedWithSave}>Trotzdem speichern</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+
                  <h2 className="text-3xl font-bold mb-2">Stundenplan bearbeiten</h2>
                  <p className="text-muted-foreground mb-6">Trage deine Fächer, Lehrer und Räume ein. Du kannst leere Felder für Pausen oder Freistunden lassen.</p>
                  <div className="overflow-x-auto pb-20">
