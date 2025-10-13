@@ -22,7 +22,7 @@ import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
 
-const APP_VERSION = '1.3.5';
+const APP_VERSION = '1.4.0';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -250,14 +250,10 @@ export default function Page() {
        <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && closeUpdateDialog()}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="text-2xl">Willkommen zu Version 1.3!</DialogTitle>
+                <DialogTitle className="text-2xl">Willkommen zu Version 1.4!</DialogTitle>
                 <DialogDescription asChild>
                   <div className="pt-2 text-base text-muted-foreground">
-                    <p>Scoodol hat ein großes Update erhalten!</p>
-                    <ul className="list-disc pl-5 space-y-2 mt-4">
-                        <li><b>Nachmittagsunterricht:</b> Der Stundenplan unterstützt jetzt bis zu 10 Stunden und eine separate Nachmittagsansicht.</li>
-                        <li><b>Quality of Life:</b> Viele kleine Verbesserungen an der Benutzeroberfläche, wie eine bessere Darstellung von Doppelstunden.</li>
-                    </ul>
+                    <p>Scoodol hat ein Update erhalten! Wir haben im Hintergrund viele kleine Fehler behoben, um die App stabiler und schneller zu machen.</p>
                   </div>
                 </DialogDescription>
             </DialogHeader>
@@ -316,8 +312,3 @@ export default function Page() {
     </>
   );
 }
-
-    
-
-    
-
