@@ -63,6 +63,24 @@ const createInitialTimetable = (): TimetableData => {
     return timetable;
 }
 
+const padTimetable = (timetable: TimetableData): TimetableData => {
+    const fullTimetable = createInitialTimetable();
+    const paddedTimetable = { ...fullTimetable };
+    
+    weekDays.forEach(day => {
+        if (timetable[day]) {
+            // Copy existing entries up to the max length of the new template
+            for (let i = 0; i < timeSlots.length; i++) {
+                if(timetable[day][i]) {
+                    paddedTimetable[day][i] = { ...fullTimetable[day][i], ...timetable[day][i] };
+                }
+            }
+        }
+    });
+
+    return paddedTimetable;
+}
+
 
 export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
@@ -79,7 +97,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
         if(isEditing) {
             const savedTimetable = localStorage.getItem("timetable");
             if (savedTimetable) {
-                setTimetable(JSON.parse(savedTimetable));
+                const parsedTimetable = JSON.parse(savedTimetable);
+                setTimetable(padTimetable(parsedTimetable));
             }
             const savedSettings = localStorage.getItem("timetableSettings");
             if (savedSettings) {
@@ -375,3 +394,5 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
+
+    
