@@ -278,7 +278,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                     type="time" 
                                     value={timetableSettings.schoolStartTime} 
                                     onChange={e => setTimetableSettings(prev => ({ ...prev, schoolStartTime: e.target.value }))} 
-                                    className="w-full mt-1 text-2xl h-16"
+                                    className="w-full mt-1"
                                 />
                             </div>
                             <div>
@@ -288,7 +288,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                                     type="time" 
                                     value={timetableSettings.schoolEndTime} 
                                     onChange={e => setTimetableSettings(prev => ({ ...prev, schoolEndTime: e.target.value }))} 
-                                    className="w-full mt-1 text-2xl h-16"
+                                    className="w-full mt-1"
                                 />
                             </div>
                         </div>
@@ -403,6 +403,8 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
 
 
+
+    
 
     
 
