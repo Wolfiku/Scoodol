@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { openPrintView, downloadAsPng } from "@/app/lib/export-helpers";
+import { generateTimeSlots } from "./setup-view";
 
 type TimetableEntry = {
   id: string;
@@ -36,10 +37,18 @@ type Timetable = {
   [day: string]: TimetableEntry[];
 };
 
+type TimetableSettings = {
+    schoolStartTime: string;
+    schoolEndTime: string;
+    firstBreakDuration: number;
+    secondBreakDuration: number;
+}
+
 type Props = {
   setView: (view: string) => void;
   isPreview?: boolean;
   timetable: Timetable;
+  timetableSettings: TimetableSettings;
 }
 
 const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
@@ -57,7 +66,9 @@ const stringToHslColor = (str: string, s: number, l: number) => {
 // New type for processed schedule with rowspan info
 type ProcessedEntry = TimetableEntry & { rowspan: number; isContinuation: boolean, originalIndex: number };
 
-export default function ClassicTimetableView({ setView, isPreview = false, timetable }: Props) {
+export default function ClassicTimetableView({ setView, isPreview = false, timetable, timetableSettings }: Props) {
+
+  const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
   // Process timetable to handle double periods
   const processedTimetable = useMemo(() => {
@@ -71,7 +82,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
       while (i < daySchedule.length) {
         const currentEntry = daySchedule[i];
         if (!currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
-          processedDay.push({ ...currentEntry, rowspan: 1, isContinuation: false, originalIndex: i });
+          processedDay.push({ ...currentEntry, start: timeSlots[i]?.start, ende: timeSlots[i]?.ende, rowspan: 1, isContinuation: false, originalIndex: i });
           i++;
           continue;
         }
@@ -89,7 +100,8 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
         
         processedDay.push({ 
           ...currentEntry, 
-          ende: daySchedule[i + rowspan - 1].ende, // Update end time to the last class of the block
+          start: timeSlots[i]?.start,
+          ende: timeSlots[i + rowspan - 1]?.ende, // Update end time to the last class of the block
           rowspan, 
           isContinuation: false,
           originalIndex: i
@@ -103,7 +115,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
       acc[day] = processedDay;
       return acc;
     }, {} as { [day: string]: ProcessedEntry[] })
-  }, [timetable]);
+  }, [timetable, timeSlots]);
     
   const getEntry = (day: string, slotIndex: number) => {
     const daySchedule = processedTimetable[day];
@@ -129,16 +141,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     return lastUsedSlot + 1;
   }, [timetable]);
 
-
-  const timeSlots = useMemo(() => Array.from({ length: maxSlots }, (_, i) => {
-    for (const day of days) {
-      const entry = timetable[day]?.[i];
-      if (entry && entry.start && entry.ende) {
-        return { start: entry.start, ende: entry.ende };
-      }
-    }
-    return { start: '--:--', ende: '--:--' };
-  }), [maxSlots, timetable]);
+  const visibleTimeSlots = useMemo(() => timeSlots.slice(0, maxSlots), [timeSlots, maxSlots]);
 
 
   return (
@@ -184,7 +187,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timeSlots.map((slot, slotIndex) => {
+                  {visibleTimeSlots.map((slot, slotIndex) => {
                     return (
                         <TableRow key={slotIndex}>
                             <TableCell className="font-medium border-r align-top">
@@ -243,7 +246,7 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                       </tr>
                   </thead>
                   <tbody>
-                      {timeSlots.map((slot, slotIndex) => {
+                      {visibleTimeSlots.map((slot, slotIndex) => {
                         return (
                             <tr key={slotIndex}>
                                 <td style={{border: '1px solid #ddd', padding: '12px', textAlign: 'center', verticalAlign: 'top', height: '100px' }}>
@@ -290,5 +293,3 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
     </div>
   );
 }
-
-    

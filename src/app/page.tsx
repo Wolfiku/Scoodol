@@ -227,7 +227,7 @@ export default function Page() {
       case 'daily':
         return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
       case 'weekly':
-        return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} />;
+        return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} />;
       case 'homework':
         return <HomeworkPlanner />;
       case 'smart-tool':
@@ -313,5 +313,3 @@ export default function Page() {
     </>
   );
 }
-
-    

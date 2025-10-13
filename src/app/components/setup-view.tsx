@@ -41,8 +41,9 @@ type TimetableSettings = {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 const LESSONS_BEFORE_FIRST_BREAK = 2;
-const LESSONS_BEFORE_SECOND_BREAK = 2;
-const MAX_LESSONS = 10;
+const LESSONS_BEFORE_SECOND_BREAK = 2; // This is lessons AFTER the first break, so 2+2=4 lessons before second break
+const MAX_LESSONS_MORNING = 6;
+const MAX_LESSONS_TOTAL = 10;
 
 const parseTimeToMinutes = (time: string): number => {
     const [hours, minutes] = time.split(':').map(Number);
@@ -50,27 +51,28 @@ const parseTimeToMinutes = (time: string): number => {
 };
 
 const formatMinutesToTime = (minutes: number): string => {
+    if (isNaN(minutes)) return '00:00';
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-const generateTimeSlots = (settings: TimetableSettings): { start: string, ende: string }[] => {
+export const generateTimeSlots = (settings: TimetableSettings): { start: string, ende: string }[] => {
     const slots = [];
     const morningStartMinutes = parseTimeToMinutes(settings.schoolStartTime);
     const morningEndMinutes = parseTimeToMinutes(settings.schoolEndTime);
     
     const totalMorningMinutes = morningEndMinutes - morningStartMinutes;
-    if (totalMorningMinutes <= 0) return Array(MAX_LESSONS).fill({ start: '00:00', ende: '00:00'});
-
-    const numberOfLessonsInMorning = 6;
+    if (totalMorningMinutes <= 0) return Array(MAX_LESSONS_TOTAL).fill({ start: '00:00', ende: '00:00'});
+    
     const totalBreakMinutes = settings.firstBreakDuration + settings.secondBreakDuration;
     const netTeachingMinutes = totalMorningMinutes - totalBreakMinutes;
-    const lessonDuration = Math.round(netTeachingMinutes / numberOfLessonsInMorning);
+    const lessonDuration = netTeachingMinutes > 0 ? Math.floor(netTeachingMinutes / MAX_LESSONS_MORNING) : 0;
 
     let currentTime = morningStartMinutes;
 
-    for (let i = 0; i < MAX_LESSONS; i++) {
+    // Generate morning slots
+    for (let i = 0; i < MAX_LESSONS_MORNING; i++) {
         const lessonStart = currentTime;
         const lessonEnd = currentTime + lessonDuration;
         
@@ -87,6 +89,20 @@ const generateTimeSlots = (settings: TimetableSettings): { start: string, ende: 
             currentTime += settings.secondBreakDuration;
         }
     }
+    
+    // Fill remaining slots for afternoon (with default duration of 45min)
+    const afternoonLessonDuration = 45;
+    for (let i = MAX_LESSONS_MORNING; i < MAX_LESSONS_TOTAL; i++) {
+        const lessonStart = currentTime;
+        const lessonEnd = currentTime + afternoonLessonDuration;
+        
+        slots.push({
+            start: formatMinutesToTime(lessonStart),
+            ende: formatMinutesToTime(lessonEnd),
+        });
+        currentTime = lessonEnd;
+    }
+
     return slots;
 };
 
@@ -142,10 +158,26 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
     // Regenerate timetable when settings change during setup
     useEffect(() => {
-        if(mode === 'manual' || mode === 'select' || isEditing) {
-             setTimetable(createInitialTimetable(timetableSettings));
-        }
-    }, [timetableSettings, mode, isEditing]);
+        const existingData = timetable;
+        const newTimeSlots = generateTimeSlots(timetableSettings);
+        const updatedTimetable: TimetableData = {};
+
+        weekDays.forEach(day => {
+            updatedTimetable[day] = newTimeSlots.map((slot, index) => {
+                const existingEntry = existingData[day]?.[index];
+                return {
+                    id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
+                    fach: existingEntry?.fach || '',
+                    lehrer: existingEntry?.lehrer || '',
+                    room: existingEntry?.room || '',
+                    start: slot.start,
+                    ende: slot.ende,
+                    hauptfach: existingEntry?.hauptfach || false,
+                };
+            });
+        });
+        setTimetable(updatedTimetable);
+    }, [timetableSettings]);
 
     const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
@@ -476,5 +508,3 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
 
     return null;
 }
-
-    

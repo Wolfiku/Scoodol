@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { generateTimeSlots } from "./setup-view";
 
 type TimetableEntry = {
   id: string;
@@ -64,6 +65,8 @@ type TimetableData = {
 type TimetableSettings = {
     schoolStartTime: string;
     schoolEndTime: string;
+    firstBreakDuration: number;
+    secondBreakDuration: number;
 }
 
 type Props = {
@@ -132,6 +135,26 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     return () => clearInterval(timer);
   }, []);
 
+  const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
+
+  const updatedTimetable = useMemo(() => {
+    const newTimetable: TimetableData = {};
+    weekDays.forEach(day => {
+        newTimetable[day] = (timetable[day] || []).map((entry, index) => {
+            if (timeSlots[index]) {
+                return {
+                    ...entry,
+                    start: timeSlots[index].start,
+                    ende: timeSlots[index].ende,
+                };
+            }
+            return entry;
+        });
+    });
+    return newTimetable;
+  }, [timetable, timeSlots]);
+
+
   useEffect(() => {
     if (!now || !isSchoolTime) {
         setRemainingTime(null);
@@ -170,19 +193,19 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   const handleSaveNotes = () => {
     if (selectedSubject) {
       const day = weekDays[currentDayIndex];
-      const updatedTimetable = { ...timetable };
-      updatedTimetable[day] = updatedTimetable[day].map((entry) =>
+      const newTimetableData = { ...updatedTimetable };
+      newTimetableData[day] = newTimetableData[day].map((entry) =>
         entry.id === selectedSubject.id
           ? { ...entry, notizen: editingNotes }
           : entry
       );
-      onTimetableUpdate(updatedTimetable);
+      onTimetableUpdate(newTimetableData);
       handleCloseDialog();
     }
   };
   
     const { morningSchedule, afternoonSchedule, afternoonStartIndex } = useMemo(() => {
-        const daySchedule = timetable[weekDays[currentDayIndex]] || [];
+        const daySchedule = updatedTimetable[weekDays[currentDayIndex]] || [];
         
         let firstAfternoonIndex = daySchedule.findIndex(entry => {
             if(!entry.start) return false;
@@ -213,7 +236,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             
             processedSchedule.push({
                 ...currentEntry,
-                ende: daySchedule[i + rowspan - 1].ende,
+                ende: daySchedule[i + rowspan - 1]?.ende || currentEntry.ende,
                 rowspan,
                 isContinuation: false,
             });
@@ -235,7 +258,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         });
 
         return { morningSchedule: morning, afternoonSchedule: afternoon, afternoonStartIndex: firstAfternoonIndex };
-    }, [timetable, currentDayIndex]);
+    }, [updatedTimetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
         if (manualView) return manualView;
@@ -259,14 +282,14 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
-    const fullDaySchedule = timetable[weekDays[currentDayIndex]] || [];
+    const fullDaySchedule = updatedTimetable[weekDays[currentDayIndex]] || [];
     return fullDaySchedule.find((entry) => {
       if (!entry.start || !entry.ende) return false;
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
       return now >= start && now < end;
     });
-  }, [now, timetable, currentDayIndex]);
+  }, [now, updatedTimetable, currentDayIndex]);
   
   return (
     <div className="flex flex-col gap-8">
@@ -386,7 +409,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         </Card>
       )}
 
-      {(afternoonSchedule.length > 0 && new Date().getDay() -1 !== currentDayIndex) && (
+      {(afternoonSchedule.length > 0) && (
          <div className="mt-4 flex justify-center">
             {activeView === 'morning' ? (
                 <Button variant="outline" onClick={() => setManualView('afternoon')}>
@@ -472,7 +495,3 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
-
-    
-
-    
