@@ -254,7 +254,7 @@ export default function Page() {
                 <DialogTitle className="text-2xl">Willkommen zu Version 1.4!</DialogTitle>
                 <DialogDescription>
                   <div className="pt-2 text-base text-muted-foreground">
-                    <p>Scoodol hat ein Update erhalten! Wir haben im Hintergrund viele kleine Fehler behoben, um die App stabiler und schneller zu machen.</p>
+                    Scoodol hat ein Update erhalten! Wir haben im Hintergrund viele kleine Fehler behoben, um die App stabiler und schneller zu machen.
                   </div>
                 </DialogDescription>
             </DialogHeader>
