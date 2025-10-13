@@ -108,13 +108,19 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
   };
   
   // Find the maximum number of slots to render based on actual subjects
-  const maxSlots = Math.max(...days.map(day => {
-    const daySchedule = timetable[day] || [];
-    const lastEntryIndex = daySchedule.map(e => e.fach && e.fach.trim() !== '' && e.fach !== 'Pause').lastIndexOf(true);
-    return lastEntryIndex + 1;
-  }));
+  const maxSlots = Math.max(0, ...Object.values(timetable).map(daySchedule => daySchedule.length));
 
-  const timeSlots = Array.from({ length: maxSlots }, (_, i) => timetable.Montag[i] || {});
+  const timeSlots = Array.from({ length: maxSlots }, (_, i) => {
+    // Find the first valid entry for this slot index across all days to get the time
+    for (const day of days) {
+      const entry = timetable[day]?.[i];
+      if (entry && entry.start && entry.ende) {
+        return { start: entry.start, ende: entry.ende };
+      }
+    }
+    // Fallback if no entry is found for this slot
+    return { start: '--:--', ende: '--:--' };
+  });
 
 
   return (
