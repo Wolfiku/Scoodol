@@ -204,7 +204,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-    const { morningSchedule, afternoonSchedule, afternoonStartIndex } = useMemo(() => {
+    const { morningSchedule, afternoonSchedule, afternoonStartIndex, processedScheduleForDay } = useMemo(() => {
         const daySchedule = updatedTimetable[weekDays[currentDayIndex]] || [];
         
         let firstAfternoonIndex = daySchedule.findIndex(entry => {
@@ -257,7 +257,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             return originalIndex >= firstAfternoonIndex;
         });
 
-        return { morningSchedule: morning, afternoonSchedule: afternoon, afternoonStartIndex: firstAfternoonIndex };
+        return { morningSchedule: morning, afternoonSchedule: afternoon, afternoonStartIndex: firstAfternoonIndex, processedScheduleForDay: processedSchedule };
     }, [updatedTimetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
@@ -282,14 +282,17 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
-    const fullDaySchedule = updatedTimetable[weekDays[currentDayIndex]] || [];
-    return fullDaySchedule.find((entry) => {
-      if (!entry.start || !entry.ende) return false;
+    
+    // Find the current subject from the processed schedule which correctly handles multi-period blocks
+    const activeEntry = processedScheduleForDay.find((entry) => {
+      if (!entry.start || !entry.ende || entry.isContinuation) return false;
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
       return now >= start && now < end;
     });
-  }, [now, updatedTimetable, currentDayIndex]);
+
+    return activeEntry || null;
+  }, [now, processedScheduleForDay, currentDayIndex]);
   
   return (
     <div className="flex flex-col gap-8">
@@ -495,3 +498,5 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
+
+    
