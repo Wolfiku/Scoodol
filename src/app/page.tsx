@@ -63,7 +63,7 @@ export default function Page() {
   const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
-  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
+  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
 
@@ -74,7 +74,7 @@ export default function Page() {
           setIsPreviewMode(true);
           sessionStorage.removeItem('previewMode'); // Immediately remove after checking
           setTimetableData(previewTimetableData);
-          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
+          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
         } else {
             const savedTimetable = localStorage.getItem("timetable");
             if(savedTimetable) {

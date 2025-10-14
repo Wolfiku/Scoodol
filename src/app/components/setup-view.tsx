@@ -146,7 +146,7 @@ const createInitialTimetable = (settings: TimetableSettings): TimetableData => {
 
 export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
-    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 20 });
+    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable(timetableSettings));
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -279,6 +279,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     const proceedWithSave = () => {
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
         onSetupComplete(timetable, timetableSettings, profilePicture || undefined);
+        setShowValidationDialog(false);
     }
 
     const handleSave = () => {

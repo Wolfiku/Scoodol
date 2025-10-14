@@ -357,54 +357,62 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                          <Button onClick={onEditTimetable}>
                             <Edit className="mr-2"/> Stundenplan bearbeiten
                         </Button>
-                        <div className="space-y-4 rounded-lg border p-4">
-                             <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schul- & Pausenzeiten</h3>
-                             <div className="grid sm:grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
-                                    <Input 
-                                        id="start-time"
-                                        type="time" 
-                                        value={localTimetableSettings.schoolStartTime} 
-                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
-                                        className="w-full sm:w-auto"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="end-time">Schulende (Vormittag)</Label>
-                                    <Input 
-                                        id="end-time"
-                                        type="time" 
-                                        value={localTimetableSettings.schoolEndTime} 
-                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
-                                        className="w-full sm:w-auto"
-                                    />
-                                </div>
-                                 <div className="space-y-1">
-                                    <Label htmlFor="break1">1. große Pause (in Min.)</Label>
-                                    <Input 
-                                        id="break1"
-                                        type="number" 
-                                        value={localTimetableSettings.firstBreakDuration || ''} 
-                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
-                                        className="w-full sm:w-auto"
-                                    />
-                                </div>
-                                 <div className="space-y-1">
-                                    <Label htmlFor="break2">2. große Pause (in Min.)</Label>
-                                    <Input 
-                                        id="break2"
-                                        type="number" 
-                                        value={localTimetableSettings.secondBreakDuration || ''} 
-                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
-                                        className="w-full sm:w-auto"
-                                    />
-                                </div>
-                            </div>
-                            <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged}>
-                                <Save className="mr-2 h-4 w-4" /> Zeiten speichern
-                            </Button>
-                        </div>
+                        <Accordion type="single" collapsible>
+                             <AccordionItem value="item-1">
+                                <AccordionTrigger>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schul- & Pausenzeiten</h3>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-4 pt-4">
+                                         <div className="grid sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                                <Input 
+                                                    id="start-time"
+                                                    type="time" 
+                                                    value={localTimetableSettings.schoolStartTime} 
+                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
+                                                    className="w-full sm:w-auto"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                                <Input 
+                                                    id="end-time"
+                                                    type="time" 
+                                                    value={localTimetableSettings.schoolEndTime} 
+                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
+                                                    className="w-full sm:w-auto"
+                                                />
+                                            </div>
+                                             <div className="space-y-1">
+                                                <Label htmlFor="break1">1. große Pause (in Min.)</Label>
+                                                <Input 
+                                                    id="break1"
+                                                    type="number" 
+                                                    value={localTimetableSettings.firstBreakDuration || ''} 
+                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
+                                                    className="w-full sm:w-auto"
+                                                />
+                                            </div>
+                                             <div className="space-y-1">
+                                                <Label htmlFor="break2">2. große Pause (in Min.)</Label>
+                                                <Input 
+                                                    id="break2"
+                                                    type="number" 
+                                                    value={localTimetableSettings.secondBreakDuration || ''} 
+                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
+                                                    className="w-full sm:w-auto"
+                                                />
+                                            </div>
+                                        </div>
+                                        <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged}>
+                                            <Save className="mr-2 h-4 w-4" /> Zeiten speichern
+                                        </Button>
+                                    </div>
+                                </AccordionContent>
+                             </AccordionItem>
+                        </Accordion>
                     </CardContent>
                 </Card>
 
