@@ -22,7 +22,7 @@ import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -109,7 +109,7 @@ export default function Page() {
         // Check for update notification
         const lastSeenVersion = localStorage.getItem('lastSeenVersion');
         
-        if (lastSeenVersion !== APP_VERSION) {
+        if (lastSeenVersion !== APP_VERSION && APP_VERSION === '1.4.0') {
             setShowUpdateDialog(true);
         }
     }
