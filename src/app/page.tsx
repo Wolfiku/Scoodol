@@ -70,8 +70,13 @@ export default function Page() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const path = window.location.pathname;
-        if (path.startsWith('/creator/')) {
+        const isCreatorMode = path.startsWith('/creator/');
+        const isEditMode = path.startsWith('/edit/');
+
+        if (isCreatorMode) {
             setView('creator');
+        } else if (isEditMode) {
+            setView('edit');
         }
 
         const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
@@ -97,8 +102,10 @@ export default function Page() {
             setIsSetupComplete(setupDone);
 
             if (setupDone || checkPreviewMode) {
-                 if (path.startsWith('/creator/')) {
+                 if (isCreatorMode) {
                     setView('creator');
+                } else if (isEditMode) {
+                    setView('edit');
                 } else {
                     const savedStartView = localStorage.getItem('startView');
                     if (savedStartView && !checkPreviewMode) { 
@@ -148,8 +155,9 @@ export default function Page() {
     setIsEditingTimetable(false);
     
     // Navigate to the creator page after saving, if that's where we came from
-    if (window.location.pathname.startsWith('/creator/')) {
-        setView('creator');
+    const path = window.location.pathname;
+    if (path.startsWith('/creator/') || path.startsWith('/edit/')) {
+        handleNavClick('home');
     } else {
        const savedStartView = localStorage.getItem('startView');
         if (savedStartView) {
@@ -183,8 +191,8 @@ export default function Page() {
   }
 
   const handleEditTimetable = () => {
-    window.history.pushState({}, '', '/creator/1');
-    setView('creator');
+    window.history.pushState({}, '', '/edit/1');
+    setView('edit');
   }
   
   const handleNavClick = (newView: string) => {
@@ -199,8 +207,8 @@ export default function Page() {
             setView('weekly');
         }
     } else {
-      if (newView === 'creator') {
-         window.history.pushState({}, '', '/creator/1');
+      if (newView === 'creator' || newView === 'edit') {
+         window.history.pushState({}, '', `/${newView}/1`);
       } else {
         window.history.pushState({}, '', '/');
       }
@@ -238,9 +246,9 @@ export default function Page() {
     );
   }
   
-  // The creator view is just the SetupView in a special mode
-  if (view === 'creator') {
-      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={true} isCreatorMode={true} />;
+  // The creator/edit view is just the SetupView in a special mode
+  if (view === 'creator' || view === 'edit') {
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={true} isCreatorMode={view === 'creator'} />;
   }
 
   if (!isSetupComplete && !isPreviewMode) {
