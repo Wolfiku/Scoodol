@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle, ArrowLeft, Download } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -144,7 +144,7 @@ const createInitialTimetable = (settings: TimetableSettings): TimetableData => {
     return timetable;
 }
 
-export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false, isCreatorMode = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean, isCreatorMode?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
     const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable(timetableSettings));
@@ -315,6 +315,28 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             }
         };
         reader.readAsText(file);
+    }
+    
+     const handleExport = () => {
+        try {
+            const dataToExport = {
+                timetable: timetable,
+                timetableSettings: timetableSettings,
+            }
+
+            const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'scoodol-timetable.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast({ title: "Export erfolgreich", description: "Dein Stundenplan wurde heruntergeladen." });
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Fehler", description: "Der Export ist fehlgeschlagen." });
+        }
     }
 
     const handleProfilePicChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -495,9 +517,40 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                     </AlertDialogContent>
                 </AlertDialog>
 
+                 <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 className="text-3xl font-bold">Stundenplan-Editor</h2>
+                        <p className="text-muted-foreground">Trage deine Fächer, Lehrer und Räume ein.</p>
+                    </div>
+                     {isCreatorMode && (
+                        <Button variant="ghost" onClick={() => window.history.back()}>
+                            <ArrowLeft className="mr-2" /> Zurück zur App
+                        </Button>
+                    )}
+                 </div>
 
-                 <h2 className="text-3xl font-bold mb-2">Stundenplan bearbeiten</h2>
-                 <p className="text-muted-foreground mb-6">Trage deine Fächer, Lehrer und Räume ein. Du kannst leere Felder für Pausen oder Freistunden lassen.</p>
+                {isCreatorMode && (
+                     <Card className="mb-6">
+                        <CardHeader><CardTitle>Import / Export</CardTitle></CardHeader>
+                        <CardContent className="flex gap-2">
+                             <Button variant="outline" onClick={() => importFileInputRef.current?.click()}>
+                                <Upload className="mr-2" /> Importieren
+                            </Button>
+                             <Button variant="outline" onClick={handleExport}>
+                                <Download className="mr-2" /> Exportieren
+                            </Button>
+                             <input 
+                                type="file" 
+                                ref={importFileInputRef} 
+                                className="hidden" 
+                                accept=".json"
+                                onChange={handleImportFileChange}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
+
+
                  <div className="overflow-x-auto pb-20">
                      <Table className="border min-w-[800px]">
                          <TableHeader>

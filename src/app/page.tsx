@@ -22,7 +22,7 @@ import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
 
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -69,6 +69,11 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/creator/')) {
+            setView('creator');
+        }
+
         const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
         if (checkPreviewMode) {
           setIsPreviewMode(true);
@@ -92,13 +97,17 @@ export default function Page() {
             setIsSetupComplete(setupDone);
 
             if (setupDone || checkPreviewMode) {
-                const savedStartView = localStorage.getItem('startView');
-                if (savedStartView && !checkPreviewMode) { 
-                    setView(savedStartView);
-                } else if (isMobile) {
-                    setView('daily');
+                 if (path.startsWith('/creator/')) {
+                    setView('creator');
                 } else {
-                    setView('weekly');
+                    const savedStartView = localStorage.getItem('startView');
+                    if (savedStartView && !checkPreviewMode) { 
+                        setView(savedStartView);
+                    } else if (isMobile) {
+                        setView('daily');
+                    } else {
+                        setView('weekly');
+                    }
                 }
             }
             
@@ -138,13 +147,18 @@ export default function Page() {
     setIsSetupComplete(true);
     setIsEditingTimetable(false);
     
-    const savedStartView = localStorage.getItem('startView');
-    if (savedStartView) {
-        setView(savedStartView);
-    } else if (isMobile) {
-      setView('daily');
+    // Navigate to the creator page after saving, if that's where we came from
+    if (window.location.pathname.startsWith('/creator/')) {
+        setView('creator');
     } else {
-      setView('weekly');
+       const savedStartView = localStorage.getItem('startView');
+        if (savedStartView) {
+            setView(savedStartView);
+        } else if (isMobile) {
+          setView('daily');
+        } else {
+          setView('weekly');
+        }
     }
   }
   
@@ -169,12 +183,13 @@ export default function Page() {
   }
 
   const handleEditTimetable = () => {
-      setIsSetupComplete(false);
-      setIsEditingTimetable(true);
+    window.history.pushState({}, '', '/creator/1');
+    setView('creator');
   }
   
   const handleNavClick = (newView: string) => {
     if (newView === 'home') {
+        window.history.pushState({}, '', '/');
         const savedStartView = localStorage.getItem('startView');
          if (savedStartView && !isPreviewMode) {
             setView(savedStartView);
@@ -184,6 +199,11 @@ export default function Page() {
             setView('weekly');
         }
     } else {
+      if (newView === 'creator') {
+         window.history.pushState({}, '', '/creator/1');
+      } else {
+        window.history.pushState({}, '', '/');
+      }
       setView(newView);
     }
   };
@@ -216,6 +236,11 @@ export default function Page() {
         </div>
       </div>
     );
+  }
+  
+  // The creator view is just the SetupView in a special mode
+  if (view === 'creator') {
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={true} isCreatorMode={true} />;
   }
 
   if (!isSetupComplete && !isPreviewMode) {
