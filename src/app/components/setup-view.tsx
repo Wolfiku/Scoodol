@@ -169,7 +169,13 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                 } else {
                      setTimetable(createInitialTimetable(parsedSettings));
                 }
+            } else {
+                 const savedTimetable = localStorage.getItem("timetable");
+                 if (savedTimetable) {
+                    setTimetable(JSON.parse(savedTimetable));
+                 }
             }
+
             const savedPic = localStorage.getItem("profilePicture");
             if (savedPic) {
                 setProfilePicture(savedPic);
@@ -179,26 +185,29 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     
     // Regenerate timetable when settings change during setup
     useEffect(() => {
-        const existingData = timetable;
-        const newTimeSlots = generateTimeSlots(timetableSettings);
-        const updatedTimetable: TimetableData = {};
+        // Only run this logic if we are NOT in editing mode,
+        // otherwise it overwrites the loaded data.
+        if (!isEditing) {
+            const newTimeSlots = generateTimeSlots(timetableSettings);
+            const updatedTimetable: TimetableData = {};
 
-        weekDays.forEach(day => {
-            updatedTimetable[day] = newTimeSlots.map((slot, index) => {
-                const existingEntry = existingData[day]?.[index];
-                return {
-                    id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
-                    fach: existingEntry?.fach || '',
-                    lehrer: existingEntry?.lehrer || '',
-                    room: existingEntry?.room || '',
-                    start: slot.start,
-                    ende: slot.ende,
-                    hauptfach: existingEntry?.hauptfach || false,
-                };
+            weekDays.forEach(day => {
+                updatedTimetable[day] = newTimeSlots.map((slot, index) => {
+                    const existingEntry = timetable[day]?.[index];
+                    return {
+                        id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
+                        fach: existingEntry?.fach || '',
+                        lehrer: existingEntry?.lehrer || '',
+                        room: existingEntry?.room || '',
+                        start: slot.start,
+                        ende: slot.ende,
+                        hauptfach: existingEntry?.hauptfach || false,
+                    };
+                });
             });
-        });
-        setTimetable(updatedTimetable);
-    }, [timetableSettings]);
+            setTimetable(updatedTimetable);
+        }
+    }, [timetableSettings, isEditing]); // Add isEditing dependency
 
     const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
