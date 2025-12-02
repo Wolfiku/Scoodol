@@ -2,22 +2,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      // Allow a user to read and write only their own document.
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
       match /homeworks/{homeworkId} {
-        allow read, write, delete: if isSignedIn() && isOwner(userId);
+        // Allow a user to manage only their own homework tasks.
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
     }
   }
 }
-
