@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -12,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { initiateEmailSignUp, useAuth } from '@/firebase';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 const registerSchema = z.object({
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
@@ -38,33 +40,37 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
+    if (!auth) return;
     setIsLoading(true);
     try {
-      // We don't await this, the state change will be handled by the auth listener
-      initiateEmailSignUp(auth, values.email, values.password);
+      await initiateEmailSignUp(auth, values.email, values.password);
       
       toast({
         title: "Registrierung erfolgreich!",
-        description: "Du wirst zum Login weitergeleitet.",
+        description: "Du wirst zum Login weitergeleitet, um dich anzumelden.",
       });
       router.push('/login');
 
     } catch (error: any) {
+       let description = "Ein unbekannter Fehler ist aufgetreten.";
+       if (error.code === 'auth/email-already-in-use') {
+           description = "Diese E-Mail-Adresse wird bereits verwendet.";
+       }
       toast({
         variant: "destructive",
         title: "Registrierung fehlgeschlagen",
-        description: error.message,
+        description,
       });
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Account erstellen</CardTitle>
-          <CardDescription>Erstelle einen neuen Scoodol Account.</CardDescription>
+          <CardDescription>Erstelle einen neuen Scoodol Account, um deine Daten zu sichern.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -76,7 +82,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>E-Mail</FormLabel>
                     <FormControl>
-                      <Input placeholder="deine@email.de" {...field} />
+                      <Input placeholder="deine@email.de" {...field} disabled={isLoading}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -89,7 +95,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Passwort</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input type="password" placeholder="******" {...field} disabled={isLoading}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -102,25 +108,32 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Passwort bestätigen</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input type="password" placeholder="******" {...field} disabled={isLoading}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Registriere...' : 'Registrieren'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Registrieren'}
               </Button>
             </form>
           </Form>
            <div className="mt-4 text-center text-sm">
             Schon einen Account?{" "}
-            <Link href="/login" className="underline">
-              Hier einloggen
-            </Link>
+             <Button variant="link" asChild className="p-0 h-auto">
+                <Link href="/login">Hier anmelden</Link>
+            </Button>
           </div>
+           <div className="mt-6 text-center">
+             <Button variant="ghost" asChild>
+                <Link href="/">Zurück zur App</Link>
+            </Button>
+           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    

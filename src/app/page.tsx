@@ -22,7 +22,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
-import { useUser } from '@/firebase';
+import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 
 const APP_VERSION = '1.4.2';
 
@@ -69,6 +69,7 @@ export default function Page() {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const router = useRouter();
 
 
@@ -77,21 +78,13 @@ export default function Page() {
       return; // Wait until user status is resolved
     }
     
-    if (!user) {
-        const path = window.location.pathname;
-        if (path !== '/login' && path !== '/register') {
-            router.push('/login');
-        }
-        setIsInitialised(true);
-        return;
+    // If no user is logged in (neither real nor anonymous), sign in anonymously.
+    if (!user && auth) {
+      initiateAnonymousSignIn(auth);
     }
 
     if (typeof window !== 'undefined') {
         const path = window.location.pathname;
-        if (path === '/login' || path === '/register') {
-            router.push('/'); // Already logged in, go to app
-        }
-
 
         const isCreatorMode = path.startsWith('/creator/');
         const isEditMode = path.startsWith('/edit/');
@@ -152,7 +145,7 @@ export default function Page() {
             setShowUpdateDialog(true);
         }
     }
-  }, [isMobile, user, isUserLoading, router]);
+  }, [isMobile, user, isUserLoading, router, auth]);
   
   const updateTimetable = (newTimetable: TimetableData) => {
     setTimetableData(newTimetable);
@@ -248,7 +241,7 @@ export default function Page() {
   }
   
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
-  if (path === '/login' || path === '/register') {
+  if (path === '/login' || path === '/register' || path === '/success') {
       return null;
   }
 
@@ -373,3 +366,5 @@ export default function Page() {
     </>
   );
 }
+
+    

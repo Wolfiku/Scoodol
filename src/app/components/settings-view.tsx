@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,8 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
+import { useAuth, useUser } from "@/firebase"
+import { useRouter } from "next/navigation"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -70,6 +72,10 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings>(timetableSettings);
     const [showValidationDialog, setShowValidationDialog] = useState(false);
     const [calculatedDuration, setCalculatedDuration] = useState(0);
+
+    const { user } = useUser();
+    const auth = useAuth();
+    const router = useRouter();
 
 
     useEffect(() => {
@@ -176,6 +182,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     }
 
     const handleFooterTap = () => {
+        if (!betaFeaturesEnabled) return;
         const newTapCount = tapCount + 1;
         setTapCount(newTapCount);
         if (newTapCount >= 3) {
@@ -207,6 +214,12 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             proceedWithSave();
         }
     }
+    
+    const handleLogout = async () => {
+        await auth.signOut();
+        toast({ title: 'Abgemeldet', description: 'Du wurdest erfolgreich abgemeldet.' });
+        router.push('/');
+    };
 
     const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime 
         || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime
@@ -257,6 +270,38 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
             <h2 className="text-3xl font-bold mb-6">Einstellungen</h2>
             <div className="space-y-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Mein Account</CardTitle>
+                        <CardDescription>Verwalte deinen Account, um deine Daten zu sichern.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {user && !user.isAnonymous ? (
+                             <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <User className="w-5 h-5 text-primary" />
+                                    <p>Angemeldet als: <span className="font-semibold">{user.email}</span></p>
+                                </div>
+                                <Button onClick={handleLogout} variant="outline">
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    Abmelden
+                                </Button>
+                            </div>
+                        ) : (
+                             <div className="space-y-2">
+                                <p className="text-muted-foreground">Du bist momentan als Gast unterwegs. Erstelle einen Account, um deine Daten zu speichern und auf anderen Geräten zu nutzen.</p>
+                                <div className="flex gap-2">
+                                    <Button asChild>
+                                        <Link href="/login">Anmelden</Link>
+                                    </Button>
+                                    <Button asChild variant="secondary">
+                                         <Link href="/register">Registrieren</Link>
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle>Design & Layout</CardTitle>
@@ -587,5 +632,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
+
+    
 
     

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { initiateEmailSignIn, useAuth, useUser } from '@/firebase';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
@@ -23,7 +25,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -34,10 +36,15 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
+    if (!auth) return;
     setIsLoading(true);
     try {
       // Non-blocking sign-in. The onAuthStateChanged listener will handle the redirect.
       initiateEmailSignIn(auth, values.email, values.password);
+      toast({
+        title: "Anmeldung...",
+        description: "Du wirst gleich weitergeleitet.",
+      });
     } catch (error: any) {
        toast({
         variant: "destructive",
@@ -48,14 +55,31 @@ export default function LoginPage() {
     }
   };
   
-  // This effect will run when the user's auth state changes.
-  // If the user successfully logs in, redirect them.
-  if (user) {
-    router.push('/success');
+  useEffect(() => {
+    // Redirect if user is logged in (and not anonymous)
+    if (!isUserLoading && user && !user.isAnonymous) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || (user && !user.isAnonymous)) {
+     return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-full max-w-md text-center">
+            <CardHeader>
+                <CardTitle>Einen Moment...</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+                <p>Du wirst angemeldet und weitergeleitet.</p>
+                <Loader2 className="animate-spin text-primary" />
+            </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Willkommen zurück!</CardTitle>
@@ -71,7 +95,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>E-Mail</FormLabel>
                     <FormControl>
-                      <Input placeholder="deine@email.de" {...field} />
+                      <Input placeholder="deine@email.de" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -84,25 +108,32 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Passwort</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input type="password" placeholder="******" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Melde an...' : 'Anmelden'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Anmelden'}
               </Button>
             </form>
           </Form>
           <div className="mt-4 text-center text-sm">
             Noch keinen Account?{" "}
-            <Link href="/register" className="underline">
-              Jetzt registrieren
-            </Link>
+            <Button variant="link" asChild className="p-0 h-auto">
+                <Link href="/register">Jetzt registrieren</Link>
+            </Button>
           </div>
+           <div className="mt-6 text-center">
+             <Button variant="ghost" asChild>
+                <Link href="/">Zurück zur App</Link>
+            </Button>
+           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
