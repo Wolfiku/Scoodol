@@ -112,8 +112,12 @@ export default function Page() {
 
   // Effect to handle data loading and view initialization
   useEffect(() => {
-    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) return;
-    
+    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
+      return;
+    }
+
+    if (isInitialised) return; // Only run this effect once on initial load
+
     const localSetupDone = !!localStorage.getItem('timetable');
     const cloudSetupDone = !!userData;
     const setupDone = localSetupDone || cloudSetupDone;
@@ -124,7 +128,6 @@ export default function Page() {
         setLocalTimetable(JSON.parse(localStorage.getItem('timetable')!));
         setLocalTimetableSettings(JSON.parse(localStorage.getItem('timetableSettings')!));
     }
-
 
     const path = window.location.pathname;
     const isCreatorMode = path.startsWith('/creator/');
@@ -155,7 +158,7 @@ export default function Page() {
     }
 
     setIsInitialised(true);
-  }, [user, userData, isUserLoading, isUserDataLoading, isMobile, setAiLanguage, setTheme, setThemeStartView]);
+  }, [user, userData, isUserLoading, isUserDataLoading, isInitialised, setAiLanguage, setTheme, setThemeStartView]);
 
   
   const updateUserData = (data: Partial<UserData>) => {
@@ -394,5 +397,3 @@ export default function Page() {
     </>
   );
 }
-
-    

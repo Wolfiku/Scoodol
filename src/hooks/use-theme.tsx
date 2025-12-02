@@ -47,7 +47,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const firestore = useFirestore();
   
   const settingsDocRef = useMemoFirebase(() => 
-    user ? doc(firestore, `users/${user.uid}`) : null
+    user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
 
   const { data: userSettings } = useDoc<{settings: UserSettings}>(settingsDocRef);
@@ -116,8 +116,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       finalTheme = `${currentMode}-${newColorTheme}`;
     }
-    setTheme(finalTheme);
-    updateSettings({ theme: finalTheme, colorTheme: newColorTheme as ColorTheme });
+    setThemeState(finalTheme); // Local update first
+    updateSettings({ theme: finalTheme, colorTheme: newColorTheme as ColorTheme }); // Then sync
   }
   
   const [resolvedTheme, colorTheme] = useMemo((): [('light' | 'dark'), ColorTheme] => {
