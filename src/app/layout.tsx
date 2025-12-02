@@ -63,12 +63,12 @@ export default function RootLayout({
   return (
     <html lang="de" suppressHydrationWarning>
       <body className={`${ptSans.variable} font-body antialiased`}>
-        <ThemeProvider>
-          <FirebaseClientProvider>
+        <FirebaseClientProvider>
+          <ThemeProvider>
             {children}
-          </FirebaseClientProvider>
-          <Toaster />
-        </ThemeProvider>
+            <Toaster />
+          </ThemeProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

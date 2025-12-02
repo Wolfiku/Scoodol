@@ -37,10 +37,13 @@ import { useToast } from "@/hooks/use-toast";
 import FocusMode, { type FocusTask } from "./tools/focus-mode";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useTheme } from "@/hooks/use-theme";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 
 type Homework = {
-  id: number;
+  id: string; // Firestore document ID
   subject: string;
   task: string;
   dueDate: string;
@@ -49,9 +52,15 @@ type Homework = {
 };
 
 export default function HomeworkPlanner() {
-  const [homeworks, setHomeworks] = useState<Homework[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
   
+  const homeworksRef = useMemoFirebase(() => 
+    user ? collection(firestore, `users/${user.uid}/homeworks`) : null
+  , [firestore, user]);
+
+  const { data: homeworks, isLoading: isLoadingHomeworks } = useCollection<Omit<Homework, 'id'>>(homeworksRef);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
 
@@ -66,31 +75,17 @@ export default function HomeworkPlanner() {
   const [showScanInfo, setShowScanInfo] = useState(false);
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
-  
-  useEffect(() => {
-    setIsMounted(true);
-    const savedHomeworks = localStorage.getItem("homeworks");
-    if (savedHomeworks) {
-        const loadedHomeworks: Homework[] = JSON.parse(savedHomeworks);
-        const now = Date.now();
-        const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
 
-        const filteredHomeworks = loadedHomeworks.filter(hw => {
-            // Keep the task if it's not done, or if it was done within the last 24 hours.
-            return !hw.done || (hw.completedAt && hw.completedAt > twentyFourHoursAgo);
-        });
-        setHomeworks(filteredHomeworks);
-    }
-  }, []);
+  const activeHomeworks = homeworks 
+    ? homeworks.filter(hw => {
+        const isNotDone = !hw.done;
+        const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
+        return isNotDone || isDoneRecently;
+      })
+    : [];
   
-  const upcomingHomeworks = homeworks.filter(hw => !hw.done);
-  const doneHomeworks = homeworks.filter(hw => hw.done);
-
-  useEffect(() => {
-    if(isMounted) {
-      localStorage.setItem("homeworks", JSON.stringify(homeworks));
-    }
-  }, [homeworks, isMounted]);
+  const upcomingHomeworks = activeHomeworks.filter(hw => !hw.done);
+  const doneHomeworks = activeHomeworks.filter(hw => hw.done);
 
   const resetDialogForm = () => {
       setNewSubject("");
@@ -116,27 +111,22 @@ export default function HomeworkPlanner() {
       setIsDialogOpen(false);
   }
 
-  const handleSaveHomework = () => {
-    if (!newTask.trim()) return;
+  const handleSaveHomework = async () => {
+    if (!newTask.trim() || !user) return;
 
     if (editingHomework) {
-        // Update existing homework
-        setHomeworks(homeworks.map(hw => 
-            hw.id === editingHomework.id 
-            ? { ...hw, subject: newSubject, task: newTask, dueDate: newDueDate }
-            : hw
-        ));
+        const docRef = doc(firestore, `users/${user.uid}/homeworks`, editingHomework.id);
+        const updatedData = { subject: newSubject, task: newTask, dueDate: newDueDate };
+        updateDocumentNonBlocking(docRef, updatedData);
         toast({ title: 'Aufgabe aktualisiert!' });
     } else {
-        // Add new homework
-        const newHomework: Homework = {
-            id: Date.now(),
+        const newHomework = {
             subject: newSubject,
             task: newTask,
             dueDate: newDueDate,
             done: false,
         };
-        setHomeworks(prev => [...prev, newHomework]);
+        addDocumentNonBlocking(homeworksRef!, newHomework);
         toast({ title: 'Neue Aufgabe hinzugefügt!' });
     }
     
@@ -144,30 +134,33 @@ export default function HomeworkPlanner() {
   };
   
   const addMultipleHomeworks = (tasks: {subject: string, task: string, dueDate?: string}[]) => {
-      const newHomeworks: Homework[] = tasks.map(t => ({
-          id: Date.now() + Math.random(),
-          subject: t.subject,
-          task: t.task,
-          dueDate: t.dueDate || "",
-          done: false,
-      }));
-      setHomeworks(prev => [...prev, ...newHomeworks]);
+      if (!user || !homeworksRef) return;
+      tasks.forEach(t => {
+          const newHomework = {
+              subject: t.subject,
+              task: t.task,
+              dueDate: t.dueDate || "",
+              done: false,
+          };
+          addDocumentNonBlocking(homeworksRef, newHomework);
+      });
   }
 
-  const toggleDone = (id: number) => {
-    setHomeworks(
-      homeworks.map((hw) => {
-        if (hw.id === id) {
-          const isDone = !hw.done;
-          return { ...hw, done: isDone, completedAt: isDone ? Date.now() : undefined };
-        }
-        return hw;
-      })
-    );
+  const toggleDone = (id: string) => {
+    if (!user) return;
+    const homework = homeworks?.find(hw => hw.id === id);
+    if (!homework) return;
+
+    const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+    const isDone = !homework.done;
+    const updatedData = { done: isDone, completedAt: isDone ? Date.now() : null };
+    updateDocumentNonBlocking(docRef, updatedData);
   };
 
-  const deleteHomework = (id: number) => {
-    setHomeworks(homeworks.filter((hw) => hw.id !== id));
+  const deleteHomework = (id: string) => {
+    if (!user) return;
+    const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+    deleteDocumentNonBlocking(docRef);
   };
   
   const handleCameraClick = () => {
@@ -231,10 +224,13 @@ export default function HomeworkPlanner() {
     }
   }
 
-  const handleExitFocusMode = (completedTaskIds?: number[]) => {
+  const handleExitFocusMode = (completedTaskIds?: string[]) => {
       setIsFocusMode(false);
-      if(completedTaskIds) {
-          setHomeworks(prev => prev.map(hw => completedTaskIds.includes(hw.id) ? {...hw, done: true, completedAt: Date.now()} : hw));
+      if(completedTaskIds && user) {
+          completedTaskIds.forEach(id => {
+              const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+              updateDocumentNonBlocking(docRef, { done: true, completedAt: Date.now() });
+          });
       }
   }
 
@@ -246,14 +242,14 @@ export default function HomeworkPlanner() {
       return <FocusMode tasks={focusModeTasks} onExit={handleExitFocusMode} />;
   }
   
-  if (!isMounted) {
+  if (isLoadingHomeworks) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Hausaufgabenplaner</CardTitle>
             </CardHeader>
-            <CardContent>
-                <p>Laden...</p>
+            <CardContent className="flex justify-center items-center p-8">
+                <Loader2 className="w-8 h-8 animate-spin" />
             </CardContent>
         </Card>
     ); 

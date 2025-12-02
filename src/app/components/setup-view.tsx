@@ -23,7 +23,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 
 
 type TimetableEntry = {
@@ -103,9 +105,7 @@ export const generateTimeSlots = (settings: TimetableSettings): { start: string,
         }
     }
     
-    // Afternoon starts where the morning ended (including the last break if applicable)
     let afternoonStartTime = currentTime;
-    // But if the school end time is before the calculated end of lessons, use the school end time.
     if (morningEndMinutes < afternoonStartTime) {
         afternoonStartTime = morningEndMinutes;
     }
@@ -144,11 +144,21 @@ const createInitialTimetable = (settings: TimetableSettings): TimetableData => {
     return timetable;
 }
 
-export default function SetupView({ onSetupComplete, onTimetableImport, isEditing = false, isCreatorMode = false }: { onSetupComplete: (newTimetable: TimetableData, settings: TimetableSettings, profilePicture?: string) => void, onTimetableImport: (importedData: any) => void, isEditing?: boolean, isCreatorMode?: boolean }) {
+type UserData = {
+    timetable: TimetableData,
+    timetableSettings: TimetableSettings,
+    settings: {
+        profilePicture?: string,
+    }
+}
+
+export default function SetupView({ onSetupComplete, onTimetableImport, initialData, isEditing = false, isCreatorMode = false, viewMode = 'setup' }: { onSetupComplete: (userData: Partial<UserData>) => void, onTimetableImport: (importedData: any) => void, initialData?: Partial<UserData>, isEditing?: boolean, isCreatorMode?: boolean, viewMode?: 'setup' | 'creator' | 'edit' }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
-    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-    const [timetable, setTimetable] = useState<TimetableData>(createInitialTimetable(timetableSettings));
-    const [profilePicture, setProfilePicture] = useState<string | null>(null);
+    
+    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>(initialData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+    const [timetable, setTimetable] = useState<TimetableData>(initialData?.timetable || createInitialTimetable(timetableSettings));
+    const [profilePicture, setProfilePicture] = useState<string | null>(initialData?.settings?.profilePicture || null);
+    
     const [isScanning, setIsScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importFileInputRef = useRef<HTMLInputElement>(null);
@@ -156,38 +166,27 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     const { toast } = useToast();
     const [showValidationDialog, setShowValidationDialog] = useState(false);
     const [calculatedDuration, setCalculatedDuration] = useState(0);
+    const router = useRouter();
 
-     useEffect(() => {
-        if (isEditing) {
-            const savedSettings = localStorage.getItem("timetableSettings");
-            if (savedSettings) {
-                const parsedSettings = JSON.parse(savedSettings);
-                setTimetableSettings(parsedSettings);
-                 const savedTimetable = localStorage.getItem("timetable");
-                if (savedTimetable) {
-                    setTimetable(JSON.parse(savedTimetable));
-                } else {
-                     setTimetable(createInitialTimetable(parsedSettings));
-                }
-            } else {
-                 const savedTimetable = localStorage.getItem("timetable");
-                 if (savedTimetable) {
-                    setTimetable(JSON.parse(savedTimetable));
-                 }
-            }
 
-            const savedPic = localStorage.getItem("profilePicture");
-            if (savedPic) {
-                setProfilePicture(savedPic);
-            }
+    useEffect(() => {
+        if (isEditing && initialData) {
+            setTimetableSettings(initialData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+            setTimetable(initialData.timetable || createInitialTimetable(initialData.timetableSettings || timetableSettings));
+            setProfilePicture(initialData.settings?.profilePicture || null);
         }
-    }, [isEditing]);
+    }, [isEditing, initialData]);
     
+
+    useEffect(() => {
+        if (viewMode === 'creator' || viewMode === 'edit') {
+            setMode('manual');
+        }
+    }, [viewMode]);
+
     // Regenerate timetable when settings change during setup
     useEffect(() => {
-        // Only run this logic if we are NOT in editing mode,
-        // otherwise it overwrites the loaded data.
-        if (!isEditing) {
+        if (mode !== 'manual' && mode !== 'scan') {
             const newTimeSlots = generateTimeSlots(timetableSettings);
             const updatedTimetable: TimetableData = {};
 
@@ -207,7 +206,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
             });
             setTimetable(updatedTimetable);
         }
-    }, [timetableSettings, isEditing]); // Add isEditing dependency
+    }, [timetableSettings, mode]);
 
     const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
@@ -286,8 +285,15 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
     }
     
     const proceedWithSave = () => {
+        const dataToSave: Partial<UserData> = {
+            timetable,
+            timetableSettings,
+            settings: {
+                profilePicture: profilePicture || undefined,
+            }
+        };
+        onSetupComplete(dataToSave);
         toast({ title: "Stundenplan gespeichert!", description: "Die App ist jetzt einsatzbereit."});
-        onSetupComplete(timetable, timetableSettings, profilePicture || undefined);
         setShowValidationDialog(false);
     }
 
@@ -387,6 +393,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, isEditin
                             accept=".json"
                             onChange={handleImportFileChange}
                         />
+                         <div className="flex justify-center gap-2 pt-4">
+                            <Button variant="link" onClick={() => router.push('/login')}>Anmelden</Button>
+                            <Button variant="link" onClick={() => router.push('/register')}>Registrieren</Button>
+                        </div>
                     </CardContent>
                     <CardFooter className="flex justify-center gap-4 text-sm">
                         <Button variant="link" asChild className="text-muted-foreground">

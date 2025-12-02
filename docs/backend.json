@@ -55,34 +55,92 @@
         "endTime",
         "isMainSubject"
       ]
+    },
+    "Homework": {
+      "title": "Homework",
+      "type": "object",
+      "description": "A single homework task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the homework task."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The subject of the homework."
+        },
+        "task": {
+          "type": "string",
+          "description": "The description of the task."
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The due date for the task."
+        },
+        "done": {
+          "type": "boolean",
+          "description": "Whether the task is completed."
+        },
+        "completedAt": {
+          "type": "number",
+          "description": "Timestamp when the task was marked as done."
+        }
+      },
+      "required": ["id", "task", "done"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "type": "object",
+      "description": "Stores user-specific application data like timetable and settings.",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "timetable": {
+          "type": "object",
+          "description": "The user's timetable data."
+        },
+        "timetableSettings": {
+          "type": "object",
+          "description": "Settings for the user's timetable."
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string" },
+            "startView": { "type": "string" },
+            "aiLanguage": { "type": "string" },
+            "betaFeaturesEnabled": { "type": "boolean" },
+            "profilePicture": { "type": "string", "format": "uri" }
+          }
+        }
+      }
     }
   },
   "auth": {
     "providers": [
       "password",
-      "anonymous",
-      "email"
+      "anonymous"
     ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/subjects/{subjectId}",
+        "path": "/users/{userId}",
         "definition": {
-          "entityName": "Subject",
-          "schema": {
-            "$ref": "#/backend/entities/Subject"
-          },
-          "description": "Stores subject data. The subjectId is used as the document ID.",
-          "params": [
-            {
-              "name": "subjectId",
-              "description": "The unique identifier of the subject."
-            }
-          ]
+          "schema": { "$ref": "#/entities/UserProfile" },
+          "description": "Stores user profile data. The userId is the document ID."
+        }
+      },
+      {
+        "path": "/users/{userId}/homeworks/{homeworkId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/Homework" },
+          "description": "Stores homework tasks for a specific user."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to store subject data for the scool app, focusing on simplicity and security. Subjects are stored in a top-level collection. This approach avoids unnecessary nesting, keeps rules simple, and enables efficient querying. The subject id is the document ID, ensuring uniqueness and easy retrieval."
+    ]
   }
 }

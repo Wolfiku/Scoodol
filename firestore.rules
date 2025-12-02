@@ -1,72 +1,22 @@
-/**
- * This ruleset enforces a secure, read-only model for a school application's subject data.
- *
- * Core Philosophy:
- * The primary security goal is to make academic subject information (like schedules and teachers)
- * visible to all authenticated users of the application, while strictly preventing any unauthorized
- * modifications. All write access is currently disabled pending a schema update.
- *
- * Data Structure:
- * The data is organized in a simple, flat structure. All subject documents are stored in a
- * single top-level collection: /subjects/{subjectId}.
- *
- * Key Security Decisions:
- * - Public-Read for Users: Any user who is signed in (including via anonymous authentication) can
- *   read and list all documents in the /subjects collection. Unauthenticated requests are denied.
- * - Writes Disabled by Default: All write operations (create, update, delete) are explicitly
- *   denied. This is a critical security measure because the 'Subject' data model lacks an
- *   'ownerId' or 'creatorId' field, making it impossible to verify who is authorized to
- *   make changes. This secure-by-default posture prevents potential data corruption.
- * - No User Data Listing: This ruleset does not contain rules for a `/users` collection,
- *   inherently disallowing the listing or reading of other users' private data.
- *
- * Denormalization for Authorization:
- * To enable secure writes in the future, the 'Subject' entity should be denormalized to include
- * an ownership field (e.g., `creatorId: "admin_user_id"`). This would allow rules to grant write
- * permissions to specific users (like an administrator) without needing slow or impossible lookups.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for improved readability and reuse.
-    
-    /**
-     * Checks if the user is authenticated.
-     * All access control decisions rely on a verified identity.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
 
-    /**
-     * @description
-     * Governs access to the top-level 'subjects' collection. Data is readable by any
-     * signed-in user, but all write operations are currently disabled to ensure data integrity.
-     * @path
-     * /subjects/{subjectId}
-     * @allow
-     * (get) A signed-in user (auth.uid: 'user_abc') can read a subject document at /subjects/math101.
-     * @deny
-     * (create) A signed-in user (auth.uid: 'user_abc') is denied from creating a new subject document.
-     * @deny
-     * (get) An unauthenticated user cannot read a subject document.
-     * @principle
-     * Implements a public-read model for authenticated users. Writes are disabled due to a missing
-     * ownership field in the data model, preventing unauthorized modifications.
-     */
-    match /subjects/{subjectId} {
-      // Read Operations: Allow any authenticated user to view subject information.
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
 
-      // Write Operations: Denied.
-      // CRITICAL: Cannot implement owner-only writes. The 'Subject' entity is missing an
-      // ownership field like 'ownerId' or 'creatorId'. Without it, there is no secure way
-      // to authorize write operations. All writes are disabled to protect data integrity.
-      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field (e.g., request.resource.data.creatorId == request.auth.uid).
-      allow update: if false; // TODO: Add owner validation (e.g., resource.data.creatorId == request.auth.uid).
-      allow delete: if false; // TODO: Add owner validation (e.g., resource.data.creatorId == request.auth.uid).
+      match /homeworks/{homeworkId} {
+        allow read, write, delete: if isSignedIn() && isOwner(userId);
+      }
     }
   }
 }

@@ -283,7 +283,6 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
     
-    // Find the current subject from the processed schedule which correctly handles multi-period blocks
     const activeEntry = processedScheduleForDay.find((entry) => {
       if (!entry.start || !entry.ende || entry.isContinuation) return false;
       const start = parseTime(entry.start);
@@ -474,7 +473,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                       rows={4}
                       placeholder="Hier kannst du Notizen hinzufügen..."
                     />
-                    <Button onClick={handleSaveNotes} className="mt-2">
+                    <Button onClick={handleSaveNotes} className="mt-2" disabled={isPreview}>
                       <Save className="mr-2 h-4 w-4" />
                       Notizen speichern
                     </Button>
@@ -498,5 +497,3 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     </div>
   );
 }
-
-    

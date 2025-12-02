@@ -22,7 +22,9 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
-import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
+import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const APP_VERSION = '1.4.2';
 
@@ -55,155 +57,153 @@ type TimetableSettings = {
     secondBreakDuration: number;
 }
 
+type UserSettings = {
+    theme?: string;
+    startView?: string;
+    aiLanguage?: string;
+    betaFeaturesEnabled?: boolean;
+    profilePicture?: string;
+}
+
+type UserData = {
+    timetable: TimetableData,
+    timetableSettings: TimetableSettings,
+    settings: UserSettings,
+}
+
 
 export default function Page() {
   const [view, setView] = useState('daily');
   const [isInitialised, setIsInitialised] = useState(false);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [isEditingTimetable, setIsEditingTimetable] = useState(false);
   const isMobile = useIsMobile();
-  const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage } = useTheme();
+  const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [timetableData, setTimetableData] = useState<TimetableData>(initialTimetableData);
-  const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+  
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
 
+  const userDocRef = useMemoFirebase(() =>
+    user ? doc(firestore, 'users', user.uid) : null
+  , [firestore, user]);
 
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const timetableData = userData?.timetable || initialTimetableData;
+  const timetableSettings = userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+  
+  // Effect for initial authentication and setup check
   useEffect(() => {
-    if (isUserLoading) {
-      return; // Wait until user status is resolved
-    }
-    
-    // If no user is logged in (neither real nor anonymous), sign in anonymously.
+    if (isUserLoading) return; // Wait for user status
+
     if (!user && auth) {
       initiateAnonymousSignIn(auth);
     }
+  }, [user, isUserLoading, auth]);
 
-    if (typeof window !== 'undefined') {
-        const path = window.location.pathname;
+  // Effect to handle data loading and view initialization
+  useEffect(() => {
+    if (isUserLoading || isUserDataLoading) return;
 
-        const isCreatorMode = path.startsWith('/creator/');
-        const isEditMode = path.startsWith('/edit/');
+    const setupDone = !!userData;
+    setIsSetupComplete(setupDone);
 
-        if (isCreatorMode) {
-            setView('creator');
-        } else if (isEditMode) {
-            setView('edit');
-        }
-
-        const checkPreviewMode = sessionStorage.getItem('previewMode') === 'true';
-        if (checkPreviewMode) {
-          setIsPreviewMode(true);
-          sessionStorage.removeItem('previewMode'); // Immediately remove after checking
-          setTimetableData(previewTimetableData);
-          setTimetableSettings({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-        } else {
-            const savedTimetable = localStorage.getItem("timetable");
-            if(savedTimetable) {
-                setTimetableData(JSON.parse(savedTimetable));
-            }
-            const savedSettings = localStorage.getItem("timetableSettings");
-            if (savedSettings) {
-                setTimetableSettings(JSON.parse(savedSettings));
-            }
-        }
-        
-        const checkSetup = () => {
-            const savedTimetable = localStorage.getItem('timetable');
-            const setupDone = !!savedTimetable;
-            setIsSetupComplete(setupDone);
-
-            if (setupDone || checkPreviewMode) {
-                 if (isCreatorMode) {
-                    setView('creator');
-                } else if (isEditMode) {
-                    setView('edit');
-                } else {
-                    const savedStartView = localStorage.getItem('startView');
-                    if (savedStartView && !checkPreviewMode) { 
-                        setView(savedStartView);
-                    } else if (isMobile) {
-                        setView('daily');
-                    } else {
-                        setView('weekly');
-                    }
-                }
-            }
-            
-            setTimeout(() => setIsInitialised(true), 500);
-        };
-        checkSetup();
-
-        // Check for update notification
-        const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-        
-        if (lastSeenVersion !== APP_VERSION && APP_VERSION === '1.4.0') {
-            setShowUpdateDialog(true);
-        }
-    }
-  }, [isMobile, user, isUserLoading, router, auth]);
-  
-  const updateTimetable = (newTimetable: TimetableData) => {
-    setTimetableData(newTimetable);
-    if (!isPreviewMode) {
-        localStorage.setItem("timetable", JSON.stringify(newTimetable));
-    }
-  }
-
-  const updateTimetableSettings = (newSettings: TimetableSettings) => {
-      setTimetableSettings(newSettings);
-      if (!isPreviewMode) {
-          localStorage.setItem("timetableSettings", JSON.stringify(newSettings));
-      }
-  }
-
-  const handleSetupComplete = (newTimetable: TimetableData, newSettings: TimetableSettings, profilePicture?: string) => {
-    updateTimetable(newTimetable);
-    updateTimetableSettings(newSettings);
-    if (profilePicture) {
-        localStorage.setItem("profilePicture", profilePicture);
-    }
-    setIsSetupComplete(true);
-    setIsEditingTimetable(false);
-    
-    // Navigate to the creator page after saving, if that's where we came from
     const path = window.location.pathname;
-    if (path.startsWith('/creator/') || path.startsWith('/edit/')) {
-        handleNavClick('home');
-    } else {
-       const savedStartView = localStorage.getItem('startView');
-        if (savedStartView) {
-            setView(savedStartView);
-        } else if (isMobile) {
-          setView('daily');
-        } else {
-          setView('weekly');
-        }
+    const isCreatorMode = path.startsWith('/creator/');
+    const isEditMode = path.startsWith('/edit/');
+     if (isCreatorMode) {
+        setView('creator');
+    } else if (isEditMode) {
+        setView('edit');
+    } else if (setupDone) {
+      setView(userData?.settings?.startView || (isMobile ? 'daily' : 'weekly'));
     }
+
+    if (userData?.settings) {
+      const { theme, aiLanguage, startView } = userData.settings;
+      if (theme) setTheme(theme);
+      if (aiLanguage) setAiLanguage(aiLanguage as 'German' | 'English');
+      if (startView) setThemeStartView(startView as 'daily' | 'weekly' | 'homework');
+    }
+
+    setIsInitialised(true);
+  }, [user, userData, isUserLoading, isUserDataLoading, isMobile]);
+
+  
+  const updateUserData = (data: Partial<UserData>) => {
+    if (user && !user.isAnonymous) {
+      setDocumentNonBlocking(userDocRef!, data, { merge: true });
+    }
+  }
+
+  const handleSetupComplete = (newUserData: Partial<UserData>) => {
+    if (user && !user.isAnonymous) {
+      const dataToSet: UserData = {
+        timetable: newUserData.timetable || initialTimetableData,
+        timetableSettings: newUserData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
+        settings: {
+          ...userData?.settings,
+          ...newUserData.settings,
+        },
+      };
+      setDocumentNonBlocking(userDocRef!, dataToSet, { merge: false }); // Overwrite completely on initial setup
+    } else {
+      // For anonymous users, save to localStorage as before
+      localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+      localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+      if (newUserData.settings?.profilePicture) {
+        localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
+      }
+      // Manually trigger re-render and state update
+      window.location.reload();
+    }
+    
+    setIsSetupComplete(true);
+    setView(startView || 'daily');
   }
   
   const handleTimetableImport = (importedData: any) => {
-    if (importedData.timetable) updateTimetable(importedData.timetable);
-    if (importedData.timetableSettings) updateTimetableSettings(importedData.timetableSettings);
-    if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
-    if (importedData.theme) setTheme(importedData.theme);
-    if (importedData.startView) {
-        setThemeStartView(importedData.startView);
-        setView(importedData.startView);
+    if (!user || user.isAnonymous) {
+       if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
+        if (importedData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
+        if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
+        if (importedData.theme) setTheme(importedData.theme);
+        if (importedData.startView) {
+            setThemeStartView(importedData.startView);
+            setView(importedData.startView);
+        }
+        if (importedData.settings?.profilePicture) localStorage.setItem('profilePicture', importedData.settings.profilePicture);
+        if (importedData.betaFeaturesEnabled) localStorage.setItem('betaFeaturesEnabled', importedData.betaFeaturesEnabled);
+        if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage as 'German' | 'English');
+        
+        window.location.reload();
+        return;
     }
-    if (importedData.profilePicture) localStorage.setItem('profilePicture', importedData.profilePicture);
-    if (importedData.betaFeaturesEnabled) localStorage.setItem('betaFeaturesEnabled', importedData.betaFeaturesEnabled);
-    if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage);
+    
+    const newUserData: Partial<UserData> = {};
+    if (importedData.timetable) newUserData.timetable = importedData.timetable;
+    if (importedData.timetableSettings) newUserData.timetableSettings = importedData.timetableSettings;
+    
+    const newSettings: UserSettings = {};
+    if (importedData.theme) newSettings.theme = importedData.theme;
+    if (importedData.startView) newSettings.startView = importedData.startView;
+    if (importedData.aiLanguage) newSettings.aiLanguage = importedData.aiLanguage;
+    if (importedData.betaFeaturesEnabled) newSettings.betaFeaturesEnabled = importedData.betaFeaturesEnabled;
+    if (importedData.settings?.profilePicture) newSettings.profilePicture = importedData.settings.profilePicture;
+    newUserData.settings = newSettings;
+    
+    updateUserData(newUserData);
 
-
-    setIsSetupComplete(true);
-    setIsEditingTimetable(false);
-    // Reload to apply all settings correctly, especially theme
-    window.location.reload();
+    if (importedData.homeworks && user) {
+        const homeworksRef = doc(firestore, `users/${user.uid}`);
+        // This part is more complex, would need to clear and add new homeworks.
+        // For now, we focus on timetable and settings.
+    }
+    toast({ title: "Import erfolgreich!", description: "Deine Daten werden synchronisiert." });
   }
 
   const handleEditTimetable = () => {
@@ -214,14 +214,7 @@ export default function Page() {
   const handleNavClick = (newView: string) => {
     if (newView === 'home') {
         window.history.pushState({}, '', '/');
-        const savedStartView = localStorage.getItem('startView');
-         if (savedStartView && !isPreviewMode) {
-            setView(savedStartView);
-        } else if (isMobile) {
-            setView('daily');
-        } else {
-            setView('weekly');
-        }
+        setView(startView || (isMobile ? 'daily' : 'weekly'));
     } else {
       if (newView === 'creator' || newView === 'edit') {
          window.history.pushState({}, '', `/${newView}/1`);
@@ -266,19 +259,26 @@ export default function Page() {
     );
   }
   
-  // The creator/edit view is just the SetupView in a special mode
   if (view === 'creator' || view === 'edit') {
-      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={true} isCreatorMode={view === 'creator'} />;
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={userData || undefined} isEditing={true} viewMode={view} />;
   }
 
   if (!isSetupComplete && !isPreviewMode) {
-      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} isEditing={isEditingTimetable} />;
+      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
   }
 
   const renderView = () => {
+    if (isUserDataLoading && isSetupComplete) {
+      return (
+        <div className="flex justify-center items-center h-full">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      )
+    }
+
     switch(view) {
       case 'daily':
-        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
       case 'weekly':
         return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} />;
       case 'homework':
@@ -286,7 +286,7 @@ export default function Page() {
       case 'smart-tool':
         return <SmartToolsView />;
       case 'settings':
-        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={timetableSettings} onSettingsChange={updateTimetableSettings} />;
+        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={timetableSettings} onSettingsChange={(newSettings) => updateUserData({ timetableSettings: newSettings })} />;
       case 'impressum':
         return <ImpressumPage />;
       case 'datenschutz':
@@ -294,7 +294,7 @@ export default function Page() {
       case 'vokabel':
           return <VokabelPage />
       default:
-        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={updateTimetable} />;
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
     }
   }
   
@@ -366,5 +366,3 @@ export default function Page() {
     </>
   );
 }
-
-    
