@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Subject": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subject",
+      "type": "object",
+      "description": "Represents a school subject with its associated details.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subject."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the subject (e.g., Math, English)."
+        },
+        "room": {
+          "type": "string",
+          "description": "The room where the subject is taught."
+        },
+        "teacher": {
+          "type": "string",
+          "description": "Name of the teacher for the subject."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start time of the subject (e.g., 08:00).",
+          "format": "string"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End time of the subject (e.g., 09:00).",
+          "format": "string"
+        },
+        "isMainSubject": {
+          "type": "boolean",
+          "description": "Indicates whether the subject is a main subject."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or information about the subject."
+        },
+        "materialsLink": {
+          "type": "string",
+          "description": "Link to online materials for the subject.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "room",
+        "teacher",
+        "startTime",
+        "endTime",
+        "isMainSubject"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/subjects/{subjectId}",
+        "definition": {
+          "entityName": "Subject",
+          "schema": {
+            "$ref": "#/backend/entities/Subject"
+          },
+          "description": "Stores subject data. The subjectId is used as the document ID.",
+          "params": [
+            {
+              "name": "subjectId",
+              "description": "The unique identifier of the subject."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to store subject data for the scool app, focusing on simplicity and security. Subjects are stored in a top-level collection. This approach avoids unnecessary nesting, keeps rules simple, and enables efficient querying. The subject id is the document ID, ensuring uniqueness and easy retrieval."
+  }
+}
