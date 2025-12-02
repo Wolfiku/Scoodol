@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 type Theme = 'light' | 'dark' | string;
 type ColorTheme = 'default' | 'ocean' | 'sunset' | 'forest';
