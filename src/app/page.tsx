@@ -88,29 +88,43 @@ export default function Page() {
   const router = useRouter();
 
   const userDocRef = useMemoFirebase(() =>
-    user ? doc(firestore, 'users', user.uid) : null
+    user && !user.isAnonymous ? doc(firestore, 'users', user.uid) : null
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
 
-  const timetableData = userData?.timetable || initialTimetableData;
-  const timetableSettings = userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+  const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
+  const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   
+  const timetableData = isSetupComplete ? (userData?.timetable || localTimetable) : localTimetable;
+  const timetableSettings = isSetupComplete ? (userData?.timetableSettings || localTimetableSettings) : localTimetableSettings;
+
   // Effect for initial authentication and setup check
   useEffect(() => {
     if (isUserLoading) return; // Wait for user status
 
-    if (!user && auth) {
+    const localSetupDone = !!localStorage.getItem('timetable');
+
+    if (!user && auth && !localSetupDone) {
       initiateAnonymousSignIn(auth);
     }
   }, [user, isUserLoading, auth]);
 
   // Effect to handle data loading and view initialization
   useEffect(() => {
-    if (isUserLoading || isUserDataLoading) return;
-
-    const setupDone = !!userData;
+    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) return;
+    
+    const localSetupDone = !!localStorage.getItem('timetable');
+    const cloudSetupDone = !!userData;
+    const setupDone = localSetupDone || cloudSetupDone;
+    
     setIsSetupComplete(setupDone);
+
+    if (user && user.isAnonymous && localSetupDone) {
+        setLocalTimetable(JSON.parse(localStorage.getItem('timetable')!));
+        setLocalTimetableSettings(JSON.parse(localStorage.getItem('timetableSettings')!));
+    }
+
 
     const path = window.location.pathname;
     const isCreatorMode = path.startsWith('/creator/');
@@ -120,28 +134,41 @@ export default function Page() {
     } else if (isEditMode) {
         setView('edit');
     } else if (setupDone) {
-      setView(userData?.settings?.startView || (isMobile ? 'daily' : 'weekly'));
+        const savedStartView = (user && !user.isAnonymous ? userData?.settings?.startView : localStorage.getItem('startView') as any) || 'daily';
+        setView(savedStartView);
     }
 
-    if (userData?.settings) {
+    // Apply settings
+    if (user && !user.isAnonymous && userData?.settings) {
       const { theme, aiLanguage, startView } = userData.settings;
       if (theme) setTheme(theme);
       if (aiLanguage) setAiLanguage(aiLanguage as 'German' | 'English');
       if (startView) setThemeStartView(startView as 'daily' | 'weekly' | 'homework');
+    } else if (user && user.isAnonymous) {
+        // Load from local storage for anonymous users
+         const localTheme = localStorage.getItem('theme');
+         if (localTheme) setTheme(localTheme);
+         const localStartView = localStorage.getItem('startView');
+         if (localStartView) setThemeStartView(localStartView as any);
+         const localAiLanguage = localStorage.getItem('aiLanguage');
+         if(localAiLanguage) setAiLanguage(localAiLanguage as any);
     }
 
     setIsInitialised(true);
-  }, [user, userData, isUserLoading, isUserDataLoading, isMobile]);
+  }, [user, userData, isUserLoading, isUserDataLoading, isMobile, setAiLanguage, setTheme, setThemeStartView]);
 
   
   const updateUserData = (data: Partial<UserData>) => {
     if (user && !user.isAnonymous) {
       setDocumentNonBlocking(userDocRef!, data, { merge: true });
+    } else {
+        if(data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
+        if(data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
     }
   }
 
   const handleSetupComplete = (newUserData: Partial<UserData>) => {
-    if (user && !user.isAnonymous) {
+      if (user && !user.isAnonymous) {
       const dataToSet: UserData = {
         timetable: newUserData.timetable || initialTimetableData,
         timetableSettings: newUserData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
@@ -152,14 +179,15 @@ export default function Page() {
       };
       setDocumentNonBlocking(userDocRef!, dataToSet, { merge: false }); // Overwrite completely on initial setup
     } else {
-      // For anonymous users, save to localStorage as before
+      // For anonymous users, save to localStorage
+      localStorage.setItem('isSetupComplete', 'true');
       localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+      setLocalTimetable(newUserData.timetable as TimetableData);
       localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+      setLocalTimetableSettings(newUserData.timetableSettings as TimetableSettings);
       if (newUserData.settings?.profilePicture) {
         localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
       }
-      // Manually trigger re-render and state update
-      window.location.reload();
     }
     
     setIsSetupComplete(true);
@@ -240,7 +268,7 @@ export default function Page() {
 
   const isHomeView = view === 'daily' || view === 'weekly';
 
-  if (!isInitialised || isUserLoading) {
+  if (!isInitialised) {
     return (
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <div className="text-center space-y-4">
@@ -268,7 +296,7 @@ export default function Page() {
   }
 
   const renderView = () => {
-    if (isUserDataLoading && isSetupComplete) {
+    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
       return (
         <div className="flex justify-center items-center h-full">
           <Loader2 className="w-8 h-8 animate-spin" />
@@ -366,3 +394,5 @@ export default function Page() {
     </>
   );
 }
+
+    

@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { initiateEmailSignUp, useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc, collection, addDoc, writeBatch } from 'firebase/firestore';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
@@ -29,6 +31,7 @@ export default function RegisterPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -40,16 +43,78 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
-    if (!auth) return;
+    if (!auth || !firestore) return;
     setIsLoading(true);
+    
     try {
-      await initiateEmailSignUp(auth, values.email, values.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      toast({
+        title: "Account wird erstellt...",
+        description: "Einen Moment, deine Daten werden übertragen.",
+      });
+
+      // Migrate data from localStorage
+      const timetable = localStorage.getItem('timetable');
+      const timetableSettings = localStorage.getItem('timetableSettings');
+      const homeworks = localStorage.getItem('homeworks');
+      const theme = localStorage.getItem('theme');
+      const startView = localStorage.getItem('startView');
+      const aiLanguage = localStorage.getItem('aiLanguage');
+      const betaFeaturesEnabled = localStorage.getItem('betaFeaturesEnabled') === 'true';
+      const profilePicture = localStorage.getItem('profilePicture');
+
+      const batch = writeBatch(firestore);
+
+      const userDocRef = doc(firestore, 'users', user.uid);
       
+      const userData = {
+          timetable: timetable ? JSON.parse(timetable) : {},
+          timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
+          settings: {
+              theme: theme || 'light',
+              startView: startView || 'daily',
+              aiLanguage: aiLanguage || 'German',
+              betaFeaturesEnabled: betaFeaturesEnabled || false,
+              profilePicture: profilePicture || null,
+          }
+      };
+
+      batch.set(userDocRef, userData);
+
+      if (homeworks) {
+          const parsedHomeworks = JSON.parse(homeworks);
+          const homeworksColRef = collection(firestore, 'users', user.uid, 'homeworks');
+          parsedHomeworks.forEach((hw: any) => {
+              const newHwRef = doc(homeworksColRef);
+              // remove id from old data if it exists
+              const { id, ...rest } = hw; 
+              batch.set(newHwRef, rest);
+          });
+      }
+
+      await batch.commit();
+
+      // Clear local storage after successful migration
+      localStorage.removeItem('timetable');
+      localStorage.removeItem('timetableSettings');
+      localStorage.removeItem('homeworks');
+      localStorage.removeItem('isSetupComplete');
+      // Keep theme settings for a smoother visual transition
+      // localStorage.removeItem('theme'); 
+      // localStorage.removeItem('startView');
+      // localStorage.removeItem('aiLanguage');
+      // localStorage.removeItem('betaFeaturesEnabled');
+      // localStorage.removeItem('profilePicture');
+
       toast({
         title: "Registrierung erfolgreich!",
-        description: "Du wirst zum Login weitergeleitet, um dich anzumelden.",
+        description: "Dein Account wurde erstellt und deine Daten wurden übernommen.",
       });
-      router.push('/login');
+      
+      // Redirect to home, which will now show the authenticated state
+      router.push('/');
 
     } catch (error: any) {
        let description = "Ein unbekannter Fehler ist aufgetreten.";
@@ -115,7 +180,7 @@ export default function RegisterPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Registrieren'}
+                {isLoading ? <Loader2 className="animate-spin" /> : 'Registrieren & Daten übertragen'}
               </Button>
             </form>
           </Form>
