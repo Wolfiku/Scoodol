@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/hooks/use-theme';
 import { PT_Sans } from 'next/font/google';
+import { FirebaseClientProvider } from '@/firebase';
 
 const calendarIconSvg = `
   <svg
@@ -63,7 +64,9 @@ export default function RootLayout({
     <html lang="de" suppressHydrationWarning>
       <body className={`${ptSans.variable} font-body antialiased`}>
         <ThemeProvider>
-          {children}
+          <FirebaseClientProvider>
+            {children}
+          </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
       </body>

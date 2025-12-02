@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
@@ -21,6 +22,7 @@ import Link from 'next/link';
 import ImpressumPage from './impressum/page';
 import DatenschutzPage from './datenschutz/page';
 import VokabelPage from './vokabel/page';
+import { useUser } from '@/firebase';
 
 const APP_VERSION = '1.4.2';
 
@@ -66,10 +68,31 @@ export default function Page() {
   const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
 
   useEffect(() => {
+    if (isUserLoading) {
+      return; // Wait until user status is resolved
+    }
+    
+    if (!user) {
+        const path = window.location.pathname;
+        if (path !== '/login' && path !== '/register') {
+            router.push('/login');
+        }
+        setIsInitialised(true);
+        return;
+    }
+
     if (typeof window !== 'undefined') {
         const path = window.location.pathname;
+        if (path === '/login' || path === '/register') {
+            router.push('/'); // Already logged in, go to app
+        }
+
+
         const isCreatorMode = path.startsWith('/creator/');
         const isEditMode = path.startsWith('/edit/');
 
@@ -129,7 +152,7 @@ export default function Page() {
             setShowUpdateDialog(true);
         }
     }
-  }, [isMobile]);
+  }, [isMobile, user, isUserLoading, router]);
   
   const updateTimetable = (newTimetable: TimetableData) => {
     setTimetableData(newTimetable);
@@ -223,11 +246,15 @@ export default function Page() {
           setView(navigateTo);
       }
   }
+  
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (path === '/login' || path === '/register') {
+      return null;
+  }
 
   const isHomeView = view === 'daily' || view === 'weekly';
 
-
-  if (!isInitialised) {
+  if (!isInitialised || isUserLoading) {
     return (
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <div className="text-center space-y-4">
