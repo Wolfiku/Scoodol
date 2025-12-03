@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook, Sparkles, Wand2, LayoutGrid } from 'lucide-react';
 import Calculator from './tools/calculator';
 import GradeCalculator from './tools/grade-calculator';
 import FormulaCollection from './tools/formula-collection';
@@ -14,11 +14,14 @@ import Timer from './tools/timer';
 import StopwatchTool from './tools/stopwatch';
 import Notes from './tools/notes';
 import TextSimplifier from './tools/text-simplifier';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 
 
-type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'text-simplifier';
+type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'text-simplifier' | 'workspace';
 
-const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean }[] = [
+const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean; requiresAuth?: boolean }[] = [
+    { id: 'workspace', title: 'Scoodol Workspace', description: 'Dein persönlicher Bereich mit KI-Chat & mehr.', icon: <LayoutGrid className="w-8 h-8" />, requiresAuth: true },
     { id: 'text-simplifier', title: 'Text-Vereinfacher', description: 'Vereinfache komplizierte Texte & Aufgaben.', icon: <Wand2 className="w-8 h-8" /> },
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
@@ -34,16 +37,28 @@ export default function SmartToolsView() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [availableTools, setAvailableTools] = useState(allTools.filter(t => !t.isBeta));
   const [isMounted, setIsMounted] = useState(false);
+  const { user } = useUser();
+  const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
     const betaEnabled = localStorage.getItem('betaFeaturesEnabled') === 'true';
-    if (betaEnabled) {
-      setAvailableTools(allTools);
+    const baseTools = betaEnabled ? allTools : allTools.filter(t => !t.isBeta);
+    
+    if(user && !user.isAnonymous) {
+      setAvailableTools(baseTools);
     } else {
-      setAvailableTools(allTools.filter(t => !t.isBeta));
+      setAvailableTools(baseTools.filter(t => !t.requiresAuth));
     }
-  }, []);
+  }, [isMounted, user]);
+
+  const handleToolClick = (toolId: Tool) => {
+    if (toolId === 'workspace') {
+      router.push('/workspace');
+    } else {
+      setSelectedTool(toolId);
+    }
+  }
 
   const renderTool = () => {
     switch (selectedTool) {
@@ -90,10 +105,10 @@ export default function SmartToolsView() {
                 <Card 
                     key={tool.id} 
                     className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => setSelectedTool(tool.id)}
+                    onClick={() => handleToolClick(tool.id)}
                 >
                     <CardHeader className="flex flex-row items-center gap-4">
-                        {tool.icon}
+                        <div className="text-primary">{tool.icon}</div>
                         <div>
                             <CardTitle>{tool.title}</CardTitle>
                             <CardDescription>{tool.description}</CardDescription>

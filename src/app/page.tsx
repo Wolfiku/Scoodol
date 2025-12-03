@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
@@ -18,9 +18,6 @@ import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import Link from 'next/link';
-import ImpressumPage from './impressum/page';
-import DatenschutzPage from './datenschutz/page';
-import VokabelPage from './vokabel/page';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -70,89 +67,80 @@ type UserData = {
 }
 
 export default function Page() {
+  // All hooks are now at the top level
   const router = useRouter();
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const [view, setView] = useState('daily');
-  const [isAppLoading, setIsAppLoading] = useState(true);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(true);
+
   const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
   const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   const [localSettings, setLocalSettings] = useState<UserSettings>({});
   
   const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
   const { toast } = useToast();
-  const auth = useAuth();
-  const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(() => 
     user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+  
+  const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
-  // Initial load and routing effect
+
+  // Effect for initial loading and setup check
   useEffect(() => {
     const checkSetup = async () => {
-      // Determine mode (preview, creator, etc.) from path
-      const isPreview = pathname.startsWith('/creator/');
-      setIsPreviewMode(isPreview);
-
-      // Wait for user status to be determined
+      // Don't do anything until Firebase auth state is resolved
       if (isUserLoading) return;
 
-      if (user && !user.isAnonymous) {
-        // Logged-in user
-        if (isUserDataLoading) return; // Wait for their data to load
-
-        if (userData) {
-          // Data exists, setup is complete
-          setIsSetupComplete(true);
+      if (user) {
+        if (user.isAnonymous) {
+          // Anonymous user: check local storage
+          const localSetupDone = !!localStorage.getItem('isSetupComplete');
+          setIsSetupComplete(localSetupDone);
+          setIsLoading(false);
         } else {
-          // New logged-in user, setup is not complete
-          setIsSetupComplete(false);
+          // Registered user: wait for their data from Firestore
+          if (isUserDataLoading) return; // Still waiting for Firestore doc
+          
+          // Firestore data has loaded (or not)
+          setIsSetupComplete(!!userData);
+          setIsLoading(false);
         }
-
       } else {
-        // Anonymous or no user
-        const localSetupDone = !!localStorage.getItem('isSetupComplete');
-        setIsSetupComplete(localSetupDone);
-        if (!localSetupDone && auth && !user) {
-          await initiateAnonymousSignIn(auth);
-        }
+        // No user at all, initiate anonymous sign-in
+        await initiateAnonymousSignIn(auth);
+        // The onAuthStateChanged listener will trigger a re-run of this effect
       }
-      setIsAppLoading(false);
     };
 
     checkSetup();
-  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname]);
+  }, [user, isUserLoading, userData, isUserDataLoading, auth]);
 
-
-  // Effect to set view on initial load
+  // Set initial view based on path or startView setting
   useEffect(() => {
-    if (!isAppLoading && isSetupComplete) {
-       if (user && !user.isAnonymous && userData?.settings?.startView) {
-        setView(userData.settings.startView);
-      } else {
-        setView(localStorage.getItem('startView') || 'daily');
-      }
+    if (isLoading) return; // Don't set view until loading is finished
+    
+    const path = window.location.pathname;
+    const isCreatorMode = path.startsWith('/creator/');
+    const isEditMode = path.startsWith('/edit/');
+
+    if (isEditMode) {
+      setView('edit');
+    } else if (isCreatorMode) {
+      // Preview mode handled by isPreviewMode memo
+    } else if (isSetupComplete) {
+      const effectiveStartView = (user && !user.isAnonymous ? userData?.settings?.startView : startView) || 'daily';
+      setView(effectiveStartView);
     }
-  }, [isAppLoading, isSetupComplete, user, userData]);
-
-
-  // Memoize data sources to avoid re-renders
-  const currentTimetable = useMemo(() => {
-    if (user && !user.isAnonymous) return userData?.timetable || {};
-    return localTimetable;
-  }, [user, userData, localTimetable]);
-
-  const currentTimetableSettings = useMemo(() => {
-    if (user && !user.isAnonymous) return userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
-    return localTimetableSettings;
-  }, [user, userData, localTimetableSettings]);
+  }, [isLoading, isSetupComplete, user, userData, startView, pathname]);
 
 
   const updateUserData = (data: Partial<UserData>) => {
@@ -184,6 +172,7 @@ export default function Page() {
       localStorage.setItem('isSetupComplete', 'true');
       if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
       if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+      if (newUserData.settings?.profilePicture) localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
     }
     setIsSetupComplete(true);
     setView(startView || 'daily');
@@ -209,7 +198,7 @@ export default function Page() {
     } else {
         if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
         if (importedData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
-        if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks)); // Still local for anonymous
+        if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks)); 
         if (importedData.theme) setTheme(importedData.theme);
         if (importedData.startView) setThemeStartView(importedData.startView);
         if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage);
@@ -241,10 +230,21 @@ export default function Page() {
       }
       return { timetable: localTimetable, timetableSettings: localTimetableSettings, settings: localSettings };
   }
+  
+  const currentTimetable = useMemo(() => {
+    if (user && !user.isAnonymous) return userData?.timetable || {};
+    return localTimetable;
+  }, [user, userData, localTimetable]);
+
+  const currentTimetableSettings = useMemo(() => {
+    if (user && !user.isAnonymous) return userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+    return localTimetableSettings;
+  }, [user, userData, localTimetableSettings]);
+
 
   // --- Render Logic ---
-
-  if (isAppLoading) {
+  
+  if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -305,17 +305,6 @@ export default function Page() {
               <ListChecks className="w-5 h-5" />
               <span className="text-[10px] whitespace-nowrap">Aufgaben</span>
             </Button>
-            {user && !user.isAnonymous && (
-                <Button
-                    variant={pathname === '/workspace' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="rounded-full h-14 w-14 flex flex-col gap-1"
-                    onClick={() => handleNavClick('/workspace')}
-                >
-                    <LayoutGrid className="w-5 h-5" />
-                    <span className="text-[10px] whitespace-nowrap">Workspace</span>
-                </Button>
-            )}
             <Button
               variant={view === 'smart-tool' ? 'secondary' : 'ghost'}
               size="icon"
@@ -340,4 +329,3 @@ export default function Page() {
     </>
   );
 }
-
