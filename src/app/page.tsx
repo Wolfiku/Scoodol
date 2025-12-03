@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
@@ -75,7 +75,7 @@ type UserData = {
 export default function Page() {
   const [view, setView] = useState('daily');
   const [isInitialised, setIsInitialised] = useState(false);
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
+  
   const isMobile = useIsMobile();
   const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -96,6 +96,19 @@ export default function Page() {
   const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
   const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   
+  const isSetupComplete = useMemo(() => {
+    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
+      // If we are loading user or user data, we don't know the setup status yet.
+      return false;
+    }
+    if (user && !user.isAnonymous) {
+      // For registered users, setup is complete if they have userData.
+      return !!userData;
+    }
+    // For anonymous users, check localStorage.
+    return !!localStorage.getItem('isSetupComplete');
+  }, [user, isUserLoading, userData, isUserDataLoading]);
+  
   const timetableData = isSetupComplete ? (userData?.timetable || localTimetable) : localTimetable;
   const timetableSettings = isSetupComplete ? (userData?.timetableSettings || localTimetableSettings) : localTimetableSettings;
 
@@ -103,7 +116,7 @@ export default function Page() {
   useEffect(() => {
     if (isUserLoading) return; // Wait for user status
 
-    const localSetupDone = !!localStorage.getItem('timetable');
+    const localSetupDone = !!localStorage.getItem('isSetupComplete');
 
     if (!user && auth && !localSetupDone) {
       initiateAnonymousSignIn(auth);
@@ -113,52 +126,38 @@ export default function Page() {
   // Effect to handle data loading and view initialization
   useEffect(() => {
     if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
-      return;
+      return; // Wait until all data is loaded
     }
 
     if (isInitialised) return; // Only run this effect once on initial load
 
-    const localSetupDone = !!localStorage.getItem('timetable');
-    const cloudSetupDone = !!userData;
-    const setupDone = localSetupDone || cloudSetupDone;
+    const localSetupDone = !!localStorage.getItem('isSetupComplete');
+    const setupDone = (user && !user.isAnonymous && userData) || (user && user.isAnonymous && localSetupDone);
     
-    setIsSetupComplete(setupDone);
-
     if (user && user.isAnonymous && localSetupDone) {
-        setLocalTimetable(JSON.parse(localStorage.getItem('timetable')!));
-        setLocalTimetableSettings(JSON.parse(localStorage.getItem('timetableSettings')!));
+        const storedTimetable = localStorage.getItem('timetable');
+        if (storedTimetable) setLocalTimetable(JSON.parse(storedTimetable));
+        const storedSettings = localStorage.getItem('timetableSettings');
+        if (storedSettings) setLocalTimetableSettings(JSON.parse(storedSettings));
     }
 
     const path = window.location.pathname;
     const isCreatorMode = path.startsWith('/creator/');
     const isEditMode = path.startsWith('/edit/');
-     if (isCreatorMode) {
+
+    if (isCreatorMode) {
         setView('creator');
     } else if (isEditMode) {
         setView('edit');
     } else if (setupDone) {
-        const savedStartView = (user && !user.isAnonymous ? userData?.settings?.startView : localStorage.getItem('startView') as any) || 'daily';
-        setView(savedStartView);
-    }
-
-    // Apply settings
-    if (user && !user.isAnonymous && userData?.settings) {
-      const { theme, aiLanguage, startView } = userData.settings;
-      if (theme) setTheme(theme);
-      if (aiLanguage) setAiLanguage(aiLanguage as 'German' | 'English');
-      if (startView) setThemeStartView(startView as 'daily' | 'weekly' | 'homework');
-    } else if (user && user.isAnonymous) {
-        // Load from local storage for anonymous users
-         const localTheme = localStorage.getItem('theme');
-         if (localTheme) setTheme(localTheme);
-         const localStartView = localStorage.getItem('startView');
-         if (localStartView) setThemeStartView(localStartView as any);
-         const localAiLanguage = localStorage.getItem('aiLanguage');
-         if(localAiLanguage) setAiLanguage(localAiLanguage as any);
+        // Use the startView from the hook, which is already synced with user settings or localStorage
+        setView(startView || 'daily');
+    } else {
+        setView('setup'); // Fallback to setup if no conditions are met
     }
 
     setIsInitialised(true);
-  }, [user, userData, isUserLoading, isUserDataLoading, isInitialised, setAiLanguage, setTheme, setThemeStartView]);
+  }, [user, userData, isUserLoading, isUserDataLoading, isInitialised, startView]);
 
   
   const updateUserData = (data: Partial<UserData>) => {
@@ -193,7 +192,6 @@ export default function Page() {
       }
     }
     
-    setIsSetupComplete(true);
     setView(startView || 'daily');
   }
   
@@ -271,20 +269,16 @@ export default function Page() {
 
   const isHomeView = view === 'daily' || view === 'weekly';
 
-  if (!isInitialised) {
-    return (
+  const isLoading = !isInitialised || isUserLoading || (user && !user.isAnonymous && isUserDataLoading);
+
+  if (isLoading && view !== 'setup') {
+     return (
       <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold">@wolfikuproduction</h1>
+          <Loader2 className="w-12 h-12 animate-spin text-primary"/>
           <p className="text-muted-foreground flex items-center justify-center">
-            <Loader2 className="mr-2 animate-spin"/> App wird geladen...
+            Daten werden geladen...
           </p>
-        </div>
-        <div className="absolute bottom-4 left-4 text-xs text-muted-foreground flex items-center">
-            Made in Firebase Studio <GeminiSparkle />
-        </div>
-         <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
-            Version {APP_VERSION}
         </div>
       </div>
     );
@@ -299,14 +293,6 @@ export default function Page() {
   }
 
   const renderView = () => {
-    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
-      return (
-        <div className="flex justify-center items-center h-full">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
-      )
-    }
-
     switch(view) {
       case 'daily':
         return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
@@ -324,6 +310,8 @@ export default function Page() {
         return <DatenschutzPage />;
       case 'vokabel':
           return <VokabelPage />
+      case 'setup':
+        return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
       default:
         return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
     }
