@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -6,7 +7,7 @@ import { Plus, MessageSquare } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import AiTutor from '@/app/components/tools/ai-tutor';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
@@ -46,7 +47,13 @@ export default function WorkspacePage() {
             </div>
 
             <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+                    <DialogHeader className="p-6 pb-0">
+                        <DialogTitle>AI Tutor</DialogTitle>
+                        <DialogDescription>
+                            Chatte mit Scoody, wenn du bei einem Thema nicht weiterweißt.
+                        </DialogDescription>
+                    </DialogHeader>
                    <AiTutor />
                 </DialogContent>
             </Dialog>
