@@ -156,7 +156,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     
     const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>(initialData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-    const [timetable, setTimetable] = useState<TimetableData>(initialData?.timetable || createInitialTimetable(timetableSettings));
+    const [timetable, setTimetable] = useState<TimetableData>(initialData?.timetable && Object.keys(initialData.timetable).length > 0 ? initialData.timetable : createInitialTimetable(initialData?.timetableSettings || timetableSettings));
     const [profilePicture, setProfilePicture] = useState<string | null>(initialData?.settings?.profilePicture || null);
     
     const [isScanning, setIsScanning] = useState(false);
@@ -184,29 +184,27 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
         }
     }, [viewMode]);
 
-    // Regenerate timetable when settings change during setup
+    // Regenerate timetable when settings change
     useEffect(() => {
-        if (mode !== 'manual' && mode !== 'scan') {
-            const newTimeSlots = generateTimeSlots(timetableSettings);
-            const updatedTimetable: TimetableData = {};
+        const newTimeSlots = generateTimeSlots(timetableSettings);
+        const updatedTimetable: TimetableData = {};
 
-            weekDays.forEach(day => {
-                updatedTimetable[day] = newTimeSlots.map((slot, index) => {
-                    const existingEntry = timetable[day]?.[index];
-                    return {
-                        id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
-                        fach: existingEntry?.fach || '',
-                        lehrer: existingEntry?.lehrer || '',
-                        room: existingEntry?.room || '',
-                        start: slot.start,
-                        ende: slot.ende,
-                        hauptfach: existingEntry?.hauptfach || false,
-                    };
-                });
+        weekDays.forEach(day => {
+            updatedTimetable[day] = newTimeSlots.map((slot, index) => {
+                const existingEntry = timetable[day]?.[index];
+                return {
+                    id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${index + 1}`,
+                    fach: existingEntry?.fach || '',
+                    lehrer: existingEntry?.lehrer || '',
+                    room: existingEntry?.room || '',
+                    start: slot.start,
+                    ende: slot.ende,
+                    hauptfach: existingEntry?.hauptfach || false,
+                };
             });
-            setTimetable(updatedTimetable);
-        }
-    }, [timetableSettings, mode]);
+        });
+        setTimetable(updatedTimetable);
+    }, [timetableSettings]);
 
     const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
@@ -543,7 +541,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                     )}
                  </div>
 
-                {isCreatorMode && (
+                {isEditing && (
                      <Card className="mb-6">
                         <CardHeader><CardTitle>Import / Export</CardTitle></CardHeader>
                         <CardContent className="flex gap-2">
