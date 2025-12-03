@@ -19,6 +19,11 @@ service cloud.firestore {
     function isGroupAdmin(groupId) {
         return get(/databases/$(database)/documents/groups/$(groupId)).data.admin == request.auth.uid;
     }
+    
+    // Helper function to check if the requesting user is a member of a chat
+    function isChatMember(chatId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
+    }
 
     match /users/{userId} {
       // Allow a user to read and write their own document.
@@ -40,6 +45,24 @@ service cloud.firestore {
         // Also allow authenticated users to join a group (update the members array).
         allow update: if request.auth != null && (isGroupAdmin(groupId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']));
         allow delete: if request.auth != null && isGroupAdmin(groupId);
+    }
+    
+    match /chats/{chatId} {
+      // Users can only read chat metadata if they are a member of the chat.
+      // Users can only create a chat if they are including themselves in the members list.
+      // Users can only update a chat (e.g. name, last message) if they are a member.
+      allow read, update: if request.auth != null && isChatMember(chatId);
+      allow create: if request.auth != null && request.resource.data.members.hasAny([request.auth.uid]);
+      // Deleting chats is not allowed for now to prevent data loss.
+
+      match /messages/{messageId} {
+        // Users can read/list messages only if they are a member of the parent chat.
+        allow read: if request.auth != null && isChatMember(chatId);
+        // A user can only create a message if they are a member of the chat,
+        // and they are setting their own UID as the senderId.
+        allow create: if request.auth != null && isChatMember(chatId) && request.resource.data.senderId == request.auth.uid;
+        // Updating or deleting messages is not allowed.
+      }
     }
   }
 }
