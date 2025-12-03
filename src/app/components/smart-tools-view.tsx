@@ -16,6 +16,7 @@ import Notes from './tools/notes';
 import TextSimplifier from './tools/text-simplifier';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 
 type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'text-simplifier' | 'workspace';
@@ -101,21 +102,32 @@ export default function SmartToolsView() {
     <div>
         <h2 className="text-3xl font-bold mb-6">Smart Tools</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {availableTools.map(tool => (
-                <Card 
-                    key={tool.id} 
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => handleToolClick(tool.id)}
-                >
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <div className="text-primary">{tool.icon}</div>
-                        <div>
-                            <CardTitle>{tool.title}</CardTitle>
-                            <CardDescription>{tool.description}</CardDescription>
-                        </div>
-                    </CardHeader>
-                </Card>
-            ))}
+            {availableTools.map(tool => {
+                const isWorkspace = tool.id === 'workspace';
+                return (
+                    <Card 
+                        key={tool.id} 
+                        className={cn(
+                            "cursor-pointer hover:shadow-lg transition-shadow",
+                            isWorkspace && "bg-gradient-to-br from-primary/20 to-background border-primary col-span-1 md:col-span-2 lg:col-span-3"
+                        )}
+                        onClick={() => handleToolClick(tool.id)}
+                    >
+                        <CardHeader className="flex flex-row items-center gap-4">
+                            <div className={cn(
+                                "p-3 rounded-lg",
+                                isWorkspace ? "bg-primary/20" : "bg-secondary"
+                            )}>
+                                <div className="text-primary">{tool.icon}</div>
+                            </div>
+                            <div>
+                                <CardTitle>{tool.title}</CardTitle>
+                                <CardDescription>{tool.description}</CardDescription>
+                            </div>
+                        </CardHeader>
+                    </Card>
+                )
+            })}
         </div>
     </div>
   );
