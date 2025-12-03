@@ -362,56 +362,30 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         <CardDescription>Tritt einer Gruppe bei, um Stundenpläne & mehr zu teilen.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {userProfile?.groupId ? (
-                            <div>
-                                <p className="font-semibold mb-4">Du bist in einer Gruppe.</p>
-                                <div className="space-y-4 p-4 border rounded-lg">
-                                    <div className="flex items-center justify-between">
-                                        <Label htmlFor="sync-timetable" className="flex flex-col gap-1">
-                                            <span className="font-bold">Stundenplan koppeln</span>
-                                            <span className="text-xs text-muted-foreground">Dein persönlicher Stundenplan wird durch den der Gruppe ersetzt.</span>
-                                        </Label>
-                                        <Switch
-                                            id="sync-timetable"
-                                            checked={userProfile.groupSettings?.syncTimetable || false}
-                                            onCheckedChange={(checked) => handleGroupSettingChange('syncTimetable', checked)}
-                                        />
-                                    </div>
-                                     <div className="flex items-center justify-between">
-                                        <Label htmlFor="show-in-group" className="flex flex-col gap-1">
-                                            <span className="font-bold">Im Gruppenprofil anzeigen</span>
-                                            <span className="text-xs text-muted-foreground">Andere Mitglieder können dein Profilbild und Namen sehen.</span>
-                                        </Label>
-                                        <Switch
-                                            id="show-in-group"
-                                            checked={userProfile.groupSettings?.showInGroup || false}
-                                            onCheckedChange={(checked) => handleGroupSettingChange('showInGroup', checked)}
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <Label htmlFor="share-homework" className="flex flex-col gap-1">
-                                            <span className="font-bold">Hausaufgaben teilen (demnächst)</span>
-                                            <span className="text-xs text-muted-foreground">Deine Aufgaben werden für Gruppenmitglieder sichtbar.</span>
-                                        </Label>
-                                        <Switch
-                                            id="share-homework"
-                                            disabled
-                                            checked={userProfile.groupSettings?.shareHomework || false}
-                                            onCheckedChange={(checked) => handleGroupSettingChange('shareHomework', checked)}
-                                        />
-                                    </div>
+                        {user && !user.isAnonymous ? (
+                            userProfile?.groupId ? (
+                                <div>
+                                    <p className="font-semibold mb-2">Du bist in einer Gruppe.</p>
+                                    <Button asChild>
+                                        <Link href={`/groups/${userProfile.groupId}`}>
+                                            <Users className="mr-2"/> Gruppen-Dashboard anzeigen
+                                        </Link>
+                                    </Button>
                                 </div>
-                                <Button onClick={leaveGroup} variant="destructive" className="mt-4">Gruppe verlassen</Button>
-                            </div>
+                            ) : (
+                                <div>
+                                    <p className="text-muted-foreground mb-4">Du bist in keiner Gruppe.</p>
+                                    <Button asChild>
+                                        <Link href="/groups">
+                                            <Users className="mr-2"/> Gruppe erstellen
+                                        </Link>
+                                    </Button>
+                                </div>
+                            )
                         ) : (
-                            <div>
-                                <p className="text-muted-foreground mb-4">Du bist in keiner Gruppe.</p>
-                                <Button asChild>
-                                    <Link href="/groups">
-                                        <Users className="mr-2"/> Gruppe finden oder erstellen
-                                    </Link>
-                                </Button>
-                            </div>
+                            <p className="text-muted-foreground">
+                                <Link href="/login" className="text-primary underline">Melde dich an</Link>, um Gruppen beizutreten oder zu erstellen.
+                            </p>
                         )}
                     </CardContent>
                 </Card>
