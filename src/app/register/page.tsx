@@ -70,15 +70,17 @@ export default function RegisterPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       
       const userData = {
-          timetable: timetable ? JSON.parse(timetable) : {},
-          timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
+          role: 'user', // Set default role
           settings: {
+              email: user.email, // Save email in settings for easier querying
               theme: theme || 'light',
               startView: startView || 'daily',
               aiLanguage: aiLanguage || 'German',
               betaFeaturesEnabled: betaFeaturesEnabled || false,
               profilePicture: profilePicture || null,
-          }
+          },
+          timetable: timetable ? JSON.parse(timetable) : {},
+          timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
       };
 
       batch.set(userDocRef, userData);

@@ -3,23 +3,48 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { Plus, MessageSquare, Loader2 } from 'lucide-react';
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import AiTutor from '@/app/components/tools/ai-tutor';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { doc } from 'firebase/firestore';
+
+type UserProfile = {
+  role?: 'user' | 'admin' | 'workspace_plus_user';
+}
+
 
 export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
     const router = useRouter();
+    const firestore = useFirestore();
     const [isChatOpen, setIsChatOpen] = useState(false);
 
-    if (isUserLoading) {
-        return <div className="flex justify-center items-center h-screen">Lade...</div>
+    const userDocRef = useMemoFirebase(() => 
+        user ? doc(firestore, 'users', user.uid) : null
+    , [firestore, user]);
+
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
+    
+    if (isUserLoading || isProfileLoading) {
+        return (
+             <div className="flex justify-center items-center h-screen">
+                <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+        )
     }
 
     if (!user || user.isAnonymous) {
         router.push('/login');
+        return null;
+    }
+
+    // Protect the route for specific roles
+    const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
+    if (!hasAccess) {
+        router.push('/');
+        // You might want to show a toast message here as well
         return null;
     }
 

@@ -101,7 +101,7 @@
         },
         "role": {
           "type": "string",
-          "enum": ["user", "admin"],
+          "enum": ["user", "admin", "workspace_plus_user"],
           "description": "The user's role in the application."
         },
         "timetable": {
