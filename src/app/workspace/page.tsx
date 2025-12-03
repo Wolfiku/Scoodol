@@ -31,19 +31,12 @@ export default function WorkspacePage() {
       // Don't do anything while data is loading
       if (isUserLoading || isProfileLoading) return;
 
-      // If user is not logged in or anonymous, redirect to login
+      // If user is not logged in or is anonymous, redirect to login
       if (!user || user.isAnonymous) {
         router.push('/login');
         return;
       }
-
-      // Check for access rights after user and profile are loaded
-      const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
-      if (!hasAccess) {
-        router.push('/');
-        // You could add a toast message here if you want to inform the user
-      }
-    }, [user, isUserLoading, userProfile, isProfileLoading, router]);
+    }, [user, isUserLoading, isProfileLoading, router]);
 
     
     if (isUserLoading || isProfileLoading) {
@@ -54,9 +47,8 @@ export default function WorkspacePage() {
         )
     }
 
-    // Render null while redirecting
-    const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
-    if (!user || user.isAnonymous || !hasAccess) {
+    // Render null while redirecting or if user is not authenticated
+    if (!user || user.isAnonymous) {
         return null;
     }
 
