@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -280,12 +280,20 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                              <div className="space-y-4">
                                 <div className="flex items-center gap-2">
                                     <User className="w-5 h-5 text-primary" />
-                                    <p>Angemeldet als: <span className="font-semibold">{user.email}</span></p>
+                                    <p>Angemeldet als: <span className="font-semibold">{user.displayName || user.email}</span></p>
                                 </div>
-                                <Button onClick={handleLogout} variant="outline">
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    Abmelden
-                                </Button>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button asChild variant="outline">
+                                        <Link href="/account">
+                                            <SettingsIcon className="mr-2 h-4 w-4" />
+                                            Account verwalten
+                                        </Link>
+                                    </Button>
+                                    <Button onClick={handleLogout} variant="outline">
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        Abmelden
+                                    </Button>
+                                </div>
                             </div>
                         ) : (
                              <div className="space-y-2">
@@ -632,7 +640,3 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
-
-    
-
-    
