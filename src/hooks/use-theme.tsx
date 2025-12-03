@@ -50,34 +50,56 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
 
-  const { data: userSettings } = useDoc<{settings: UserSettings}>(settingsDocRef);
+  const { data: userSettingsDoc } = useDoc<{settings: UserSettings}>(settingsDocRef);
   
   useEffect(() => {
     setIsMounted(true);
-    
-    if (user && user.isAnonymous) {
-        const localTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        const localStartView = localStorage.getItem('startView') as StartView || 'daily';
-        const localAiLanguage = localStorage.getItem('aiLanguage') as AiLanguage || 'German';
-        const localBeta = localStorage.getItem('betaFeaturesEnabled') === 'true';
+    let initialTheme = 'light';
+    let initialStartView = 'daily';
+    let initialAiLanguage = 'German';
+    let initialBeta = false;
 
-        setThemeState(localTheme);
-        setStartViewState(localStartView);
-        setAiLanguageState(localAiLanguage);
-        setBetaFeaturesEnabledState(localBeta);
+    // Local-first approach
+    try {
+        const localTheme = localStorage.getItem('theme');
+        if (localTheme) initialTheme = localTheme;
+        else initialTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 
-    } else if (userSettings?.settings) {
-      const { theme, startView, aiLanguage, betaFeaturesEnabled } = userSettings.settings;
-      setThemeState(theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-      setStartViewState(startView || 'daily');
-      setAiLanguageState(aiLanguage || 'German');
-      setBetaFeaturesEnabledState(betaFeaturesEnabled || false);
+        initialStartView = (localStorage.getItem('startView') as StartView) || 'daily';
+        initialAiLanguage = (localStorage.getItem('aiLanguage') as AiLanguage) || 'German';
+        initialBeta = localStorage.getItem('betaFeaturesEnabled') === 'true';
+
+    } catch (e) {}
+
+    setThemeState(initialTheme);
+    setStartViewState(initialStartView);
+    setAiLanguageState(initialAiLanguage);
+    setBetaFeaturesEnabledState(initialBeta);
+
+  }, []);
+
+  // Sync from Firestore when available
+   useEffect(() => {
+    if (userSettingsDoc?.settings) {
+      const { theme, startView, aiLanguage, betaFeaturesEnabled } = userSettingsDoc.settings;
+      if (theme) setThemeState(theme);
+      if (startView) setStartViewState(startView);
+      if (aiLanguage) setAiLanguageState(aiLanguage);
+      if (betaFeaturesEnabled !== undefined) setBetaFeaturesEnabledState(betaFeaturesEnabled);
     }
-  }, [userSettings, user]);
+  }, [userSettingsDoc]);
+
 
   const updateSettings = (newSettings: Partial<UserSettings>) => {
+      // Optimistically update local state
+      if (newSettings.theme) setThemeState(newSettings.theme);
+      if (newSettings.startView) setStartViewState(newSettings.startView);
+      if (newSettings.aiLanguage) setAiLanguageState(newSettings.aiLanguage);
+      if (newSettings.betaFeaturesEnabled !== undefined) setBetaFeaturesEnabledState(newSettings.betaFeaturesEnabled);
+
+      // Sync with the correct persistence layer
       if (user && !user.isAnonymous && settingsDocRef) {
-          const currentSettings = userSettings?.settings || {};
+          const currentSettings = userSettingsDoc?.settings || {};
           const settingsToUpdate = { settings: { ...currentSettings, ...newSettings }};
           setDoc(settingsDocRef, settingsToUpdate, { merge: true });
       } else {
@@ -89,22 +111,18 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
     updateSettings({ theme: newTheme });
   };
 
   const setStartView = (newView: StartView) => {
-    setStartViewState(newView);
     updateSettings({ startView: newView });
   };
   
   const setAiLanguage = (newLanguage: AiLanguage) => {
-    setAiLanguageState(newLanguage);
     updateSettings({ aiLanguage: newLanguage });
   };
   
   const setBetaFeaturesEnabled = (enabled: boolean) => {
-    setBetaFeaturesEnabledState(enabled);
     updateSettings({ betaFeaturesEnabled: enabled });
   };
 
@@ -116,8 +134,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       finalTheme = `${currentMode}-${newColorTheme}`;
     }
-    setThemeState(finalTheme); // Local update first
-    updateSettings({ theme: finalTheme, colorTheme: newColorTheme as ColorTheme }); // Then sync
+    updateSettings({ theme: finalTheme, colorTheme: newColorTheme as ColorTheme });
   }
   
   const [resolvedTheme, colorTheme] = useMemo((): [('light' | 'dark'), ColorTheme] => {
@@ -149,10 +166,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       setBetaFeaturesEnabled,
       updateSettings,
     };
-
-  if (!isMounted) {
-    return null;
-  }
 
   return (
     <ThemeProviderContext.Provider value={value}>

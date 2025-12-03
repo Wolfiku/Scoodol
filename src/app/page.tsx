@@ -1,27 +1,21 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings, Info, Timer, Loader2, LayoutGrid } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Home, ListChecks, Sparkles, Settings, Timer, Loader2 } from 'lucide-react';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
-import initialTimetableData from "@/app/data/timetable.json";
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import Link from 'next/link';
 import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-
-const APP_VERSION = '1.4.2';
 
 const GeminiSparkle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24" fill="currentColor" className="inline-block align-baseline ml-1">
@@ -67,23 +61,24 @@ type UserData = {
 }
 
 export default function Page() {
-  // All hooks are now at the top level
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
 
-  const [view, setView] = useState('daily');
+  // Hooks are now at the top level
+  const [view, setView] = useState('daily'); 
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
-  const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-  const [localSettings, setLocalSettings] = useState<UserSettings>({});
+  // Local state for anonymous users or before Firestore data is loaded
+  const [localTimetable, setLocalTimetable] = useState<TimetableData | null>(null);
+  const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings | null>(null);
+  const [localSettings, setLocalSettings] = useState<UserSettings | null>(null);
   
   const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
-  const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => 
     user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
@@ -93,55 +88,86 @@ export default function Page() {
   
   const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
-
-  // Effect for initial loading and setup check
+  // Effect to load initial data from localStorage (local-first approach)
   useEffect(() => {
-    const checkSetup = async () => {
-      // Don't do anything until Firebase auth state is resolved
-      if (isUserLoading) return;
+    try {
+      const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
+      
+      // If setup is done locally, load all local data to prevent flickering
+      if (localSetupDone) {
+        setIsSetupComplete(true);
+
+        const tt = localStorage.getItem('timetable');
+        setLocalTimetable(tt ? JSON.parse(tt) : {});
+
+        const tts = localStorage.getItem('timetableSettings');
+        setLocalTimetableSettings(tts ? JSON.parse(tts) : { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+        
+        const settings: UserSettings = {
+            theme: localStorage.getItem('theme') || undefined,
+            startView: (localStorage.getItem('startView') as UserSettings['startView']) || undefined,
+            aiLanguage: (localStorage.getItem('aiLanguage') as UserSettings['aiLanguage']) || undefined,
+            profilePicture: localStorage.getItem('profilePicture') || undefined
+        };
+        setLocalSettings(settings);
+
+      } else {
+         setIsSetupComplete(false);
+      }
+    } catch (e) {
+      console.error("Failed to parse local storage data:", e);
+      setIsSetupComplete(false);
+    }
+    // We set loading to false here, but the main loading logic will handle auth.
+    // This just ensures we have a baseline from local data quickly.
+  }, []);
+
+  // Main effect for authentication and determining the final app state
+  useEffect(() => {
+    const checkAuthAndData = async () => {
+      // Wait for Firebase auth to resolve.
+      if (isUserLoading) {
+        setIsLoading(true);
+        return;
+      }
 
       if (user) {
-        if (user.isAnonymous) {
-          // Anonymous user: check local storage
-          const localSetupDone = !!localStorage.getItem('isSetupComplete');
-          setIsSetupComplete(localSetupDone);
-          setIsLoading(false);
-        } else {
-          // Registered user: wait for their data from Firestore
-          if (isUserDataLoading) return; // Still waiting for Firestore doc
-          
-          // Firestore data has loaded (or not)
+        if (!user.isAnonymous) {
+          // Logged-in user: wait for their Firestore data.
+          if (isUserDataLoading) {
+            setIsLoading(true);
+            return;
+          }
+          // If userData exists, setup is complete.
           setIsSetupComplete(!!userData);
-          setIsLoading(false);
         }
+        // For anonymous users, the setup state is already determined by localStorage effect.
       } else {
-        // No user at all, initiate anonymous sign-in
+        // No user found, initiate anonymous sign-in. This will cause a re-render.
         await initiateAnonymousSignIn(auth);
-        // The onAuthStateChanged listener will trigger a re-run of this effect
       }
+      
+      // All loading is done (auth and data for logged-in users)
+      setIsLoading(false);
     };
 
-    checkSetup();
+    checkAuthAndData();
   }, [user, isUserLoading, userData, isUserDataLoading, auth]);
 
   // Set initial view based on path or startView setting
   useEffect(() => {
-    if (isLoading) return; // Don't set view until loading is finished
+    if (isLoading) return; 
     
     const path = window.location.pathname;
-    const isCreatorMode = path.startsWith('/creator/');
     const isEditMode = path.startsWith('/edit/');
 
     if (isEditMode) {
       setView('edit');
-    } else if (isCreatorMode) {
-      // Preview mode handled by isPreviewMode memo
     } else if (isSetupComplete) {
       const effectiveStartView = (user && !user.isAnonymous ? userData?.settings?.startView : startView) || 'daily';
       setView(effectiveStartView);
     }
   }, [isLoading, isSetupComplete, user, userData, startView, pathname]);
-
 
   const updateUserData = (data: Partial<UserData>) => {
     if (user && !user.isAnonymous && userDocRef) {
@@ -225,22 +251,29 @@ export default function Page() {
   };
 
   const getInitialDataForSetup = () => {
-      if (user && !user.isAnonymous && userData) {
-          return { timetable: userData.timetable, timetableSettings: userData.timetableSettings, settings: userData.settings };
-      }
-      return { timetable: localTimetable, timetableSettings: localTimetableSettings, settings: localSettings };
+    if (user && !user.isAnonymous && userData) {
+        return { timetable: userData.timetable, timetableSettings: userData.timetableSettings, settings: userData.settings };
+    }
+    // Provide default empty values if local data is null
+    return { 
+      timetable: localTimetable || {}, 
+      timetableSettings: localTimetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }, 
+      settings: localSettings || {}
+    };
   }
-  
-  const currentTimetable = useMemo(() => {
-    if (user && !user.isAnonymous) return userData?.timetable || {};
-    return localTimetable;
-  }, [user, userData, localTimetable]);
 
-  const currentTimetableSettings = useMemo(() => {
-    if (user && !user.isAnonymous) return userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
-    return localTimetableSettings;
-  }, [user, userData, localTimetableSettings]);
-
+  const { currentTimetable, currentTimetableSettings } = useMemo(() => {
+    if (user && !user.isAnonymous) {
+      return {
+        currentTimetable: userData?.timetable || {},
+        currentTimetableSettings: userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }
+      };
+    }
+    return {
+      currentTimetable: localTimetable || {},
+      currentTimetableSettings: localTimetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }
+    };
+  }, [user, userData, localTimetable, localTimetableSettings]);
 
   // --- Render Logic ---
   
