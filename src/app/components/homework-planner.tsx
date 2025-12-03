@@ -363,25 +363,27 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-start gap-4 p-3 rounded-md bg-secondary"
+                className="flex items-center gap-4 p-3 rounded-md bg-secondary"
               >
-                <Checkbox
-                  checked={hw.done}
-                  onCheckedChange={() => toggleDone(hw.id)}
-                  id={`hw-${hw.id}`}
-                  aria-label={`Mark task as done: ${hw.task}`}
-                  className="mt-1"
-                />
-                <label
-                  htmlFor={`hw-${hw.id}`}
-                  className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                <div 
+                  className="flex items-start gap-4 cursor-pointer flex-1"
+                  onClick={() => toggleDone(hw.id)}
                 >
-                  <div className="flex justify-between items-baseline flex-wrap">
-                    <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
-                      {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                  <Checkbox
+                    checked={hw.done}
+                    aria-label={`Mark task as done: ${hw.task}`}
+                    className="mt-1"
+                  />
+                  <div
+                    className={`grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                  >
+                    <div className="flex justify-between items-baseline flex-wrap">
+                      <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                        {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
-                </label>
+                </div>
                 <div className="flex">
                     <Button
                       variant="ghost"
@@ -412,24 +414,26 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-start gap-3 p-3 rounded-md bg-secondary/50"
+                className="flex items-center gap-3 p-3 rounded-md bg-secondary/50"
               >
-                <Checkbox
-                  checked={hw.done}
-                  onCheckedChange={() => toggleDone(hw.id)}
-                  id={`hw-${hw.id}`}
-                  className="mt-1"
-                />
-                <label
-                  htmlFor={`hw-${hw.id}`}
-                  className={`flex-1 grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                <div 
+                  className="flex items-start gap-3 cursor-pointer flex-1"
+                  onClick={() => toggleDone(hw.id)}
                 >
-                  <div className="flex justify-between items-baseline flex-wrap">
-                    <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
-                      {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                  <Checkbox
+                    checked={hw.done}
+                    className="mt-1"
+                  />
+                  <div
+                    className={`grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                  >
+                    <div className="flex justify-between items-baseline flex-wrap">
+                      <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                        {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
-                </label>
+                </div>
                  <div className="flex">
                     <Button
                       variant="ghost"
@@ -455,3 +459,5 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
+
+    
