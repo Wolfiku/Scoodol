@@ -12,6 +12,16 @@ import { scanVocabulary } from "@/ai/flows/scan-vocabulary";
 import type { ScanVocabularyOutput } from "@/ai/flows/scan-vocabulary";
 import { aiTutorChat } from "@/ai/flows/ai-tutor-chat";
 import type { AiTutorChatInput } from "@/ai/flows/ai-tutor-chat";
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { firebaseConfig } from "@/firebase/config";
+import { initializeApp, getApps }from "firebase/app";
+
+// Temporary admin action. This is not secure for production.
+// We are initializing a temporary app here to get an auth instance.
+// This is not ideal but necessary without a proper backend.
+if (!getApps().some(app => app.name === 'admin-action-app')) {
+    initializeApp(firebaseConfig, 'admin-action-app');
+}
 
 export async function searchFormula(query: string, formulas: string, language: string) {
   try {
@@ -91,5 +101,23 @@ export async function getTutorChatReply(input: AiTutorChatInput) {
     } catch (error) {
         console.error("Error getting AI tutor reply:", error);
         return { error: "Entschuldigung, beim Abrufen der Antwort ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function sendPasswordResetEmailForUser(email: string): Promise<{success: boolean, error?: string}> {
+    try {
+        // This uses the client-side SDK. Anyone can call this for any email,
+        // but it's safe because the user has to prove ownership of the email account
+        // to actually reset the password.
+        // We'll gate this on the frontend to be admin-only.
+        const auth = getAuth();
+        await sendPasswordResetEmail(auth, email);
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error sending password reset email:", error);
+        if (error.code === 'auth/user-not-found') {
+             return { success: false, error: 'Benutzer mit dieser E-Mail nicht gefunden.' };
+        }
+        return { success: false, error: 'E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden.' };
     }
 }
