@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -25,8 +25,9 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
-import { useAuth, useUser } from "@/firebase"
+import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import { useRouter } from "next/navigation"
+import { doc, updateDoc } from "firebase/firestore"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -53,13 +54,25 @@ type TimetableSettings = {
     secondBreakDuration: number;
 }
 
+type GroupSettings = {
+    syncTimetable?: boolean;
+    showInGroup?: boolean;
+    shareHomework?: boolean;
+}
+
+type UserProfile = {
+    groupId?: string;
+    groupSettings?: GroupSettings;
+    role?: 'user' | 'admin' | 'workspace_plus_user';
+}
+
 const parseTimeToMinutes = (time: string): number => {
     if (!time) return 0;
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
 };
 
-export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void }) {
+export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange, isTimetableSynced }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void, isTimetableSynced: boolean }) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView, aiLanguage, setAiLanguage } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
     const [betaFeaturesEnabled, setBetaFeaturesEnabled] = useState(false);
@@ -75,8 +88,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
     const { user } = useUser();
     const auth = useAuth();
+    const firestore = useFirestore();
     const router = useRouter();
 
+    const userDocRef = useMemoFirebase(() => 
+        user ? doc(firestore, 'users', user.uid) : null
+    , [firestore, user]);
+    
+    const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
     useEffect(() => {
         setLocalTimetableSettings(timetableSettings);
@@ -216,10 +235,36 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     }
     
     const handleLogout = async () => {
+        if (!auth) return;
         await auth.signOut();
         toast({ title: 'Abgemeldet', description: 'Du wurdest erfolgreich abgemeldet.' });
         router.push('/');
     };
+
+    const handleGroupSettingChange = async (key: keyof GroupSettings, value: boolean) => {
+        if (!userDocRef) return;
+        const currentSettings = userProfile?.groupSettings || {};
+        await updateDoc(userDocRef, {
+            groupSettings: {
+                ...currentSettings,
+                [key]: value,
+            }
+        });
+        toast({ title: "Einstellung gespeichert!" });
+    }
+
+    const leaveGroup = async () => {
+        if (!userDocRef) return;
+        await updateDoc(userDocRef, {
+            groupId: null,
+            groupSettings: {
+                syncTimetable: false,
+                showInGroup: false,
+                shareHomework: false,
+            }
+        });
+        toast({ title: "Du hast die Gruppe verlassen." });
+    }
 
     const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime 
         || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime
@@ -310,6 +355,67 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         )}
                     </CardContent>
                 </Card>
+                
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Meine Klasse / Gruppe</CardTitle>
+                        <CardDescription>Tritt einer Gruppe bei, um Stundenpläne & mehr zu teilen.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {userProfile?.groupId ? (
+                            <div>
+                                <p className="font-semibold mb-4">Du bist in einer Gruppe.</p>
+                                <div className="space-y-4 p-4 border rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="sync-timetable" className="flex flex-col gap-1">
+                                            <span className="font-bold">Stundenplan koppeln</span>
+                                            <span className="text-xs text-muted-foreground">Dein persönlicher Stundenplan wird durch den der Gruppe ersetzt.</span>
+                                        </Label>
+                                        <Switch
+                                            id="sync-timetable"
+                                            checked={userProfile.groupSettings?.syncTimetable || false}
+                                            onCheckedChange={(checked) => handleGroupSettingChange('syncTimetable', checked)}
+                                        />
+                                    </div>
+                                     <div className="flex items-center justify-between">
+                                        <Label htmlFor="show-in-group" className="flex flex-col gap-1">
+                                            <span className="font-bold">Im Gruppenprofil anzeigen</span>
+                                            <span className="text-xs text-muted-foreground">Andere Mitglieder können dein Profilbild und Namen sehen.</span>
+                                        </Label>
+                                        <Switch
+                                            id="show-in-group"
+                                            checked={userProfile.groupSettings?.showInGroup || false}
+                                            onCheckedChange={(checked) => handleGroupSettingChange('showInGroup', checked)}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="share-homework" className="flex flex-col gap-1">
+                                            <span className="font-bold">Hausaufgaben teilen (demnächst)</span>
+                                            <span className="text-xs text-muted-foreground">Deine Aufgaben werden für Gruppenmitglieder sichtbar.</span>
+                                        </Label>
+                                        <Switch
+                                            id="share-homework"
+                                            disabled
+                                            checked={userProfile.groupSettings?.shareHomework || false}
+                                            onCheckedChange={(checked) => handleGroupSettingChange('shareHomework', checked)}
+                                        />
+                                    </div>
+                                </div>
+                                <Button onClick={leaveGroup} variant="destructive" className="mt-4">Gruppe verlassen</Button>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-muted-foreground mb-4">Du bist in keiner Gruppe.</p>
+                                <Button asChild>
+                                    <Link href="/groups">
+                                        <Users className="mr-2"/> Gruppe finden oder erstellen
+                                    </Link>
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Design & Layout</CardTitle>
@@ -407,9 +513,10 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         <CardDescription>Verwalte deinen Stundenplan und die Schul- und Pausenzeiten.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <Button onClick={onEditTimetable}>
+                         <Button onClick={onEditTimetable} disabled={isTimetableSynced}>
                             <Edit className="mr-2"/> Stundenplan bearbeiten
                         </Button>
+                        {isTimetableSynced && <p className="text-xs text-muted-foreground">Dein Stundenplan wird von deiner Gruppe verwaltet. Deaktiviere die Kopplung, um ihn zu bearbeiten.</p>}
                         <Accordion type="single" collapsible>
                              <AccordionItem value="item-1">
                                 <AccordionTrigger>
@@ -426,6 +533,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                     value={localTimetableSettings.schoolStartTime} 
                                                     onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
                                                     className="w-full sm:w-auto"
+                                                    disabled={isTimetableSynced}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -436,6 +544,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                     value={localTimetableSettings.schoolEndTime} 
                                                     onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
                                                     className="w-full sm:w-auto"
+                                                    disabled={isTimetableSynced}
                                                 />
                                             </div>
                                              <div className="space-y-1">
@@ -446,6 +555,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                     value={localTimetableSettings.firstBreakDuration || ''} 
                                                     onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
                                                     className="w-full sm:w-auto"
+                                                    disabled={isTimetableSynced}
                                                 />
                                             </div>
                                              <div className="space-y-1">
@@ -456,12 +566,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                     value={localTimetableSettings.secondBreakDuration || ''} 
                                                     onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
                                                     className="w-full sm:w-auto"
+                                                    disabled={isTimetableSynced}
                                                 />
                                             </div>
                                         </div>
-                                        <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged}>
+                                        <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged || isTimetableSynced}>
                                             <Save className="mr-2 h-4 w-4" /> Zeiten speichern
                                         </Button>
+                                         {isTimetableSynced && <p className="text-xs text-muted-foreground mt-2">Zeiten werden von deiner Gruppe verwaltet.</p>}
                                     </div>
                                 </AccordionContent>
                              </AccordionItem>

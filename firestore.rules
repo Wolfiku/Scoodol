@@ -10,16 +10,36 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Helper function to check if a user is a member of a specific group
+    function isGroupMember(groupId) {
+        return get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+    }
+    
+    // Helper function to check if a user is the admin of a specific group
+    function isGroupAdmin(groupId) {
+        return get(/databases/$(database)/documents/groups/$(groupId)).data.admin == request.auth.uid;
+    }
+
     match /users/{userId} {
       // Allow a user to read and write their own document.
       // Allow admins to read any user document.
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
 
       match /homeworks/{homeworkId} {
         // Allow a user to manage only their own homework tasks.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
+    }
+
+    match /groups/{groupId} {
+        // Any authenticated user can read group lists to find and join them.
+        allow read: if request.auth != null;
+        // Any authenticated user can create a group.
+        allow create: if request.auth != null;
+        // Only the group admin can update the group details or delete it.
+        // Also allow authenticated users to join a group (update the members array).
+        allow update: if request.auth != null && (isGroupAdmin(groupId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']));
+        allow delete: if request.auth != null && isGroupAdmin(groupId);
     }
   }
 }

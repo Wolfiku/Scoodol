@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Subject": {
@@ -7,86 +6,29 @@
       "type": "object",
       "description": "Represents a school subject with its associated details.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the subject."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the subject (e.g., Math, English)."
-        },
-        "room": {
-          "type": "string",
-          "description": "The room where the subject is taught."
-        },
-        "teacher": {
-          "type": "string",
-          "description": "Name of the teacher for the subject."
-        },
-        "startTime": {
-          "type": "string",
-          "description": "Start time of the subject (e.g., 08:00).",
-          "format": "string"
-        },
-        "endTime": {
-          "type": "string",
-          "description": "End time of the subject (e.g., 09:00).",
-          "format": "string"
-        },
-        "isMainSubject": {
-          "type": "boolean",
-          "description": "Indicates whether the subject is a main subject."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional notes or information about the subject."
-        },
-        "materialsLink": {
-          "type": "string",
-          "description": "Link to online materials for the subject.",
-          "format": "uri"
-        }
+        "id": { "type": "string", "description": "Unique identifier for the subject." },
+        "name": { "type": "string", "description": "Name of the subject (e.g., Math, English)." },
+        "room": { "type": "string", "description": "The room where the subject is taught." },
+        "teacher": { "type": "string", "description": "Name of the teacher for the subject." },
+        "startTime": { "type": "string", "description": "Start time of the subject (e.g., 08:00).", "format": "string" },
+        "endTime": { "type": "string", "description": "End time of the subject (e.g., 09:00).", "format": "string" },
+        "isMainSubject": { "type": "boolean", "description": "Indicates whether the subject is a main subject." },
+        "notes": { "type": "string", "description": "Additional notes or information about the subject." },
+        "materialsLink": { "type": "string", "description": "Link to online materials for the subject.", "format": "uri" }
       },
-      "required": [
-        "id",
-        "name",
-        "room",
-        "teacher",
-        "startTime",
-        "endTime",
-        "isMainSubject"
-      ]
+      "required": ["id", "name", "room", "teacher", "startTime", "endTime", "isMainSubject"]
     },
     "Homework": {
       "title": "Homework",
       "type": "object",
       "description": "A single homework task.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the homework task."
-        },
-        "subject": {
-          "type": "string",
-          "description": "The subject of the homework."
-        },
-        "task": {
-          "type": "string",
-          "description": "The description of the task."
-        },
-        "dueDate": {
-          "type": "string",
-          "format": "date",
-          "description": "The due date for the task."
-        },
-        "done": {
-          "type": "boolean",
-          "description": "Whether the task is completed."
-        },
-        "completedAt": {
-          "type": "number",
-          "description": "Timestamp when the task was marked as done."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the homework task." },
+        "subject": { "type": "string", "description": "The subject of the homework." },
+        "task": { "type": "string", "description": "The description of the task." },
+        "dueDate": { "type": "string", "format": "date", "description": "The due date for the task." },
+        "done": { "type": "boolean", "description": "Whether the task is completed." },
+        "completedAt": { "type": "number", "description": "Timestamp when the task was marked as done." }
       },
       "required": ["id", "task", "done"]
     },
@@ -95,23 +37,20 @@
       "type": "object",
       "description": "Stores user-specific application data like timetable and settings.",
       "properties": {
-        "email": {
-          "type": "string",
-          "format": "email"
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["user", "admin", "workspace_plus_user"], "description": "The user's role in the application." },
+        "groupId": { "type": "string", "description": "The ID of the group the user belongs to." },
+        "groupSettings": {
+            "type": "object",
+            "description": "User's settings related to their group membership.",
+            "properties": {
+                "syncTimetable": { "type": "boolean", "description": "If true, user's timetable is synced with the group's." },
+                "showInGroup": { "type": "boolean", "description": "If true, the user is visible to other group members." },
+                "shareHomework": { "type": "boolean", "description": "If true, homework is shared with the group." }
+            }
         },
-        "role": {
-          "type": "string",
-          "enum": ["user", "admin", "workspace_plus_user"],
-          "description": "The user's role in the application."
-        },
-        "timetable": {
-          "type": "object",
-          "description": "The user's timetable data."
-        },
-        "timetableSettings": {
-          "type": "object",
-          "description": "Settings for the user's timetable."
-        },
+        "timetable": { "type": "object", "description": "The user's personal timetable data." },
+        "timetableSettings": { "type": "object", "description": "Settings for the user's personal timetable." },
         "settings": {
           "type": "object",
           "properties": {
@@ -123,29 +62,41 @@
           }
         }
       }
+    },
+    "Group": {
+      "title": "Group",
+      "type": "object",
+      "description": "Represents a student group or class.",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the group or class." },
+        "schoolName": { "type": "string", "description": "Name of the school." },
+        "motto": { "type": "string", "description": "A fun motto for the group." },
+        "admin": { "type": "string", "description": "The UID of the user who created and manages the group." },
+        "timetable": { "type": "object", "description": "The shared timetable for the group." },
+        "timetableSettings": { "type": "object", "description": "The shared timetable settings for the group." },
+        "members": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "A list of user UIDs who are members of this group."
+        }
+      },
+      "required": ["name", "schoolName", "admin", "timetable", "timetableSettings"]
     }
   },
-  "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
-  },
+  "auth": { "providers": ["password", "anonymous"] },
   "firestore": {
     "structure": [
       {
         "path": "/users/{userId}",
-        "definition": {
-          "schema": { "$ref": "#/entities/UserProfile" },
-          "description": "Stores user profile data. The userId is the document ID."
-        }
+        "definition": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "Stores user profile data. The userId is the document ID." }
       },
       {
         "path": "/users/{userId}/homeworks/{homeworkId}",
-        "definition": {
-          "schema": { "$ref": "#/entities/Homework" },
-          "description": "Stores homework tasks for a specific user."
-        }
+        "definition": { "schema": { "$ref": "#/entities/Homework" }, "description": "Stores homework tasks for a specific user." }
+      },
+      {
+        "path": "/groups/{groupId}",
+        "definition": { "schema": { "$ref": "#/entities/Group" }, "description": "Stores data for a student group or class." }
       }
     ]
   }

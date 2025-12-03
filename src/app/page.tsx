@@ -7,7 +7,7 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings, Timer, Loader2, LayoutGrid } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings, Timer, Loader2, Users } from 'lucide-react';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
@@ -49,10 +49,24 @@ type UserSettings = {
     profilePicture?: string;
 }
 
+type GroupSettings = {
+    syncTimetable?: boolean;
+    showInGroup?: boolean;
+    shareHomework?: boolean;
+}
+
 type UserData = {
     timetable: TimetableData,
     timetableSettings: TimetableSettings,
     settings: UserSettings,
+    groupId?: string;
+    groupSettings?: GroupSettings;
+}
+
+type GroupData = {
+    timetable: TimetableData,
+    timetableSettings: TimetableSettings,
+    name?: string;
 }
 
 export default function Page() {
@@ -65,7 +79,6 @@ export default function Page() {
   
   const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
 
-  // All hooks are now at the top level
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,7 +86,6 @@ export default function Page() {
   const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings | null>(null);
   const [localSettings, setLocalSettings] = useState<UserSettings | null>(null);
   
-  // Set initial view state only once
   const [view, setView] = useState(() => {
     if (typeof window !== 'undefined') {
         const path = window.location.pathname;
@@ -90,6 +102,12 @@ export default function Page() {
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const groupDocRef = useMemoFirebase(() => 
+    userData?.groupId ? doc(firestore, 'groups', userData.groupId) : null
+  , [firestore, userData?.groupId]);
+
+  const { data: groupData, isLoading: isGroupDataLoading } = useDoc<GroupData>(groupDocRef);
   
   const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
@@ -233,22 +251,32 @@ export default function Page() {
     };
   }
 
-  const { currentTimetable, currentTimetableSettings } = useMemo(() => {
+  const { currentTimetable, currentTimetableSettings, isTimetableSynced } = useMemo(() => {
+    const isSynced = !!(userData?.groupSettings?.syncTimetable && groupData);
+    
+    if (isSynced) {
+        return {
+            currentTimetable: groupData.timetable,
+            currentTimetableSettings: groupData.timetableSettings,
+            isTimetableSynced: true
+        }
+    }
+    
     if (user && !user.isAnonymous) {
       return {
         currentTimetable: userData?.timetable || {},
-        currentTimetableSettings: userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }
+        currentTimetableSettings: userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
+        isTimetableSynced: false
       };
     }
     return {
       currentTimetable: localTimetable || {},
-      currentTimetableSettings: localTimetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }
+      currentTimetableSettings: localTimetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
+      isTimetableSynced: false
     };
-  }, [user, userData, localTimetable, localTimetableSettings]);
+  }, [user, userData, localTimetable, localTimetableSettings, groupData]);
 
-  // --- Render Logic ---
-  
-  if (isLoading) {
+  if (isLoading || (user && !user.isAnonymous && isUserDataLoading) || (userData?.groupId && isGroupDataLoading)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -275,7 +303,14 @@ export default function Page() {
       case 'smart-tool':
         return <SmartToolsView />;
       case 'settings':
-        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(newSettings) => updateUserData({ timetableSettings: newSettings })} />;
+        return <SettingsView 
+                    onEditTimetable={handleEditTimetable} 
+                    isPreview={isPreviewMode} 
+                    onTimetableImport={handleTimetableImport} 
+                    timetableSettings={effectiveSettings} 
+                    onSettingsChange={(newSettings) => updateUserData({ timetableSettings: newSettings })}
+                    isTimetableSynced={isTimetableSynced}
+                />;
       case 'edit':
         return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={getInitialDataForSetup()} isEditing={true} viewMode="edit" />;
       default:
