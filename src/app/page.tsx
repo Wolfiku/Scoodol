@@ -1,18 +1,18 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings, Info, Timer } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings, Info, Timer, Loader2, LayoutGrid } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
-import { Loader2 } from 'lucide-react';
 import initialTimetableData from "@/app/data/timetable.json";
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useToast } from '@/hooks/use-toast';
@@ -70,51 +70,95 @@ type UserData = {
 }
 
 export default function Page() {
-    const router = useRouter();
-    const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isUserLoading } = useUser();
 
-    // Redirect logged-in users to workspace
-    useEffect(() => {
-        if (!isUserLoading && user && !user.isAnonymous) {
-            router.replace('/workspace');
+  const [view, setView] = useState('daily');
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
+  const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+  const [localSettings, setLocalSettings] = useState<UserSettings>({});
+  
+  const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
+  const { toast } = useToast();
+  const auth = useAuth();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(() => 
+    user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
+  , [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  // Initial load and routing effect
+  useEffect(() => {
+    const checkSetup = async () => {
+      // Determine mode (preview, creator, etc.) from path
+      const isPreview = pathname.startsWith('/creator/');
+      setIsPreviewMode(isPreview);
+
+      // Wait for user status to be determined
+      if (isUserLoading) return;
+
+      if (user && !user.isAnonymous) {
+        // Logged-in user
+        if (isUserDataLoading) return; // Wait for their data to load
+
+        if (userData) {
+          // Data exists, setup is complete
+          setIsSetupComplete(true);
+        } else {
+          // New logged-in user, setup is not complete
+          setIsSetupComplete(false);
         }
-    }, [user, isUserLoading, router]);
 
-    // All hooks for the anonymous view are called here
-    const [view, setView] = useState('daily');
-    const [showUpdateDialog, setShowUpdateDialog] = useState(false);
-    const isMobile = useIsMobile();
-    const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
-    const { toast } = useToast();
-    const auth = useAuth();
-    const firestore = useFirestore();
-
-    const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
-    const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-    const [isPreviewMode, setIsPreviewMode] = useState(false);
-    const [isSetupComplete, setIsSetupComplete] = useState(false);
-    
-    // This effect runs once to check the initial state for anonymous users
-    useEffect(() => {
+      } else {
+        // Anonymous or no user
         const localSetupDone = !!localStorage.getItem('isSetupComplete');
         setIsSetupComplete(localSetupDone);
-
         if (!localSetupDone && auth && !user) {
-            initiateAnonymousSignIn(auth);
+          await initiateAnonymousSignIn(auth);
         }
+      }
+      setIsAppLoading(false);
+    };
 
-        const storedTimetable = localStorage.getItem('timetable');
-        if (storedTimetable) setLocalTimetable(JSON.parse(storedTimetable));
-        
-        const storedSettings = localStorage.getItem('timetableSettings');
-        if (storedSettings) setLocalTimetableSettings(JSON.parse(storedSettings));
+    checkSetup();
+  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname]);
 
+
+  // Effect to set view on initial load
+  useEffect(() => {
+    if (!isAppLoading && isSetupComplete) {
+       if (user && !user.isAnonymous && userData?.settings?.startView) {
+        setView(userData.settings.startView);
+      } else {
         setView(localStorage.getItem('startView') || 'daily');
+      }
+    }
+  }, [isAppLoading, isSetupComplete, user, userData]);
 
-    }, [auth, user]);
+
+  // Memoize data sources to avoid re-renders
+  const currentTimetable = useMemo(() => {
+    if (user && !user.isAnonymous) return userData?.timetable || {};
+    return localTimetable;
+  }, [user, userData, localTimetable]);
+
+  const currentTimetableSettings = useMemo(() => {
+    if (user && !user.isAnonymous) return userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+    return localTimetableSettings;
+  }, [user, userData, localTimetableSettings]);
 
 
-    const updateLocalData = (data: Partial<UserData>) => {
+  const updateUserData = (data: Partial<UserData>) => {
+    if (user && !user.isAnonymous && userDocRef) {
+        setDoc(userDocRef, data, { merge: true });
+    } else {
         if(data.timetable) {
             localStorage.setItem('timetable', JSON.stringify(data.timetable));
             setLocalTimetable(data.timetable);
@@ -123,118 +167,177 @@ export default function Page() {
             localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
             setLocalTimetableSettings(data.timetableSettings);
         }
+        if(data.settings) {
+            const newSettings = {...localSettings, ...data.settings };
+            setLocalSettings(newSettings);
+            if (newSettings.theme) localStorage.setItem('theme', newSettings.theme);
+            if (newSettings.startView) localStorage.setItem('startView', newSettings.startView);
+            if (newSettings.aiLanguage) localStorage.setItem('aiLanguage', newSettings.aiLanguage);
+        }
     }
+  }
 
-    const handleSetupComplete = (newUserData: Partial<UserData>) => {
-        localStorage.setItem('isSetupComplete', 'true');
-        setIsSetupComplete(true);
-        updateLocalData(newUserData);
-        setView(localStorage.getItem('startView') || 'daily');
+  const handleSetupComplete = (newUserData: Partial<UserData>) => {
+    if (user && !user.isAnonymous && userDocRef) {
+      setDoc(userDocRef, newUserData, { merge: true });
+    } else {
+      localStorage.setItem('isSetupComplete', 'true');
+      if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+      if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
     }
-  
-    const handleTimetableImport = (importedData: any) => {
+    setIsSetupComplete(true);
+    setView(startView || 'daily');
+  }
+
+  const handleTimetableImport = (importedData: any) => {
+    const dataToSave: Partial<UserData> = {
+      timetable: importedData.timetable,
+      timetableSettings: importedData.timetableSettings,
+      settings: {
+        theme: importedData.theme,
+        startView: importedData.startView,
+        aiLanguage: importedData.aiLanguage,
+        betaFeaturesEnabled: importedData.betaFeaturesEnabled === 'true',
+        profilePicture: importedData.profilePicture,
+      }
+    };
+    
+    if (user && !user.isAnonymous && userDocRef) {
+        setDoc(userDocRef, dataToSave, { merge: true }).then(() => {
+             window.location.reload();
+        });
+    } else {
         if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
         if (importedData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
-        if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks));
+        if (importedData.homeworks) localStorage.setItem('homeworks', JSON.stringify(importedData.homeworks)); // Still local for anonymous
         if (importedData.theme) setTheme(importedData.theme);
-        if (importedData.startView) {
-            setThemeStartView(importedData.startView);
-            setView(importedData.startView);
-        }
-        if (importedData.settings?.profilePicture) localStorage.setItem('profilePicture', importedData.settings.profilePicture);
+        if (importedData.startView) setThemeStartView(importedData.startView);
+        if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage);
         if (importedData.betaFeaturesEnabled) localStorage.setItem('betaFeaturesEnabled', importedData.betaFeaturesEnabled);
-        if (importedData.aiLanguage) setAiLanguage(importedData.aiLanguage as 'German' | 'English');
-        
+        if (importedData.profilePicture) localStorage.setItem('profilePicture', importedData.profilePicture);
+
+        if (!localStorage.getItem('isSetupComplete')) {
+            localStorage.setItem('isSetupComplete', 'true');
+        }
         window.location.reload();
     }
+  }
 
-    const handleEditTimetable = () => {
-        setView('edit');
-    }
-  
-    const handleNavClick = (newView: string) => {
+  const handleEditTimetable = () => {
+    setView('edit');
+  }
+
+  const handleNavClick = (newView: string) => {
+    if (newView.startsWith('/')) {
+        router.push(newView);
+    } else {
         setView(newView);
-    };
+    }
+  };
 
-    if (isUserLoading || (user && !user.isAnonymous)) {
-        return (
-            <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
-                <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-                <p className="text-muted-foreground mt-4">Weiterleitung zum Workspace...</p>
-            </div>
-        );
-    }
-    
-    if (!isSetupComplete) {
-        return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
-    }
+  const getInitialDataForSetup = () => {
+      if (user && !user.isAnonymous && userData) {
+          return { timetable: userData.timetable, timetableSettings: userData.timetableSettings, settings: userData.settings };
+      }
+      return { timetable: localTimetable, timetableSettings: localTimetableSettings, settings: localSettings };
+  }
 
-    const renderView = () => {
-        switch(view) {
-        case 'daily':
-            return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={localTimetable} timetableSettings={localTimetableSettings} onTimetableUpdate={(newTimetable) => updateLocalData({ timetable: newTimetable })} />;
-        case 'weekly':
-            return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={localTimetable} timetableSettings={localTimetableSettings} />;
-        case 'homework':
-            return <HomeworkPlanner />;
-        case 'smart-tool':
-            return <SmartToolsView />;
-        case 'settings':
-            return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={localTimetableSettings} onSettingsChange={(newSettings) => updateLocalData({ timetableSettings: newSettings })} />;
-        case 'edit':
-            return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{timetable: localTimetable, timetableSettings: localTimetableSettings}} isEditing={true} viewMode="edit" />;
-        default:
-            return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={localTimetable} timetableSettings={localTimetableSettings} onTimetableUpdate={(newTimetable) => updateLocalData({ timetable: newTimetable })} />;
-        }
-    }
-  
-    const isHomeView = view === 'daily' || view === 'weekly';
-  
+  // --- Render Logic ---
+
+  if (isAppLoading) {
     return (
-        <>
-        <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
-            {renderView()}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">
-                <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
-                <Button
-                    variant={isHomeView ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="rounded-full h-14 w-14 flex flex-col gap-1"
-                    onClick={() => handleNavClick(startView || 'daily')}
-                >
-                    <Home className="w-5 h-5" />
-                    <span className="text-[10px] whitespace-nowrap">Heute</span>
-                </Button>
-                <Button
-                    variant={view === 'homework' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="rounded-full h-14 w-14 flex flex-col gap-1"
-                    onClick={() => handleNavClick('homework')}
-                >
-                    <ListChecks className="w-5 h-5" />
-                    <span className="text-[10px] whitespace-nowrap">Aufgaben</span>
-                </Button>
-                <Button
-                    variant={view === 'smart-tool' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="rounded-full h-14 w-14 flex flex-col gap-1"
-                    onClick={() => handleNavClick('smart-tool')}
-                >
-                    <Sparkles className="w-5 h-5" />
-                    <span className="text-[10px] whitespace-nowrap">Smart Tools</span>
-                </Button>
-                <Button
-                    variant={view === 'settings' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    className="rounded-full h-14 w-14 flex flex-col gap-1"
-                    onClick={() => handleNavClick('settings')}
-                >
-                    <Settings className="w-5 h-5" />
-                    <span className="text-[10px] whitespace-nowrap">Einst.</span>
-                </Button>
-                </div>
-            </div>
-        </main>
-        </>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary"/>
+        <p className="text-muted-foreground mt-4">Lade Scoodol...</p>
+      </div>
     );
+  }
+
+  if (!isSetupComplete) {
+    return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
+  }
+
+  const renderView = () => {
+    const effectiveTimetable = isPreviewMode ? previewTimetableData : currentTimetable;
+
+    switch(view) {
+      case 'daily':
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={currentTimetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
+      case 'weekly':
+        return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={currentTimetableSettings} />;
+      case 'homework':
+        return <HomeworkPlanner />;
+      case 'smart-tool':
+        return <SmartToolsView />;
+      case 'settings':
+        return <SettingsView onEditTimetable={handleEditTimetable} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={currentTimetableSettings} onSettingsChange={(newSettings) => updateUserData({ timetableSettings: newSettings })} />;
+      case 'edit':
+        return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={getInitialDataForSetup()} isEditing={true} viewMode="edit" />;
+      default:
+        return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={currentTimetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
+    }
+  }
+
+  const isHomeView = view === 'daily' || view === 'weekly';
+  const effectiveStartView = (user && !user.isAnonymous ? userData?.settings?.startView : startView) || 'daily';
+
+  return (
+    <>
+      <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
+        {renderView()}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-8 z-50">
+          <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
+            <Button
+              variant={isHomeView ? 'secondary' : 'ghost'}
+              size="icon"
+              className="rounded-full h-14 w-14 flex flex-col gap-1"
+              onClick={() => handleNavClick(effectiveStartView)}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[10px] whitespace-nowrap">Heute</span>
+            </Button>
+            <Button
+              variant={view === 'homework' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="rounded-full h-14 w-14 flex flex-col gap-1"
+              onClick={() => handleNavClick('homework')}
+            >
+              <ListChecks className="w-5 h-5" />
+              <span className="text-[10px] whitespace-nowrap">Aufgaben</span>
+            </Button>
+            {user && !user.isAnonymous && (
+                <Button
+                    variant={pathname === '/workspace' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="rounded-full h-14 w-14 flex flex-col gap-1"
+                    onClick={() => handleNavClick('/workspace')}
+                >
+                    <LayoutGrid className="w-5 h-5" />
+                    <span className="text-[10px] whitespace-nowrap">Workspace</span>
+                </Button>
+            )}
+            <Button
+              variant={view === 'smart-tool' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="rounded-full h-14 w-14 flex flex-col gap-1"
+              onClick={() => handleNavClick('smart-tool')}
+            >
+              <Sparkles className="w-5 h-5" />
+              <span className="text-[10px] whitespace-nowrap">Tools</span>
+            </Button>
+            <Button
+              variant={view === 'settings' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="rounded-full h-14 w-14 flex flex-col gap-1"
+              onClick={() => handleNavClick('settings')}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[10px] whitespace-nowrap">Einst.</span>
+            </Button>
+          </div>
+        </div>
+      </main>
+    </>
+  );
 }
+
