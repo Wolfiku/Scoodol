@@ -1,4 +1,3 @@
-
 "use server";
 
 import { findElement } from "@/ai/flows/find-element";
@@ -11,6 +10,8 @@ import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
 import { simplifyText } from "@/ai/flows/simplify-text";
 import { scanVocabulary } from "@/ai/flows/scan-vocabulary";
 import type { ScanVocabularyOutput } from "@/ai/flows/scan-vocabulary";
+import { aiTutorChat } from "@/ai/flows/ai-tutor-chat";
+import type { AiTutorChatInput } from "@/ai/flows/ai-tutor-chat";
 
 export async function searchFormula(query: string, formulas: string, language: string) {
   try {
@@ -80,5 +81,15 @@ export async function scanVocabularyImage(photoDataUri: string, language: string
     } catch (error) {
         console.error("Error scanning vocabulary:", error);
         return { error: "Beim Scannen der Vokabeln ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function getTutorChatReply(input: AiTutorChatInput) {
+    try {
+        const result = await aiTutorChat(input);
+        return result;
+    } catch (error) {
+        console.error("Error getting AI tutor reply:", error);
+        return { error: "Entschuldigung, beim Abrufen der Antwort ist ein Fehler aufgetreten." };
     }
 }
