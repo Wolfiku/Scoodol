@@ -363,10 +363,10 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-center gap-4 p-3 rounded-md bg-secondary"
+                className="flex items-center justify-between gap-4 p-3 rounded-md bg-secondary"
               >
                 <div 
-                  className="flex items-start gap-4 cursor-pointer flex-1"
+                  className="flex items-start gap-4 cursor-pointer"
                   onClick={() => toggleDone(hw.id)}
                 >
                   <Checkbox
@@ -414,10 +414,10 @@ export default function HomeworkPlanner() {
               .map((hw) => (
               <div
                 key={hw.id}
-                className="flex items-center gap-3 p-3 rounded-md bg-secondary/50"
+                className="flex items-center justify-between gap-3 p-3 rounded-md bg-secondary/50"
               >
                 <div 
-                  className="flex items-start gap-3 cursor-pointer flex-1"
+                  className="flex items-start gap-3 cursor-pointer"
                   onClick={() => toggleDone(hw.id)}
                 >
                   <Checkbox
@@ -459,5 +459,7 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
+
+    
 
     
