@@ -383,22 +383,17 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                     </CardHeader>
                     <CardContent className="space-y-3">
                          <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Los geht's!</Button>
-                         <Button size="lg" variant="outline" className="w-full" onClick={() => importFileInputRef.current?.click()}>
-                            <Upload className="mr-2" /> Daten importieren
+                         <Button size="lg" variant="outline" className="w-full" asChild>
+                            <Link href="/login">Anmelden</Link>
                         </Button>
-                        <input 
-                            type="file" 
-                            ref={importFileInputRef} 
-                            className="hidden" 
-                            accept=".json"
-                            onChange={handleImportFileChange}
-                        />
-                         <div className="flex justify-center gap-2 pt-4">
-                            <Button variant="link" onClick={() => router.push('/login')}>Anmelden</Button>
-                            <Button variant="link" onClick={() => router.push('/register')}>Registrieren</Button>
-                        </div>
+                         <div className="text-center text-sm">
+                            Noch keinen Account?{" "}
+                            <Button variant="link" asChild className="p-0 h-auto">
+                                <Link href="/register">Jetzt registrieren</Link>
+                            </Button>
+                         </div>
                     </CardContent>
-                    <CardFooter className="flex justify-center gap-4 text-sm">
+                    <CardFooter className="flex justify-center gap-4 text-sm pt-4">
                         <Button variant="link" asChild className="text-muted-foreground">
                             <Link href="/impressum">Impressum</Link>
                         </Button>
