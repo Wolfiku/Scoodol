@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, MessageSquare, Loader2 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
@@ -27,6 +27,25 @@ export default function WorkspacePage() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
     
+    useEffect(() => {
+      // Don't do anything while data is loading
+      if (isUserLoading || isProfileLoading) return;
+
+      // If user is not logged in or anonymous, redirect to login
+      if (!user || user.isAnonymous) {
+        router.push('/login');
+        return;
+      }
+
+      // Check for access rights after user and profile are loaded
+      const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
+      if (!hasAccess) {
+        router.push('/');
+        // You could add a toast message here if you want to inform the user
+      }
+    }, [user, isUserLoading, userProfile, isProfileLoading, router]);
+
+    
     if (isUserLoading || isProfileLoading) {
         return (
              <div className="flex justify-center items-center h-screen">
@@ -35,18 +54,12 @@ export default function WorkspacePage() {
         )
     }
 
-    if (!user || user.isAnonymous) {
-        router.push('/login');
+    // Render null while redirecting
+    const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
+    if (!user || user.isAnonymous || !hasAccess) {
         return null;
     }
 
-    // Protect the route for specific roles
-    const hasAccess = userProfile?.role === 'admin' || userProfile?.role === 'workspace_plus_user';
-    if (!hasAccess) {
-        router.push('/');
-        // You might want to show a toast message here as well
-        return null;
-    }
 
     return (
         <div className="container mx-auto p-4 md:p-8">
