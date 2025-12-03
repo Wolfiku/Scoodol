@@ -74,7 +74,6 @@ type UserData = {
 
 export default function Page() {
   const [view, setView] = useState('daily');
-  const [isInitialised, setIsInitialised] = useState(false);
   
   const isMobile = useIsMobile();
   const { theme, setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
@@ -96,23 +95,7 @@ export default function Page() {
   const [localTimetable, setLocalTimetable] = useState(initialTimetableData);
   const [localTimetableSettings, setLocalTimetableSettings] = useState({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
   
-  const isSetupComplete = useMemo(() => {
-    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
-      // If we are loading user or user data, we don't know the setup status yet.
-      return false;
-    }
-    if (user && !user.isAnonymous) {
-      // For registered users, setup is complete if they have userData.
-      return !!userData;
-    }
-    // For anonymous users, check localStorage.
-    return !!localStorage.getItem('isSetupComplete');
-  }, [user, isUserLoading, userData, isUserDataLoading]);
-  
-  const timetableData = isSetupComplete ? (userData?.timetable || localTimetable) : localTimetable;
-  const timetableSettings = isSetupComplete ? (userData?.timetableSettings || localTimetableSettings) : localTimetableSettings;
-
-  // Effect for initial authentication and setup check
+  // Effect for initial authentication
   useEffect(() => {
     if (isUserLoading) return; // Wait for user status
 
@@ -123,46 +106,33 @@ export default function Page() {
     }
   }, [user, isUserLoading, auth]);
 
-  // Effect to handle data loading and view initialization
+  // Effect to handle data loading and view initialization from localStorage for anonymous users
   useEffect(() => {
-    if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading)) {
-      return; // Wait until all data is loaded
-    }
-
-    if (isInitialised) return; // Only run this effect once on initial load
-
-    const localSetupDone = !!localStorage.getItem('isSetupComplete');
-    const setupDone = (user && !user.isAnonymous && userData) || (user && user.isAnonymous && localSetupDone);
-    
-    if (user && user.isAnonymous && localSetupDone) {
+    if (user && user.isAnonymous) {
         const storedTimetable = localStorage.getItem('timetable');
         if (storedTimetable) setLocalTimetable(JSON.parse(storedTimetable));
         const storedSettings = localStorage.getItem('timetableSettings');
         if (storedSettings) setLocalTimetableSettings(JSON.parse(storedSettings));
     }
+  }, [user]);
 
-    const path = window.location.pathname;
-    const isCreatorMode = path.startsWith('/creator/');
-    const isEditMode = path.startsWith('/edit/');
-
-    if (isCreatorMode) {
-        setView('creator');
-    } else if (isEditMode) {
-        setView('edit');
-    } else if (setupDone) {
-        // Use the startView from the hook, which is already synced with user settings or localStorage
-        setView(startView || 'daily');
-    } else {
-        setView('setup'); // Fallback to setup if no conditions are met
+  const isSetupComplete = useMemo(() => {
+    if (!user) return false; // Not ready if no user object
+    if (!user.isAnonymous) {
+      return !!userData; // For registered users, setup is complete if they have userData.
     }
+    // For anonymous users, check localStorage.
+    return !!localStorage.getItem('isSetupComplete');
+  }, [user, userData]);
 
-    setIsInitialised(true);
-  }, [user, userData, isUserLoading, isUserDataLoading, isInitialised, startView]);
+  
+  const timetableData = isSetupComplete ? (userData?.timetable || localTimetable) : localTimetable;
+  const timetableSettings = isSetupComplete ? (userData?.timetableSettings || localTimetableSettings) : localTimetableSettings;
 
   
   const updateUserData = (data: Partial<UserData>) => {
-    if (user && !user.isAnonymous) {
-      setDocumentNonBlocking(userDocRef!, data, { merge: true });
+    if (user && !user.isAnonymous && userDocRef) {
+      setDocumentNonBlocking(userDocRef, data, { merge: true });
     } else {
         if(data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
         if(data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
@@ -170,23 +140,27 @@ export default function Page() {
   }
 
   const handleSetupComplete = (newUserData: Partial<UserData>) => {
-      if (user && !user.isAnonymous) {
-      const dataToSet: UserData = {
-        timetable: newUserData.timetable || initialTimetableData,
-        timetableSettings: newUserData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
-        settings: {
-          ...userData?.settings,
-          ...newUserData.settings,
-        },
-      };
-      setDocumentNonBlocking(userDocRef!, dataToSet, { merge: false }); // Overwrite completely on initial setup
+      if (user && !user.isAnonymous && userDocRef) {
+          const dataToSet: UserData = {
+            timetable: newUserData.timetable || initialTimetableData,
+            timetableSettings: newUserData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 },
+            settings: {
+              ...(userData?.settings || {}),
+              ...(newUserData.settings || {}),
+            },
+          };
+          setDocumentNonBlocking(userDocRef, dataToSet, { merge: false }); // Overwrite completely on initial setup
     } else {
       // For anonymous users, save to localStorage
       localStorage.setItem('isSetupComplete', 'true');
-      localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
-      setLocalTimetable(newUserData.timetable as TimetableData);
-      localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
-      setLocalTimetableSettings(newUserData.timetableSettings as TimetableSettings);
+      if (newUserData.timetable) {
+        localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+        setLocalTimetable(newUserData.timetable as TimetableData);
+      }
+      if (newUserData.timetableSettings) {
+        localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+        setLocalTimetableSettings(newUserData.timetableSettings as TimetableSettings);
+      }
       if (newUserData.settings?.profilePicture) {
         localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
       }
@@ -228,11 +202,11 @@ export default function Page() {
     updateUserData(newUserData);
 
     if (importedData.homeworks && user) {
-        const homeworksRef = doc(firestore, `users/${user.uid}`);
         // This part is more complex, would need to clear and add new homeworks.
         // For now, we focus on timetable and settings.
     }
     toast({ title: "Import erfolgreich!", description: "Deine Daten werden synchronisiert." });
+    setTimeout(() => window.location.reload(), 1500);
   }
 
   const handleEditTimetable = () => {
@@ -266,28 +240,39 @@ export default function Page() {
   if (path === '/login' || path === '/register' || path === '/success') {
       return null;
   }
+  
+  // Set initial view based on path or startView setting
+  useEffect(() => {
+    const path = window.location.pathname;
+    const isCreatorMode = path.startsWith('/creator/');
+    const isEditMode = path.startsWith('/edit/');
+    
+    if (isCreatorMode) {
+        setView('creator');
+    } else if (isEditMode) {
+        setView('edit');
+    } else if (isSetupComplete) {
+        setView(startView || 'daily');
+    } else {
+        setView('setup');
+    }
+  }, [isSetupComplete, startView]);
+
 
   const isHomeView = view === 'daily' || view === 'weekly';
+  const isLoading = isUserLoading || (user && !user.isAnonymous && isUserDataLoading);
 
-  const isLoading = !isInitialised || isUserLoading || (user && !user.isAnonymous && isUserDataLoading);
-
-  if (isLoading && view !== 'setup') {
+  // 1. Loading State: Show a full-screen loader while waiting for user or data.
+  if (isLoading) {
      return (
-      <div className="relative flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-          <p className="text-muted-foreground flex items-center justify-center">
-            Daten werden geladen...
-          </p>
-        </div>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary"/>
+        <p className="text-muted-foreground mt-4">Daten werden geladen...</p>
       </div>
     );
   }
   
-  if (view === 'creator' || view === 'edit') {
-      return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={userData || undefined} isEditing={true} viewMode={view} />;
-  }
-
+  // 2. Setup State: If not loading and setup is not complete, show the setup view.
   if (!isSetupComplete && !isPreviewMode) {
       return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
   }
@@ -312,11 +297,15 @@ export default function Page() {
           return <VokabelPage />
       case 'setup':
         return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} />;
+      case 'creator':
+      case 'edit':
+          return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{timetable, timetableSettings, settings: {}}} isEditing={true} viewMode={view} />;
       default:
         return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={timetableData} timetableSettings={timetableSettings} onTimetableUpdate={(newTimetable) => updateUserData({ timetable: newTimetable })} />;
     }
   }
   
+  // 3. Main App State: If loaded and setup is complete, show the main app.
   return (
     <>
       <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
@@ -339,7 +328,6 @@ export default function Page() {
       </Dialog>
       
       {renderView()}
-
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-8 z-50">
         <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
