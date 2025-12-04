@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, User, Users, Plus, ArrowRight, MessageSquare } from 'lucide-react';
@@ -71,6 +70,7 @@ export default function ChatsPage() {
   useEffect(() => {
     if (!userProfile?.chatIds || !firestore || !user) {
         setIsLoadingChats(false);
+        setChats([]);
         return;
     };
 
@@ -131,20 +131,6 @@ export default function ChatsPage() {
       setIsCreating(true);
 
       try {
-          // Check if a private chat between these two users already exists
-          const chatsRef = collection(firestore, 'chats');
-          const q = query(chatsRef, 
-              where('type', '==', 'private'),
-              where('members', 'array-contains', user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-          const existingChat = querySnapshot.docs.find(doc => doc.data().members.includes(targetUserId));
-          
-          if(existingChat) {
-              router.push(`/chats/${existingChat.id}`);
-              return;
-          }
-
           // Check if target user exists
           const targetUserDoc = await getDoc(doc(firestore, 'users', targetUserId));
           if (!targetUserDoc.exists()) {
@@ -230,97 +216,102 @@ export default function ChatsPage() {
   if(!user) return null; // Should be redirected by useEffect
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Meine Chats</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2"/> Neuer Chat
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Neuen Chat starten</DialogTitle>
-              <DialogDescription>
-                Starte einen privaten Chat mit der Share ID oder erstelle eine neue Gruppe.
-              </DialogDescription>
-            </DialogHeader>
-            <Tabs defaultValue="direct" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="direct">Direkt-Chat</TabsTrigger>
-                <TabsTrigger value="group">Gruppe</TabsTrigger>
-              </TabsList>
-              <TabsContent value="direct" className="space-y-4 pt-4">
-                <Input 
-                    placeholder="Share ID des Nutzers einfügen"
-                    value={newChatShareId}
-                    onChange={(e) => setNewChatShareId(e.target.value)}
-                />
-                <Button onClick={handleStartDirectChat} disabled={isCreating} className="w-full">
-                    {isCreating ? <Loader2 className="animate-spin" /> : 'Chat starten'}
+    <div className="container mx-auto p-4 md:p-8">
+        <div className="flex flex-row justify-between items-center mb-6">
+            <div>
+                <h1 className="text-3xl font-bold">Meine Chats</h1>
+                <p className="text-muted-foreground">Deine privaten und Gruppen-Konversationen.</p>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                <Button>
+                    <Plus className="mr-2"/> Neuer Chat
                 </Button>
-              </TabsContent>
-              <TabsContent value="group" className="space-y-4 pt-4">
-                <Input 
-                    placeholder="Gruppenname"
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                />
-                <Button onClick={handleStartGroupChat} disabled={isCreating} className="w-full">
-                    {isCreating ? <Loader2 className="animate-spin" /> : 'Gruppe erstellen'}
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
-      </div>
+                </DialogTrigger>
+                <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Neuen Chat starten</DialogTitle>
+                    <DialogDescription>
+                    Starte einen privaten Chat mit der Share ID oder erstelle eine neue Gruppe.
+                    </DialogDescription>
+                </DialogHeader>
+                <Tabs defaultValue="direct" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="direct">Direkt-Chat</TabsTrigger>
+                    <TabsTrigger value="group">Gruppe</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="direct" className="space-y-4 pt-4">
+                    <Input 
+                        placeholder="Share ID des Nutzers einfügen"
+                        value={newChatShareId}
+                        onChange={(e) => setNewChatShareId(e.target.value)}
+                    />
+                    <Button onClick={handleStartDirectChat} disabled={isCreating} className="w-full">
+                        {isCreating ? <Loader2 className="animate-spin" /> : 'Chat starten'}
+                    </Button>
+                    </TabsContent>
+                    <TabsContent value="group" className="space-y-4 pt-4">
+                    <Input 
+                        placeholder="Gruppenname"
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                    />
+                    <Button onClick={handleStartGroupChat} disabled={isCreating} className="w-full">
+                        {isCreating ? <Loader2 className="animate-spin" /> : 'Gruppe erstellen'}
+                    </Button>
+                    </TabsContent>
+                </Tabs>
+                </DialogContent>
+            </Dialog>
+        </div>
 
         {isLoadingChats ? (
-             <div className="flex justify-center items-center p-8">
-                <Loader2 className="w-8 h-8 animate-spin" />
+            <div className="flex justify-center items-center p-8">
+            <Loader2 className="w-8 h-8 animate-spin" />
             </div>
         ) : chats.length > 0 ? (
-            <ScrollArea className="h-[calc(100vh-200px)]">
-                <div className="space-y-2">
-                    {chats.map(chat => {
-                        const avatarSrc = chat.type === 'private' ? chat.otherMember?.profilePicture : undefined;
-                        const fallback = chat.type === 'private' 
-                            ? (chat.otherMember?.displayName?.charAt(0) || '?') 
-                            : (chat.name?.charAt(0) || 'G');
+        <ScrollArea className="h-[calc(100vh-250px)]">
+            <div className="space-y-2">
+                {chats.map(chat => {
+                    const avatarSrc = chat.type === 'private' ? chat.otherMember?.profilePicture : undefined;
+                    const fallback = chat.type === 'private' 
+                        ? (chat.otherMember?.displayName?.charAt(0) || '?') 
+                        : (chat.name?.charAt(0) || 'G');
 
-                        const displayName = chat.type === 'private' ? chat.otherMember?.displayName : chat.name;
-                        
-                        return (
-                            <Link href={`/chats/${chat.id}`} key={chat.id}>
-                                <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors">
-                                    <Avatar className="h-12 w-12">
-                                        <AvatarImage src={avatarSrc} />
-                                        <AvatarFallback className="text-xl bg-muted-foreground/20">
-                                            {chat.type === 'group' ? <Users/> : fallback}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 truncate">
-                                        <p className="font-semibold truncate">{displayName || "Unbekannter Chat"}</p>
-                                        <p className="text-sm text-muted-foreground truncate">{chat.lastMessage || "Noch keine Nachrichten"}</p>
-                                    </div>
-                                    <div className="flex flex-col items-end text-xs text-muted-foreground">
-                                        {chat.updatedAt && <span>{new Date(chat.updatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
-                                        {/* Placeholder for unread count badge */}
-                                    </div>
+                    const displayName = chat.type === 'private' ? chat.otherMember?.displayName : chat.name;
+                    
+                    return (
+                        <Link href={`/chats/${chat.id}`} key={chat.id}>
+                            <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={avatarSrc} />
+                                    <AvatarFallback className="text-xl bg-muted-foreground/20">
+                                        {chat.type === 'group' ? <Users/> : fallback}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 truncate">
+                                    <p className="font-semibold truncate">{displayName || "Unbekannter Chat"}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{chat.lastMessage || "Noch keine Nachrichten"}</p>
                                 </div>
-                            </Link>
-                        )
-                    })}
-                </div>
-            </ScrollArea>
+                                <div className="flex flex-col items-end text-xs text-muted-foreground">
+                                    {chat.updatedAt && <span>{new Date(chat.updatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
+                                    {/* Placeholder for unread count badge */}
+                                </div>
+                            </div>
+                        </Link>
+                    )
+                })}
+            </div>
+        </ScrollArea>
         ) : (
-             <div className="text-center p-12 bg-secondary rounded-lg">
-                <MessageSquare className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold">Noch keine Chats</h3>
-                <p className="text-muted-foreground mt-1">Starte einen neuen Chat, um loszulegen.</p>
-             </div>
+            <div className="text-center p-12 bg-secondary rounded-lg">
+            <MessageSquare className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold">Noch keine Chats</h3>
+            <p className="text-muted-foreground mt-1">Starte einen neuen Chat, um loszulegen.</p>
+            </div>
         )}
-      </>
+    </div>
   );
 }
+
+    
