@@ -38,6 +38,7 @@
       "description": "Stores user-specific application data like timetable and settings.",
       "properties": {
         "email": { "type": "string", "format": "email" },
+        "shareId": { "type": "string", "description": "The user's unique and shareable ID (UID)." },
         "role": { "type": "string", "enum": ["user", "admin", "workspace_plus_user"], "description": "The user's role in the application." },
         "groupId": { "type": "string", "description": "The ID of the group the user belongs to." },
         "groupSettings": {
@@ -60,6 +61,11 @@
             "betaFeaturesEnabled": { "type": "boolean" },
             "profilePicture": { "type": "string", "format": "uri" }
           }
+        },
+        "chatIds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of chat IDs the user is a member of."
         }
       }
     },

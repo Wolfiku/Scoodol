@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -64,6 +64,7 @@ type UserProfile = {
     groupId?: string;
     groupSettings?: GroupSettings;
     role?: 'user' | 'admin' | 'workspace_plus_user';
+    shareId?: string;
 }
 
 const parseTimeToMinutes = (time: string): number => {
@@ -90,6 +91,8 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const auth = useAuth();
     const firestore = useFirestore();
     const router = useRouter();
+
+    const [copied, setCopied] = useState(false);
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
@@ -252,6 +255,14 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         });
         toast({ title: "Einstellung gespeichert!" });
     }
+    
+    const copyShareId = () => {
+        if(!user?.uid) return;
+        navigator.clipboard.writeText(user.uid);
+        setCopied(true);
+        toast({ title: 'Kopiert!', description: 'Deine Share ID wurde in die Zwischenablage kopiert.' });
+        setTimeout(() => setCopied(false), 2000);
+    }
 
     const leaveGroup = async () => {
         if (!userDocRef) return;
@@ -318,7 +329,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                  <Card>
                     <CardHeader>
                         <CardTitle>Mein Account</CardTitle>
-                        <CardDescription>Verwalte deinen Account, um deine Daten zu sichern.</CardDescription>
+                        <CardDescription>Verwalte deinen Account und deine persönlichen IDs.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {user && !user.isAnonymous ? (
@@ -326,6 +337,15 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                 <div className="flex items-center gap-2">
                                     <User className="w-5 h-5 text-primary" />
                                     <p>Angemeldet als: <span className="font-semibold">{user.displayName || user.email}</span></p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Meine Share ID (für Direkt-Chats)</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input value={user.uid} readOnly />
+                                        <Button onClick={copyShareId} size="icon" className="shrink-0">
+                                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     <Button asChild variant="outline">
@@ -377,7 +397,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <p className="text-muted-foreground mb-4">Du bist in keiner Gruppe.</p>
                                     <Button asChild>
                                         <Link href="/groups">
-                                            <Users className="mr-2"/> Gruppe erstellen
+                                            <Users className="mr-2"/> Gruppe erstellen oder suchen
                                         </Link>
                                     </Button>
                                 </div>

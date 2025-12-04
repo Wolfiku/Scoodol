@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import AiTutor from '@/app/components/tools/ai-tutor';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { doc } from 'firebase/firestore';
+import Link from 'next/link';
 
 type UserProfile = {
   role?: 'user' | 'admin' | 'workspace_plus_user';
@@ -58,9 +59,11 @@ export default function WorkspacePage() {
             <header className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Scoodol Workspace</h1>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsChatOpen(true)}>
-                        <MessageSquare className="mr-2" />
-                        Chat
+                    <Button variant="outline" asChild>
+                        <Link href="/chats">
+                           <MessageSquare className="mr-2" />
+                            Chats
+                        </Link>
                     </Button>
                     <Button>
                         <Plus className="mr-2" />

@@ -71,6 +71,7 @@ export default function RegisterPage() {
       
       const userData = {
           role: 'user', // Set default role
+          shareId: user.uid, // Set shareId
           settings: {
               email: user.email, // Save email in settings for easier querying
               theme: theme || 'light',
@@ -81,6 +82,7 @@ export default function RegisterPage() {
           },
           timetable: timetable ? JSON.parse(timetable) : {},
           timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
+          chatIds: [], // Initialize with empty chatIds
       };
 
       batch.set(userDocRef, userData);

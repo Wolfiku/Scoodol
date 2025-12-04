@@ -24,6 +24,11 @@ service cloud.firestore {
     function isChatMember(chatId) {
       return get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
     }
+    
+    // Helper function to check if the chatID is in the user's profile
+    function isUserInChatList(userId, chatId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data.chatIds.hasAny([chatId]);
+    }
 
     match /users/{userId} {
       // Allow a user to read and write their own document.
@@ -48,10 +53,14 @@ service cloud.firestore {
     }
     
     match /chats/{chatId} {
-      // Users can only read chat metadata if they are a member of the chat.
-      // Users can only create a chat if they are including themselves in the members list.
-      // Users can only update a chat (e.g. name, last message) if they are a member.
-      allow read, update: if request.auth != null && isChatMember(chatId);
+      // A user can read a chat document IF the chat's ID is in their own user profile's 'chatIds' list.
+      // This prevents listing all chats but allows direct access to known chats.
+      allow get: if request.auth != null && isUserInChatList(request.auth.uid, chatId);
+      
+      // A user can update a chat (e.g. last message) if they are a member.
+      allow update: if request.auth != null && isChatMember(chatId);
+
+      // A user can only create a chat if they are including themselves in the members list.
       allow create: if request.auth != null && request.resource.data.members.hasAny([request.auth.uid]);
       // Deleting chats is not allowed for now to prevent data loss.
 
