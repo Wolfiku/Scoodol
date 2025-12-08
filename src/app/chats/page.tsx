@@ -216,7 +216,8 @@ export default function ChatsPage() {
   if(!user) return null; // Should be redirected by useEffect
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
+    <>
+      <div className="container mx-auto p-4 md:p-8">
         <div className="flex flex-row justify-between items-center mb-6">
             <div>
                 <h1 className="text-3xl font-bold">Meine Chats</h1>
@@ -264,6 +265,7 @@ export default function ChatsPage() {
                 </DialogContent>
             </Dialog>
         </div>
+        </div>
 
         {isLoadingChats ? (
             <div className="flex justify-center items-center p-8">
@@ -310,8 +312,6 @@ export default function ChatsPage() {
             <p className="text-muted-foreground mt-1">Starte einen neuen Chat, um loszulegen.</p>
             </div>
         )}
-    </div>
+      </>
   );
 }
-
-    
