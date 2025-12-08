@@ -4,17 +4,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, addDoc, writeBatch, arrayUnion, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, User, Users, Plus, ArrowRight, MessageSquare } from 'lucide-react';
+import { Loader2, User, Users, Plus, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from 'next/link';
-import { time } from 'console';
 
 type UserProfile = {
   chatIds?: string[];
@@ -30,7 +29,7 @@ type Chat = {
   type: 'private' | 'group';
   members: string[];
   lastMessage?: string;
-  updatedAt?: number;
+  updatedAt?: Timestamp;
   // For private chats, to show the other user's info
   otherMember?: {
     uid: string;
@@ -106,7 +105,7 @@ export default function ChatsPage() {
                 }
             }
             
-            fetchedChats.sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            fetchedChats.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0));
             setChats(fetchedChats);
 
         } catch (error) {
@@ -131,7 +130,6 @@ export default function ChatsPage() {
       setIsCreating(true);
 
       try {
-          // Check if target user exists
           const targetUserDoc = await getDoc(doc(firestore, 'users', targetUserId));
           if (!targetUserDoc.exists()) {
               toast({ variant: 'destructive', title: 'Benutzer nicht gefunden', description: 'Die eingegebene Share ID ist ungültig.' });
@@ -142,7 +140,6 @@ export default function ChatsPage() {
           const batch = writeBatch(firestore);
           const members = [user.uid, targetUserId];
 
-          // Create new chat document
           const newChatRef = doc(collection(firestore, 'chats'));
           batch.set(newChatRef, {
               type: 'private',
@@ -151,7 +148,6 @@ export default function ChatsPage() {
               updatedAt: serverTimestamp(),
           });
 
-          // Add chatId to both users' profiles
           members.forEach(memberId => {
               const userRef = doc(firestore, 'users', memberId);
               batch.update(userRef, { chatIds: arrayUnion(newChatRef.id) });
@@ -178,18 +174,16 @@ export default function ChatsPage() {
     try {
         const batch = writeBatch(firestore);
         
-        // Create new chat document
         const newChatRef = doc(collection(firestore, 'chats'));
         batch.set(newChatRef, {
             name: newGroupName,
             type: 'group',
             members: [user.uid],
-            admins: [user.uid], // Creator is admin
+            admins: [user.uid], 
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
         
-        // Add chatId to creator's profile
         const userRef = doc(firestore, 'users', user.uid);
         batch.update(userRef, { chatIds: arrayUnion(newChatRef.id) });
 
@@ -213,10 +207,9 @@ export default function ChatsPage() {
       return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
-  if(!user) return null; // Should be redirected by useEffect
+  if(!user) return null; 
 
   return (
-    <>
       <div className="container mx-auto p-4 md:p-8">
         <div className="flex flex-row justify-between items-center mb-6">
             <div>
@@ -265,7 +258,6 @@ export default function ChatsPage() {
                 </DialogContent>
             </Dialog>
         </div>
-        </div>
 
         {isLoadingChats ? (
             <div className="flex justify-center items-center p-8">
@@ -282,6 +274,19 @@ export default function ChatsPage() {
 
                     const displayName = chat.type === 'private' ? chat.otherMember?.displayName : chat.name;
                     
+                    const getTimestamp = () => {
+                      if (!chat.updatedAt) return null;
+                      // Firestore timestamps can be objects on the client
+                      if (chat.updatedAt.toDate) {
+                        return chat.updatedAt.toDate().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                      }
+                      // Or they could be numbers if they came from local state before sync
+                      if(typeof chat.updatedAt === 'number') {
+                        return new Date(chat.updatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                      }
+                      return null;
+                    }
+                    
                     return (
                         <Link href={`/chats/${chat.id}`} key={chat.id}>
                             <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors">
@@ -296,7 +301,7 @@ export default function ChatsPage() {
                                     <p className="text-sm text-muted-foreground truncate">{chat.lastMessage || "Noch keine Nachrichten"}</p>
                                 </div>
                                 <div className="flex flex-col items-end text-xs text-muted-foreground">
-                                    {chat.updatedAt && <span>{new Date(chat.updatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
+                                    {getTimestamp() && <span>{getTimestamp()}</span>}
                                     {/* Placeholder for unread count badge */}
                                 </div>
                             </div>
@@ -312,6 +317,6 @@ export default function ChatsPage() {
             <p className="text-muted-foreground mt-1">Starte einen neuen Chat, um loszulegen.</p>
             </div>
         )}
-      </>
+      </div>
   );
 }
