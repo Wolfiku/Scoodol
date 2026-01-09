@@ -34,6 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type Task = {
@@ -304,10 +305,10 @@ export default function TodoListPage() {
       
       {editingTask && (
         <Sheet open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
-            <SheetContent>
+            <SheetContent className="flex flex-col">
                 <SheetHeader>
                     <SheetTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</SheetTitle>
-                    <SheetDescription>{editingTask.id !== 'new' && editingTask.text}</SheetDescription>
+                    {editingTask.id !== 'new' && <SheetDescription>{editingTask.text}</SheetDescription>}
                 </SheetHeader>
                 <TaskEditForm task={editingTask} onSave={handleSaveTaskDetails} onCancel={() => setIsEditTaskSheetOpen(false)}/>
             </SheetContent>
@@ -515,48 +516,52 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
     }
 
     return (
-        <div className="py-4 space-y-4">
-            <div>
-                <Label htmlFor="edit-task-text">Aufgabe</Label>
-                <Input 
-                    id="edit-task-text"
-                    value={editedTask.text}
-                    onChange={(e) => handleFieldChange('text', e.target.value)}
-                />
-            </div>
-            <div>
-                <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
-                <Input 
-                    id="edit-task-due-date"
-                    type="date"
-                    value={editedTask.dueDate || ''}
-                    onChange={(e) => handleFieldChange('dueDate', e.target.value)}
-                />
-            </div>
-             <div>
-                <Label className="mb-2 block">Priorität</Label>
-                 <div className="flex items-center gap-1">
-                     {[1, 2, 3].map(p => (
-                         <Button key={p} type="button" variant={editedTask.priority === p ? 'default' : 'ghost'} size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
-                             <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
-                         </Button>
-                     ))}
-                 </div>
-            </div>
-             <div>
-                <Label htmlFor="edit-task-note">Notiz</Label>
-                <Textarea 
-                    id="edit-task-note"
-                    placeholder="Zusätzliche Details..."
-                    value={editedTask.note || ''}
-                    onChange={(e) => handleFieldChange('note', e.target.value)}
-                    rows={4}
-                />
-            </div>
-            <SheetFooter className="pt-4">
+        <>
+            <ScrollArea className="flex-1 pr-6">
+                <div className="py-4 space-y-4">
+                    <div>
+                        <Label htmlFor="edit-task-text">Aufgabe</Label>
+                        <Input 
+                            id="edit-task-text"
+                            value={editedTask.text}
+                            onChange={(e) => handleFieldChange('text', e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
+                        <Input 
+                            id="edit-task-due-date"
+                            type="date"
+                            value={editedTask.dueDate || ''}
+                            onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <Label className="mb-2 block">Priorität</Label>
+                        <div className="flex items-center gap-1">
+                            {[1, 2, 3].map(p => (
+                                <Button key={p} type="button" variant={editedTask.priority === p ? 'default' : 'ghost'} size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
+                                    <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <Label htmlFor="edit-task-note">Notiz</Label>
+                        <Textarea 
+                            id="edit-task-note"
+                            placeholder="Zusätzliche Details..."
+                            value={editedTask.note || ''}
+                            onChange={(e) => handleFieldChange('note', e.target.value)}
+                            rows={4}
+                        />
+                    </div>
+                </div>
+            </ScrollArea>
+            <SheetFooter className="pt-4 border-t">
                 <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
                 <Button onClick={handleSave}>Speichern</Button>
             </SheetFooter>
-        </div>
+        </>
     )
 }
