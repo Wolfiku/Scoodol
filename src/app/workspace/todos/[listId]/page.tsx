@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -157,7 +158,7 @@ export default function TodoListPage() {
 
     useEffect(() => {
         if (!settings.syncHomework || !homeworks) {
-             // If sync is disabled, remove any existing homework sync tasks
+            // If sync is disabled, remove any existing homework sync tasks
             if (tasks.some(t => t.id === HOMEWORK_SYNC_TASK_ID || t.homeworkId)) {
                 setTasks(currentTasks => currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID && !t.homeworkId));
             }
@@ -170,14 +171,17 @@ export default function TodoListPage() {
             const newTasks = [...currentTasks];
             let changesMade = false;
 
+            // This comparison is naive and might cause loops if not careful.
+            // A deep comparison of relevant properties would be better.
+            const getHomeworkSubtasks = () => incompleteHomeworks.map(hw => ({
+                id: `hw-${hw.id}`,
+                text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
+                done: false,
+                homeworkId: hw.id
+            }));
+            
             if (settings.enableSubtasks) {
-                const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                    id: `hw-${hw.id}`,
-                    text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
-                    done: false,
-                    homeworkId: hw.id
-                }));
-
+                const homeworkSubtasks: Task[] = getHomeworkSubtasks();
                 const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
 
                 if (incompleteHomeworks.length === 0) {
@@ -192,7 +196,7 @@ export default function TodoListPage() {
                         done: false,
                         subtasks: homeworkSubtasks,
                     };
-                     if (existingTaskIndex === -1 || JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(newSyncTask.subtasks)) {
+                    if (existingTaskIndex === -1 || JSON.stringify(newTasks[existingTaskIndex].subtasks?.map(st => st.id)) !== JSON.stringify(newSyncTask.subtasks?.map(st => st.id))) {
                         if (existingTaskIndex > -1) {
                             newTasks[existingTaskIndex] = newSyncTask;
                         } else {
@@ -202,38 +206,30 @@ export default function TodoListPage() {
                     }
                 }
             } else {
-                 // Remove main sync task if subtasks are disabled
-                const mainTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-                if (mainTaskIndex > -1) {
-                    newTasks.splice(mainTaskIndex, 1);
-                    changesMade = true;
-                }
+                // Logic for when subtasks are disabled
+                const existingSyncedHomeworkIds = new Set(newTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
+                const currentIncompleteIds = new Set(incompleteHomeworks.map(hw => hw.id));
 
-                // Sync as individual tasks
-                const existingHomeworkIds = new Set(newTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
-                const newHomeworkIds = new Set(incompleteHomeworks.map(hw => hw.id));
+                const tasksToRemove = newTasks.filter(t => t.homeworkId && !currentIncompleteIds.has(t.homeworkId));
+                const tasksToAdd = incompleteHomeworks.filter(hw => !existingSyncedHomeworkIds.has(hw.id));
 
-                // Remove tasks for homeworks that are now done or gone
-                const tasksToRemove = Array.from(existingHomeworkIds).filter(id => !newHomeworkIds.has(id));
-                if(tasksToRemove.length > 0) {
+                if (tasksToRemove.length > 0 || tasksToAdd.length > 0) {
                     changesMade = true;
-                }
-                let filteredTasks = newTasks.filter(t => !t.homeworkId || !tasksToRemove.includes(t.homeworkId));
-
-                // Add tasks for new incomplete homeworks
-                const tasksToAdd = incompleteHomeworks.filter(hw => !existingHomeworkIds.has(hw.id));
-                 if(tasksToAdd.length > 0) {
-                    changesMade = true;
-                    const newHomeworkTasks: Task[] = tasksToAdd.map(hw => ({
+                    let intermediateTasks = newTasks.filter(t => !tasksToRemove.some(r => r.id === t.id));
+                    const newIndividualTasks = tasksToAdd.map(hw => ({
                         id: `hw-${hw.id}`,
                         text: `HA: ${hw.subject || ''} - ${hw.task}`,
                         done: false,
                         homeworkId: hw.id,
                     }));
-                    filteredTasks = [...filteredTasks, ...newHomeworkTasks];
+                    newTasks.splice(0, newTasks.length, ...intermediateTasks, ...newIndividualTasks);
                 }
-
-                newTasks.splice(0, newTasks.length, ...filteredTasks);
+                 // Also remove the main sync task if it exists
+                const mainTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+                if (mainTaskIndex > -1) {
+                    newTasks.splice(mainTaskIndex, 1);
+                    changesMade = true;
+                }
             }
              
             return changesMade ? newTasks : currentTasks;
