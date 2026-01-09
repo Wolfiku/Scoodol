@@ -272,12 +272,14 @@ export default function TodoListPage() {
   };
   
   const handleSettingChange = (key: keyof ListSettings, value: any) => {
+    let tasksToUpdate = [...tasks];
     if (key === 'enableNumericPriority' && !value) {
         // If numeric priority is being disabled, cap all priorities at 3.
-        setTasks(prevTasks => prevTasks.map(task => ({
+        tasksToUpdate = tasks.map(task => ({
             ...task,
             priority: (task.priority && task.priority > 3) ? 3 : task.priority,
-        })));
+        }));
+        setTasks(tasksToUpdate);
     }
     
     setSettings(prev => {
@@ -899,4 +901,5 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             </ScrollArea>
     )
 }
+
 
