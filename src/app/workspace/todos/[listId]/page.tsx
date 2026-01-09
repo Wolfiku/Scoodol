@@ -77,7 +77,6 @@ type ListSettings = {
     enableGroups?: boolean;
     enableColorGroups?: boolean;
     sortBy?: 'default' | 'dueDate' | 'priority' | 'alphabetical';
-    weeklyReset?: boolean;
     enableNumericPriority?: boolean;
     groups?: Group[];
     syncHomework?: boolean;
@@ -170,73 +169,31 @@ export default function TodoListPage() {
             const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
             return isNotDone || isDoneRecently;
         });
-        
+
+        // Use a function for setState to ensure we have the latest tasks state
         setTasks(currentTasks => {
-            let newTasks = [...currentTasks];
-            let changesMade = false;
-
-            const getHomeworkSubtasks = () => activeHomeworks.map(hw => ({
-                id: `hw-${hw.id}`,
-                text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
-                done: hw.done,
-                homeworkId: hw.id
-            }));
+            const existingHomeworkTaskIds = new Set(currentTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
             
-            if (settings.enableSubtasks) {
-                const homeworkSubtasks: Task[] = getHomeworkSubtasks();
-                const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+            const newTasksFromHomework = activeHomeworks
+                .filter(hw => !existingHomeworkTaskIds.has(hw.id))
+                .map(hw => ({
+                    id: `hw-${hw.id}`,
+                    text: `HA: ${hw.subject || ''} - ${hw.task}`,
+                    done: hw.done,
+                    homeworkId: hw.id,
+                }));
 
-                if (activeHomeworks.length === 0) {
-                    if (existingTaskIndex > -1) {
-                        newTasks.splice(existingTaskIndex, 1);
-                        changesMade = true;
-                    }
-                } else {
-                    const allSubtasksDone = homeworkSubtasks.every(st => st.done);
-                    const newSyncTask: Task = {
-                        id: HOMEWORK_SYNC_TASK_ID,
-                        text: "Hausaufgaben",
-                        done: allSubtasksDone,
-                        subtasks: homeworkSubtasks,
-                    };
-                    if (existingTaskIndex === -1 || JSON.stringify(newTasks[existingTaskIndex].subtasks?.map(st => st.id)) !== JSON.stringify(newSyncTask.subtasks?.map(st => st.id))) {
-                        if (existingTaskIndex > -1) {
-                            newTasks[existingTaskIndex] = newSyncTask;
-                        } else {
-                            newTasks.unshift(newSyncTask);
-                        }
-                        changesMade = true;
-                    }
-                }
-            } else {
-                const existingSyncedHomeworkIds = new Set(newTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
-                const currentActiveIds = new Set(activeHomeworks.map(hw => hw.id));
+            const tasksToKeep = currentTasks.filter(t => !t.homeworkId || activeHomeworks.some(hw => `hw-${hw.id}` === t.id));
 
-                const tasksToRemove = newTasks.filter(t => t.homeworkId && !currentActiveIds.has(t.homeworkId));
-                const tasksToAdd = activeHomeworks.filter(hw => !existingSyncedHomeworkIds.has(hw.id));
-
-                if (tasksToRemove.length > 0 || tasksToAdd.length > 0) {
-                    changesMade = true;
-                    let intermediateTasks = newTasks.filter(t => !tasksToRemove.some(r => r.id === t.id));
-                    const newIndividualTasks = tasksToAdd.map(hw => ({
-                        id: `hw-${hw.id}`,
-                        text: `HA: ${hw.subject || ''} - ${hw.task}`,
-                        done: hw.done,
-                        homeworkId: hw.id,
-                    }));
-                    newTasks.splice(0, newTasks.length, ...intermediateTasks, ...newIndividualTasks);
-                }
-                 const mainTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-                if (mainTaskIndex > -1) {
-                    newTasks.splice(mainTaskIndex, 1);
-                    changesMade = true;
-                }
+            if (newTasksFromHomework.length > 0) {
+                 return [...tasksToKeep, ...newTasksFromHomework];
             }
-             
-            return changesMade ? newTasks : currentTasks;
+            
+            return tasksToKeep;
         });
 
-    }, [settings.syncHomework, settings.enableSubtasks, homeworks]);
+
+    }, [settings.syncHomework, homeworks]);
 
 
     const handleSave = useCallback(async () => {
@@ -357,7 +314,7 @@ export default function TodoListPage() {
         prevTasks.map(task => {
             if (task.id === taskId) {
                 // Logic for toggling a subtask
-                if (subtaskId) {
+                if (subtaskId && settings.enableSubtasks) {
                     const updatedSubtasks = (task.subtasks || []).map(sub => {
                         if (sub.id === subtaskId) {
                             if (!sub.done) {
@@ -378,7 +335,7 @@ export default function TodoListPage() {
                     }
 
                     // Cascade done state to all subtasks if parent is checked
-                    const updatedSubtasks = newDoneState && task.subtasks 
+                    const updatedSubtasks = newDoneState && task.subtasks && settings.enableSubtasks
                         ? task.subtasks.map(sub => ({ ...sub, done: true }))
                         : task.subtasks;
                     
@@ -386,8 +343,10 @@ export default function TodoListPage() {
                          updatedSubtasks.forEach(sub => {
                             if (!sub.done && sub.homeworkId) {
                                 const subHomeworkId = sub.homeworkId;
-                                const homeworkDocRef = doc(firestore, `users/${user!.uid}/homeworks`, subHomeworkId);
-                                updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
+                                if (firestore && user) {
+                                    const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, subHomeworkId);
+                                    updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
+                                }
                             }
                          });
                     }
@@ -893,6 +852,10 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
     const [editingGroupName, setEditingGroupName] = useState('');
     const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
     const [newGroupColor, setNewGroupColor] = useState(generateColor());
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+    const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
+
 
     const handleAddGroup = (e: React.FormEvent) => {
         e.preventDefault();
@@ -919,13 +882,33 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
         }
     }
 
-    const handleDeleteGroup = (groupId: string) => {
-        const updatedGroups = (settings.groups || []).filter(g => g.id !== groupId);
-        onSettingChange('groups', updatedGroups);
+    const handleDeleteGroup = () => {
+        if (groupToDelete) {
+            const updatedGroups = (settings.groups || []).filter(g => g.id !== groupToDelete);
+            onSettingChange('groups', updatedGroups);
+            setGroupToDelete(null);
+            setIsDeleteDialogOpen(false);
+        }
     }
     
     return (
          <ScrollArea className="flex-1 pr-6 -mr-6">
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Gruppe löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Alle Aufgaben in dieser Gruppe werden die Zuordnung verlieren. Diese Aktion kann nicht rückgängig gemacht werden.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setGroupToDelete(null)}>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+
                 <div className="py-4 space-y-6">
                     <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
                         <div className="flex flex-row items-center justify-between">
@@ -945,7 +928,7 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
                             <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => onSettingChange('enableGroups', c)} />
                         </div>
                         <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
+                            <Label htmlFor="numeric-priority-mode">Numerische Priorität (1-10)</Label>
                             <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => onSettingChange('enableNumericPriority', c)} />
                         </div>
                          <Separator />
@@ -974,10 +957,6 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
                                 <SelectItem value="alphabetical">Alphabetisch</SelectItem>
                             </SelectContent>
                         </Select>
-                    </div>
-                    <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
-                        <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => onSettingChange('weeklyReset', c)} />
                     </div>
                     
                      {settings.enableGroups && (
@@ -1014,7 +993,12 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
                                             ) : (
                                                 <Button size="icon" variant="ghost" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); setEditingGroupColor(group.color); }} className="h-8 w-8"><Pencil className="h-4 w-4"/></Button>
                                             )}
-                                            <Button size="icon" variant="ghost" onClick={() => handleDeleteGroup(group.id)} className="h-8 w-8"><Trash2 className="h-4 w-4"/></Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setGroupToDelete(group.id)}><Trash2 className="h-4 w-4"/></Button>
+                                                </AlertDialogTrigger>
+                                            </AlertDialog>
+
                                         </div>
                                     ))}
                                 </div>
