@@ -20,14 +20,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { format } from 'date-fns';
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { format, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 
@@ -62,6 +63,7 @@ export default function NotePage() {
   const [content, setContent] = useState('');
   const [isLocked, setIsLocked] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const noteDocRef = useMemoFirebase(() => 
     !isNewNote && user && typeof noteId === 'string'
@@ -137,22 +139,36 @@ export default function NotePage() {
     };
   }, [title, content, note, isLoadingNote, handleSave, isLocked]);
 
+  const handleDelete = async () => {
+      if(isNewNote || !noteDocRef) return;
+      
+      await deleteDoc(noteDocRef);
+      toast({
+          title: "Notiz gelöscht!",
+          description: `Die Notiz "${note?.title}" wurde entfernt.`
+      });
+      router.push('/workspace');
+  }
 
-  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined) => {
-    if (!timestamp) return 'N/A';
+
+  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, fullDate: boolean = false) => {
+    if (!timestamp) return '...';
     const date = new Date(timestamp.seconds * 1000);
-    return format(date, "d. MMMM yyyy, HH:mm", { locale: de });
+    if(fullDate) {
+        return format(date, "d. MMMM yyyy, HH:mm", { locale: de });
+    }
+    return formatDistanceToNow(date, { addSuffix: true, locale: de });
   }
 
   const renderSaveStatus = () => {
       switch(saveStatus) {
           case 'saving':
-              return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+              return 'Wird gespeichert...';
           case 'idle':
-              return <Check className="h-4 w-4 text-green-500" />;
+              return `Gespeichert`;
           case 'dirty':
           default:
-            return <Save className="h-4 w-4 text-muted-foreground" />;
+            return 'Ungespeicherte Änderungen';
       }
   }
 
@@ -174,20 +190,32 @@ export default function NotePage() {
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Notiz-Informationen</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Hier sind die Details zu deiner Notiz.
-                </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="text-sm space-y-2">
                 <p><strong>Titel:</strong> {note?.title || 'Kein Titel'}</p>
-                <p><strong>Erstellt am:</strong> {getFormattedDate(note?.createdAt)}</p>
-                <p><strong>Zuletzt geändert:</strong> {getFormattedDate(note?.updatedAt)}</p>
+                <p><strong>Erstellt:</strong> {getFormattedDate(note?.createdAt, true)}</p>
+                <p><strong>Zuletzt geändert:</strong> {getFormattedDate(note?.updatedAt, true)}</p>
             </div>
             <AlertDialogFooter>
                 <Button onClick={() => setIsInfoDialogOpen(false)}>Schließen</Button>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Notiz wirklich löschen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Diese Aktion kann nicht rückgängig gemacht werden. Bist du sicher, dass du "{note?.title}" löschen möchtest?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
 
       <main className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8">
             <div className="flex items-center gap-4 mb-4">
@@ -199,8 +227,9 @@ export default function NotePage() {
                     disabled={isLoading && !isNewNote || isLocked}
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
-                <div className="flex items-center justify-center h-6 w-6">
-                    {renderSaveStatus()}
+                <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
+                    <span>{renderSaveStatus()}</span>
+                    {saveStatus === 'idle' && note?.updatedAt && <span>{getFormattedDate(note.updatedAt)}</span>}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -229,6 +258,11 @@ export default function NotePage() {
                         <DropdownMenuItem onClick={() => setIsLocked(!isLocked)}>
                             {isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
                             <span>{isLocked ? 'Entsperren' : 'Sperren'}</span>
+                        </DropdownMenuItem>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewNote} className="text-destructive focus:text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Löschen</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
