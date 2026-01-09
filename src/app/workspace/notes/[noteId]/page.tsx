@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,8 +83,8 @@ export default function NotePage() {
       }
   }, [note]);
 
-    const handleSave = useCallback(async (currentTitle: string, currentContent: string) => {
-    if (!firestore || !user || !currentTitle.trim() || isLocked) {
+    const handleSave = useCallback(async () => {
+    if (!firestore || !user || !title.trim() || isLocked) {
         return;
     };
     setSaveStatus('saving');
@@ -93,8 +93,8 @@ export default function NotePage() {
         if (isNewNote) {
             const notesColRef = collection(firestore, `users/${user.uid}/quickNotes`);
             const newDocRef = await addDoc(notesColRef, {
-                title: currentTitle,
-                content: currentContent,
+                title: title,
+                content: content,
                 ownerId: user.uid,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -104,8 +104,8 @@ export default function NotePage() {
         } else {
             if (!noteDocRef) return;
             await setDoc(noteDocRef, {
-                title: currentTitle,
-                content: currentContent,
+                title: title,
+                content: content,
                 updatedAt: serverTimestamp(),
             }, { merge: true });
         }
@@ -114,7 +114,7 @@ export default function NotePage() {
     } catch (error) {
         setSaveStatus('dirty');
     }
-  }, [firestore, user, isNewNote, noteDocRef, router, isLocked]);
+  }, [firestore, user, title, content, isNewNote, noteDocRef, router, isLocked]);
 
 
   useEffect(() => {
@@ -128,7 +128,7 @@ export default function NotePage() {
             clearTimeout(debounceTimer.current);
         }
         debounceTimer.current = setTimeout(() => {
-            handleSave(title, content);
+            handleSave();
         }, 1500);
     }
 
@@ -151,24 +151,21 @@ export default function NotePage() {
   }
 
 
-  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, fullDate: boolean = false) => {
+  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined) => {
     if (!timestamp) return '...';
     const date = new Date(timestamp.seconds * 1000);
-    if(fullDate) {
-        return format(date, "d. MMMM yyyy, HH:mm", { locale: de });
-    }
     return formatDistanceToNow(date, { addSuffix: true, locale: de });
   }
 
   const renderSaveStatus = () => {
       switch(saveStatus) {
           case 'saving':
-              return 'Wird gespeichert...';
+              return <Loader2 className="h-4 w-4 animate-spin" />;
           case 'idle':
-              return `Gespeichert`;
+              return <Check className="h-4 w-4" />;
           case 'dirty':
           default:
-            return 'Ungespeicherte Änderungen';
+            return <Save className="h-4 w-4" />;
       }
   }
 
@@ -193,8 +190,8 @@ export default function NotePage() {
             </AlertDialogHeader>
             <div className="text-sm space-y-2">
                 <p><strong>Titel:</strong> {note?.title || 'Kein Titel'}</p>
-                <p><strong>Erstellt:</strong> {getFormattedDate(note?.createdAt, true)}</p>
-                <p><strong>Zuletzt geändert:</strong> {getFormattedDate(note?.updatedAt, true)}</p>
+                <p><strong>Erstellt:</strong> {note?.createdAt ? format(new Date(note.createdAt.seconds * 1000), "d. MMMM yyyy, HH:mm", { locale: de }) : '...'}</p>
+                <p><strong>Zuletzt geändert:</strong> {note?.updatedAt ? format(new Date(note.updatedAt.seconds * 1000), "d. MMMM yyyy, HH:mm", { locale: de }) : '...'}</p>
             </div>
             <AlertDialogFooter>
                 <Button onClick={() => setIsInfoDialogOpen(false)}>Schließen</Button>
@@ -228,8 +225,8 @@ export default function NotePage() {
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
-                    <span>{renderSaveStatus()}</span>
-                    {saveStatus === 'idle' && note?.updatedAt && <span>{getFormattedDate(note.updatedAt)}</span>}
+                    {note?.updatedAt && <span>{getFormattedDate(note.updatedAt)}</span>}
+                    {renderSaveStatus()}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -242,7 +239,7 @@ export default function NotePage() {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             <span>Zurück</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleSave(title, content)} disabled={saveStatus !== 'dirty'}>
+                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}>
                             <Save className="mr-2 h-4 w-4" />
                             <span>Jetzt speichern</span>
                         </DropdownMenuItem>
