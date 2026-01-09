@@ -355,14 +355,9 @@ export default function TodoListPage() {
         return settings.groups.find(g => g.id === groupId);
     }
     
-    const runHomeworkSync = () => {
+    const runHomeworkSync = (): string => {
         if (!settings.syncHomework || !homeworks) {
-             toast({
-                variant: 'destructive',
-                title: 'Sync nicht möglich',
-                description: 'Hausaufgaben konnten nicht geladen werden oder die Funktion ist deaktiviert.'
-            });
-            return;
+            return 'Sync nicht möglich: Hausaufgaben konnten nicht geladen werden oder die Funktion ist deaktiviert.';
         }
     
         const incompleteHomeworks = homeworks.filter(hw => !hw.done);
@@ -382,9 +377,6 @@ export default function TodoListPage() {
                 if (incompleteHomeworks.length === 0) {
                     if (existingTaskIndex > -1) {
                         newTasks.splice(existingTaskIndex, 1);
-                        toast({ title: 'Hausaufgaben-Sync', description: 'Alle Hausaufgaben sind erledigt!' });
-                    } else {
-                         toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
                     }
                 } else {
                     const newSyncTask: Task = {
@@ -398,12 +390,17 @@ export default function TodoListPage() {
                     } else {
                         newTasks.unshift(newSyncTask);
                     }
-                     toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben gefunden.` });
                 }
                 return newTasks;
             });
+
+             if (incompleteHomeworks.length === 0) {
+                 return 'Keine offenen Hausaufgaben gefunden.';
+             } else {
+                 return `Hausaufgaben synchronisiert! ${incompleteHomeworks.length} unerledigte Aufgaben gefunden.`;
+             }
+
         } else {
-            // Logic for when subtasks are disabled
             const nonHomeworkTasks = tasks.filter(t => !t.homeworkId);
                 
             const newHomeworkTasks: Task[] = incompleteHomeworks.map(hw => ({
@@ -413,13 +410,13 @@ export default function TodoListPage() {
                 homeworkId: hw.id,
             }));
 
-            if (newHomeworkTasks.length > 0) {
-                    toast({ title: 'Hausaufgaben synchronisiert!', description: `${newHomeworkTasks.length} Aufgaben wurden hinzugefügt.` });
-            } else {
-                    toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
-            }
-
             setTasks([...nonHomeworkTasks, ...newHomeworkTasks]);
+
+            if (newHomeworkTasks.length > 0) {
+                return `Hausaufgaben synchronisiert! ${newHomeworkTasks.length} Aufgaben wurden hinzugefügt.`;
+            } else {
+                return 'Keine offenen Hausaufgaben gefunden.';
+            }
         }
     };
 
@@ -847,13 +844,14 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
     )
 }
 
-function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet, onSyncHomeworks }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void, onSyncHomeworks: () => void }) {
+function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet, onSyncHomeworks }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void, onSyncHomeworks: () => string }) {
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editingGroupName, setEditingGroupName] = useState('');
     const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
     const [newGroupColor, setNewGroupColor] = useState(generateColor());
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const { toast } = useToast();
 
     const handleAddGroup = (e: React.FormEvent) => {
         e.preventDefault();
@@ -883,6 +881,14 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
     const handleDeleteGroup = (groupId: string) => {
         const updatedGroups = (settings.groups || []).filter(g => g.id !== groupId);
         onSettingChange('groups', updatedGroups);
+    }
+
+    const handleSyncClick = () => {
+        const message = onSyncHomeworks();
+        toast({
+            title: 'Hausaufgaben-Sync',
+            description: message
+        });
     }
     
     return (
@@ -919,7 +925,7 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                             <Switch id="sync-homework-mode" disabled={!settings.advancedMode} checked={settings.syncHomework} onCheckedChange={(c) => onSettingChange('syncHomework', c)} />
                         </div>
                         {settings.syncHomework && (
-                            <Button variant="outline" onClick={onSyncHomeworks} className="w-full">
+                            <Button variant="outline" onClick={handleSyncClick} className="w-full">
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Jetzt synchronisieren
                             </Button>
