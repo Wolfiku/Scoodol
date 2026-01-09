@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -21,13 +20,13 @@ const CustomMarkdownRenderer: React.FC<CustomMarkdownRendererProps> = ({ content
     let parsedLine = line;
 
     // Process bold and italic first (***text***)
-    parsedLine = parsedLine.replace(/\*\*\*([^\*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+    parsedLine = parsedLine.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
     
     // Process bold (**text**)
-    parsedLine = parsedLine.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+    parsedLine = parsedLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     
     // Process italic (*text* or _text_)
-    parsedLine = parsedLine.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+    parsedLine = parsedLine.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     parsedLine = parsedLine.replace(/_([^_]+)_/g, '<em>$1</em>');
     
     // Process strikethrough (~~text~~)
