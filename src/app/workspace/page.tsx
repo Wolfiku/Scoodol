@@ -133,12 +133,6 @@ export default function WorkspacePage() {
                             <span>Quick Note</span>
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href="/workspace/todos/new">
-                            <ListTodo className="mr-2 h-4 w-4" />
-                            <span>To-Do-Liste</span>
-                          </Link>
-                        </DropdownMenuItem>
                         <DropdownMenuItem disabled>
                           <FileText className="mr-2 h-4 w-4" />
                           <span>Dokument</span>
