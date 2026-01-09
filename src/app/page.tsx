@@ -7,7 +7,7 @@ import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
 import HomeworkPlanner from '@/app/components/homework-planner';
 import { Button } from '@/components/ui/button';
-import { Home, ListChecks, Sparkles, Settings, Timer, Loader2, Users } from 'lucide-react';
+import { Home, ListChecks, Sparkles, Settings, Timer, Loader2 } from 'lucide-react';
 import SmartToolsView from './components/smart-tools-view';
 import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';

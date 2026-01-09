@@ -82,7 +82,6 @@ export default function RegisterPage() {
           },
           timetable: timetable ? JSON.parse(timetable) : {},
           timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
-          chatIds: [], // Initialize with empty chatIds
       };
 
       batch.set(userDocRef, userData);

@@ -257,8 +257,8 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     }
     
     const copyShareId = () => {
-        if(!user?.uid) return;
-        navigator.clipboard.writeText(user.uid);
+        if(!userProfile?.shareId) return;
+        navigator.clipboard.writeText(userProfile.shareId);
         setCopied(true);
         toast({ title: 'Kopiert!', description: 'Deine Share ID wurde in die Zwischenablage kopiert.' });
         setTimeout(() => setCopied(false), 2000);
@@ -338,15 +338,18 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                     <User className="w-5 h-5 text-primary" />
                                     <p>Angemeldet als: <span className="font-semibold">{user.displayName || user.email}</span></p>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Meine Share ID (für Direkt-Chats)</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input value={user.uid} readOnly />
-                                        <Button onClick={copyShareId} size="icon" className="shrink-0">
-                                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                        </Button>
+                                {userProfile?.shareId && (
+                                     <div className="space-y-2">
+                                        <Label>Deine persönliche Share ID</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input value={userProfile.shareId} readOnly />
+                                            <Button onClick={copyShareId} size="icon" variant="outline" className="shrink-0">
+                                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                         <p className="text-xs text-muted-foreground">Teile diese ID, damit andere einen privaten Chat mit dir starten können.</p>
                                     </div>
-                                </div>
+                                )}
                                 <div className="flex flex-wrap gap-2">
                                     <Button asChild variant="outline">
                                         <Link href="/account">

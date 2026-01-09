@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Plus, MessageSquare, Loader2 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import AiTutor from '@/app/components/tools/ai-tutor';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -20,7 +19,6 @@ export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
     const router = useRouter();
     const firestore = useFirestore();
-    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
@@ -59,12 +57,6 @@ export default function WorkspacePage() {
             <header className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Scoodol Workspace</h1>
                 <div className="flex gap-2">
-                    <Button variant="outline" asChild>
-                        <Link href="/chats">
-                           <MessageSquare className="mr-2" />
-                            Chats
-                        </Link>
-                    </Button>
                     <Button>
                         <Plus className="mr-2" />
                         Neu
@@ -79,17 +71,6 @@ export default function WorkspacePage() {
                 </div>
             </div>
 
-            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-                    <DialogHeader className="p-6 pb-0">
-                        <DialogTitle>AI Tutor</DialogTitle>
-                        <DialogDescription>
-                            Chatte mit Scoody, wenn du bei einem Thema nicht weiterweißt.
-                        </DialogDescription>
-                    </DialogHeader>
-                   <AiTutor />
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

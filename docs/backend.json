@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Subject": {
@@ -61,11 +62,6 @@
             "betaFeaturesEnabled": { "type": "boolean" },
             "profilePicture": { "type": "string", "format": "uri" }
           }
-        },
-        "chatIds": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "A list of chat IDs the user is a member of."
         }
       }
     },
@@ -87,34 +83,6 @@
         }
       },
       "required": ["name", "schoolName", "admin", "timetable", "timetableSettings"]
-    },
-    "Chat": {
-        "title": "Chat",
-        "type": "object",
-        "description": "Represents a chat session, either private (1-on-1) or group.",
-        "properties": {
-            "name": { "type": "string", "description": "The name of the chat, typically for group chats." },
-            "type": { "type": "string", "enum": ["private", "group"], "description": "The type of the chat." },
-            "members": {
-                "type": "array",
-                "items": { "type": "string" },
-                "description": "A list of user UIDs who are members of this chat."
-            },
-            "lastMessage": { "type": "string", "description": "A preview of the most recent message." },
-            "updatedAt": { "type": "number", "description": "Timestamp of the last message sent." }
-        },
-        "required": ["type", "members", "updatedAt"]
-    },
-    "ChatMessage": {
-        "title": "Chat Message",
-        "type": "object",
-        "description": "A single message within a chat.",
-        "properties": {
-            "senderId": { "type": "string", "description": "The UID of the user who sent the message." },
-            "text": { "type": "string", "description": "The content of the message." },
-            "createdAt": { "type": "number", "description": "Timestamp when the message was sent." }
-        },
-        "required": ["senderId", "text", "createdAt"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -131,14 +99,6 @@
       {
         "path": "/groups/{groupId}",
         "definition": { "schema": { "$ref": "#/entities/Group" }, "description": "Stores data for a student group or class." }
-      },
-      {
-          "path": "/chats/{chatId}",
-          "definition": { "schema": { "$ref": "#/entities/Chat" }, "description": "Stores metadata for a chat session." }
-      },
-      {
-          "path": "/chats/{chatId}/messages/{messageId}",
-          "definition": { "schema": { "$ref": "#/entities/ChatMessage" }, "description": "Stores messages for a specific chat." }
       }
     ]
   }
