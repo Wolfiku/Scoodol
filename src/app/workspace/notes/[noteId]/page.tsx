@@ -79,7 +79,6 @@ export default function NotePage() {
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
-            toast({ title: 'Notiz gespeichert!' });
             router.replace(`/workspace/notes/${newDocRef.id}`);
         } else {
             if (!noteDocRef) return;
@@ -88,7 +87,6 @@ export default function NotePage() {
                 content,
                 updatedAt: serverTimestamp(),
             }, { merge: true });
-            toast({ title: 'Änderungen gespeichert!' });
         }
     } catch (error) {
         toast({ variant: 'destructive', title: 'Fehler', description: 'Die Notiz konnte nicht gespeichert werden.' });
