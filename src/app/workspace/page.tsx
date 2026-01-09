@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit } from 'lucide-react';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit } from 'firebase/firestore';
@@ -130,19 +130,28 @@ export default function WorkspacePage() {
                 ) : recentNotes && recentNotes.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {recentNotes.map(note => (
-                        <Card key={note.id} className="hover:shadow-md transition-shadow">
-                           <div className="p-4 flex flex-col h-full">
-                              <h3 className="font-semibold truncate flex-1">{note.title}</h3>
-                              <div className="flex justify-between items-end mt-4">
-                                <p className="text-xs text-muted-foreground">
-                                  Bearbeitet {formatRelativeTime(note.updatedAt)}
-                                </p>
+                        <Card key={note.id} className="hover:shadow-md transition-shadow flex flex-col">
+                           <div className="p-4 flex-1">
+                              <div className="flex justify-between items-start mb-2">
+                                <h3 className="font-semibold truncate pr-4">{note.title}</h3>
+                                <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full whitespace-nowrap">Quick Note</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Bearbeitet {formatRelativeTime(note.updatedAt)}
+                              </p>
+                           </div>
+                           <div className="p-2 border-t flex justify-end items-center gap-1">
                                 <Button asChild variant="ghost" size="icon">
                                   <Link href={`/workspace/notes/${note.id}`} >
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>
-                              </div>
+                                <Button variant="ghost" size="icon" disabled>
+                                    <Share2 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" disabled>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                            </div>
                         </Card>
                       ))}
