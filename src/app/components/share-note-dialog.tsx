@@ -22,16 +22,22 @@ export default function ShareNoteDialog({ open, onOpenChange, note }: ShareNoteD
   const { toast } = useToast();
 
   const handleShare = (platform: 'whatsapp' | 'email') => {
-    const text = `${note.title}\n\n${note.content}`;
+    const title = note.title;
+    const content = note.content;
+    let text = '';
     let url = '';
 
     if (platform === 'whatsapp') {
+      // Format: Title, two newlines, content
+      text = `${title}\n\n${content}`;
       url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     } else if (platform === 'email') {
-      url = `mailto:?subject=${encodeURIComponent(note.title)}&body=${encodeURIComponent(note.content)}`;
+      url = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(content)}`;
     }
 
-    window.open(url, '_blank');
+    if(url) {
+        window.open(url, '_blank');
+    }
     onOpenChange(false);
   };
 
