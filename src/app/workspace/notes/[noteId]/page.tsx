@@ -291,7 +291,6 @@ export default function NotePage() {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     autoFocus
-                    onDoubleClick={() => setIsEditing(false)}
                 />
             ) : (
                 <div className="w-full h-full flex-1" onClick={() => !isLocked && setIsEditing(true)}>
