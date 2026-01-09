@@ -3,11 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare, Loader2, FileText, BarChart3, StickyNote, MoreHorizontal, Search } from 'lucide-react';
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit } from 'lucide-react';
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, orderBy, limit } from 'firebase/firestore';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -17,10 +16,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Card } from '@/components/ui/card';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 
 type UserProfile = {
   role?: 'user' | 'admin' | 'workspace_plus_user';
+}
+
+type QuickNote = {
+  id: string;
+  title: string;
+  updatedAt: {
+    seconds: number;
+    nanoseconds: number;
+  }
 }
 
 
@@ -34,12 +45,15 @@ export default function WorkspacePage() {
     , [firestore, user]);
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
+
+    const notesQuery = useMemoFirebase(() =>
+      user ? query(collection(firestore, `users/${user.uid}/quickNotes`), orderBy('updatedAt', 'desc'), limit(5)) : null
+    , [firestore, user]);
+
+    const { data: recentNotes, isLoading: isLoadingNotes } = useCollection<QuickNote>(notesQuery);
     
     useEffect(() => {
-      // Don't do anything while data is loading
       if (isUserLoading || isProfileLoading) return;
-
-      // If user is not logged in or is anonymous, redirect to login
       if (!user || user.isAnonymous) {
         router.push('/login');
         return;
@@ -55,9 +69,14 @@ export default function WorkspacePage() {
         )
     }
 
-    // Render null while redirecting or if user is not authenticated
     if (!user || user.isAnonymous) {
         return null;
+    }
+
+    const formatRelativeTime = (timestamp: QuickNote['updatedAt']) => {
+      if (!timestamp) return '';
+      const date = new Date(timestamp.seconds * 1000);
+      return formatDistanceToNow(date, { addSuffix: true, locale: de });
     }
 
 
@@ -76,9 +95,11 @@ export default function WorkspacePage() {
                       <DropdownMenuContent className="w-56" align="end">
                         <DropdownMenuLabel>Erstellen</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem disabled>
-                          <StickyNote className="mr-2 h-4 w-4" />
-                          <span>Quick Note</span>
+                        <DropdownMenuItem asChild>
+                          <Link href="/workspace/notes/new">
+                            <StickyNote className="mr-2 h-4 w-4" />
+                            <span>Quick Note</span>
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem disabled>
                           <FileText className="mr-2 h-4 w-4" />
@@ -102,11 +123,36 @@ export default function WorkspacePage() {
 
             <div>
                 <h2 className="text-xl font-semibold mb-4">Zuletzt geöffnet</h2>
-                <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
-                    <p>Hier werden bald deine Dokumente und Chats angezeigt.</p>
-                </div>
+                {isLoadingNotes ? (
+                    <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    </div>
+                ) : recentNotes && recentNotes.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {recentNotes.map(note => (
+                        <Card key={note.id} className="hover:shadow-md transition-shadow">
+                           <div className="p-4 flex flex-col h-full">
+                              <h3 className="font-semibold truncate flex-1">{note.title}</h3>
+                              <div className="flex justify-between items-end mt-4">
+                                <p className="text-xs text-muted-foreground">
+                                  Bearbeitet {formatRelativeTime(note.updatedAt)}
+                                </p>
+                                <Button asChild variant="ghost" size="icon">
+                                  <Link href={`/workspace/notes/${note.id}`} >
+                                    <Edit className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              </div>
+                           </div>
+                        </Card>
+                      ))}
+                    </div>
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
+                      <p>Noch keine Notizen vorhanden. Erstelle deine erste!</p>
+                  </div>
+                )}
             </div>
-
         </div>
     );
 }

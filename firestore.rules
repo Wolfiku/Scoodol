@@ -29,6 +29,11 @@ service cloud.firestore {
         // Allow a user to manage only their own homework tasks.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
+
+      match /quickNotes/{noteId} {
+        // Allow a user to manage only their own quick notes.
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     match /groups/{groupId} {

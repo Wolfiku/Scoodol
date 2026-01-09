@@ -83,6 +83,19 @@
         }
       },
       "required": ["name", "schoolName", "admin", "timetable", "timetableSettings"]
+    },
+    "QuickNote": {
+      "title": "Quick Note",
+      "type": "object",
+      "description": "A quick note created in the workspace.",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the note." },
+        "content": { "type": "string", "description": "The markdown content of the note." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns the note." },
+        "createdAt": { "type": "object", "description": "Timestamp of when the note was created." },
+        "updatedAt": { "type": "object", "description": "Timestamp of when the note was last updated." }
+      },
+      "required": ["title", "ownerId", "createdAt", "updatedAt"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -95,6 +108,10 @@
       {
         "path": "/users/{userId}/homeworks/{homeworkId}",
         "definition": { "schema": { "$ref": "#/entities/Homework" }, "description": "Stores homework tasks for a specific user." }
+      },
+      {
+        "path": "/users/{userId}/quickNotes/{noteId}",
+        "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Stores quick notes for a specific user." }
       },
       {
         "path": "/groups/{groupId}",
