@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
@@ -9,17 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save, Trash2 } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Loader2, ArrowLeft, Save, Check } from 'lucide-react';
 
 type QuickNote = {
   title: string;
@@ -32,6 +22,8 @@ type QuickNote = {
   ownerId: string;
 }
 
+type SaveStatus = 'idle' | 'dirty' | 'saving';
+
 export default function NotePage() {
   const router = useRouter();
   const params = useParams();
@@ -41,8 +33,7 @@ export default function NotePage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -54,61 +45,102 @@ export default function NotePage() {
   , [firestore, user, noteId, isNewNote]);
 
   const { data: note, isLoading: isLoadingNote } = useDoc<QuickNote>(noteDocRef);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
   
   useEffect(() => {
       if (note) {
           setTitle(note.title);
           setContent(note.content);
+          setSaveStatus('idle');
       }
   }, [note]);
 
-  const handleSave = async () => {
-    if (!firestore || !user || !title.trim()) {
-        toast({ variant: 'destructive', title: 'Titel erforderlich', description: 'Bitte gib einen Titel für deine Notiz ein.' });
+    const handleSave = useCallback(async (currentTitle: string, currentContent: string) => {
+    if (!firestore || !user || !currentTitle.trim()) {
         return;
     };
-    setIsSaving(true);
+    setSaveStatus('saving');
 
     try {
         if (isNewNote) {
             const notesColRef = collection(firestore, `users/${user.uid}/quickNotes`);
             const newDocRef = await addDoc(notesColRef, {
-                title,
-                content,
+                title: currentTitle,
+                content: currentContent,
                 ownerId: user.uid,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
+             // After creating, redirect to the new note's URL to enable further auto-saving
             router.replace(`/workspace/notes/${newDocRef.id}`);
+
         } else {
             if (!noteDocRef) return;
             await setDoc(noteDocRef, {
-                title,
-                content,
+                title: currentTitle,
+                content: currentContent,
                 updatedAt: serverTimestamp(),
             }, { merge: true });
         }
+        setSaveStatus('idle');
+
     } catch (error) {
         toast({ variant: 'destructive', title: 'Fehler', description: 'Die Notiz konnte nicht gespeichert werden.' });
-    } finally {
-        setIsSaving(false);
+        setSaveStatus('dirty'); // Revert to dirty if save fails
     }
-  }
-  
+  }, [firestore, user, isNewNote, noteDocRef, router, toast]);
+
+
+  useEffect(() => {
+    if (isLoadingNote || (note && title === note.title && content === note.content)) {
+      return;
+    }
+
+    if (title.trim() || content.trim()) {
+        setSaveStatus('dirty');
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+        debounceTimer.current = setTimeout(() => {
+            handleSave(title, content);
+        }, 1500); // 1.5 second delay
+    }
+
+    return () => {
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+    };
+  }, [title, content, note, isLoadingNote, handleSave]);
+
+
   const getFormattedDate = () => {
     if (!note || !note.createdAt) return null;
     const date = new Date(note.createdAt.seconds * 1000);
     return date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
+  const renderSaveStatus = () => {
+      switch(saveStatus) {
+          case 'saving':
+              return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+          case 'idle':
+              return <Check className="h-4 w-4 text-green-500" />;
+          case 'dirty':
+          default:
+            return <Save className="h-4 w-4 text-muted-foreground" />;
+      }
+  }
+
 
   const isLoading = isUserLoading || isLoadingNote;
 
-  if (isLoading) {
+  if (isLoading && !isNewNote) {
     return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
   
-  if (!user || user.isAnonymous) {
+  if (!isUserLoading && (!user || user.isAnonymous)) {
     router.push('/login');
     return null;
   }
@@ -122,10 +154,9 @@ export default function NotePage() {
             </Button>
             <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">{getFormattedDate()}</span>
-                 <Button onClick={handleSave} disabled={isSaving} size="icon" variant="ghost" className="text-primary">
-                    {isSaving ? <Loader2 className="animate-spin"/> : <Save />}
-                    <span className="sr-only">Speichern</span>
-                </Button>
+                <div className="flex items-center justify-center h-8 w-8">
+                   {renderSaveStatus()}
+                </div>
             </div>
         </header>
 
@@ -135,12 +166,14 @@ export default function NotePage() {
                 className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto mb-4"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                disabled={isLoading && !isNewNote}
             />
             <Textarea 
                 placeholder="Schreib hier deine Gedanken auf..."
                 className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                disabled={isLoading && !isNewNote}
             />
         </main>
     </div>
