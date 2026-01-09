@@ -93,7 +93,8 @@
         "content": { "type": "string", "description": "The markdown content of the note." },
         "ownerId": { "type": "string", "description": "The UID of the user who owns the note." },
         "createdAt": { "type": "object", "description": "Timestamp of when the note was created." },
-        "updatedAt": { "type": "object", "description": "Timestamp of when the note was last updated." }
+        "updatedAt": { "type": "object", "description": "Timestamp of when the note was last updated." },
+        "isLocked": { "type": "boolean", "description": "Indicates if the note is locked for editing." }
       },
       "required": ["title", "ownerId", "createdAt", "updatedAt"]
     }

@@ -45,6 +45,7 @@ type QuickNote = {
     nanoseconds: number;
   };
   ownerId: string;
+  isLocked: boolean;
 }
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
@@ -62,7 +63,6 @@ export default function NotePage() {
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [isLocked, setIsLocked] = useState(false);
   const [isEditing, setIsEditing] = useState(isNewNote);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -84,12 +84,15 @@ export default function NotePage() {
       if (note) {
           setTitle(note.title);
           setContent(note.content);
+          if (note.isLocked) {
+            setIsEditing(false);
+          }
           setSaveStatus('idle');
       }
   }, [note]);
 
     const handleSave = useCallback(async () => {
-    if (!firestore || !user || !title.trim() || isLocked) {
+    if (!firestore || !user || !title.trim() || note?.isLocked) {
         return;
     };
     setSaveStatus('saving');
@@ -103,6 +106,7 @@ export default function NotePage() {
                 ownerId: user.uid,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
+                isLocked: false,
             });
             router.replace(`/workspace/notes/${newDocRef.id}`);
 
@@ -119,7 +123,7 @@ export default function NotePage() {
     } catch (error) {
         setSaveStatus('dirty');
     }
-  }, [firestore, user, title, content, isNewNote, noteDocRef, router, isLocked]);
+  }, [firestore, user, title, content, isNewNote, noteDocRef, router, note?.isLocked]);
 
 
   useEffect(() => {
@@ -142,7 +146,7 @@ export default function NotePage() {
             clearTimeout(debounceTimer.current);
         }
     };
-  }, [title, content, note, isLoadingNote, handleSave, isLocked]);
+  }, [title, content, note, isLoadingNote, handleSave]);
 
   const handleDelete = async () => {
       if(isNewNote || !noteDocRef) return;
@@ -153,6 +157,18 @@ export default function NotePage() {
           description: `Die Notiz "${note?.title}" wurde entfernt.`
       });
       router.push('/workspace');
+  }
+
+  const toggleLock = async () => {
+    if (isNewNote || !noteDocRef) return;
+    const newLockState = !note?.isLocked;
+    await setDoc(noteDocRef, { isLocked: newLockState }, { merge: true });
+    if(newLockState) {
+        setIsEditing(false); // When locking, exit edit mode
+    }
+    toast({
+        title: newLockState ? "Notiz gesperrt" : "Notiz entsperrt",
+    });
   }
 
 
@@ -180,7 +196,7 @@ export default function NotePage() {
       }
   }
 
-  const showEditor = !isLocked && isEditing;
+  const showEditor = !note?.isLocked && isEditing;
 
 
   const isLoading = isUserLoading || isLoadingNote;
@@ -238,9 +254,8 @@ export default function NotePage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     readOnly={!showEditor}
-                    onClick={() => !isLocked && setIsEditing(true)}
                 />
-                 {isLocked && <Lock className="h-5 w-5 text-green-500" />}
+                 {note?.isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
                     <span className="cursor-pointer hover:text-foreground" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
                       {note ? getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType) : ''}
@@ -259,7 +274,7 @@ export default function NotePage() {
                             <span>Zurück</span>
                         </DropdownMenuItem>
 
-                        <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={isLocked}>
+                        <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={note?.isLocked}>
                             {isEditing ? (
                                 <>
                                     <BookOpen className="mr-2 h-4 w-4" />
@@ -273,7 +288,7 @@ export default function NotePage() {
                             )}
                         </DropdownMenuItem>
                         
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || isLocked}>
+                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || note?.isLocked}>
                             <Save className="mr-2 h-4 w-4" />
                             <span>Jetzt speichern</span>
                         </DropdownMenuItem>
@@ -287,12 +302,12 @@ export default function NotePage() {
                             <span>Teilen</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setIsLocked(!isLocked)}>
-                            {isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
-                            <span>{isLocked ? 'Entsperren' : 'Sperren'}</span>
+                        <DropdownMenuItem onClick={toggleLock} disabled={isNewNote}>
+                            {note?.isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
+                            <span>{note?.isLocked ? 'Entsperren' : 'Sperren'}</span>
                         </DropdownMenuItem>
                          <DropdownMenuSeparator />
-                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={!note || isLocked} className="text-destructive focus:text-destructive">
+                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={!note || note?.isLocked} className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
                             <span>Löschen</span>
                         </DropdownMenuItem>
@@ -309,7 +324,7 @@ export default function NotePage() {
                     autoFocus
                 />
             ) : (
-                <div className="w-full h-full flex-1" onClick={() => !isLocked && setIsEditing(true)}>
+                <div className="w-full h-full flex-1" onClick={() => !note?.isLocked && setIsEditing(true)}>
                     <CustomMarkdownRenderer content={content} />
                 </div>
             )}
