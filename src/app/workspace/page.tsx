@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, collection, query, orderBy, limit } from 'firebase/firestore';
+import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 
 type UserProfile = {
@@ -39,6 +40,7 @@ export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
     const router = useRouter();
     const firestore = useFirestore();
+    const { toast } = useToast();
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
@@ -77,6 +79,16 @@ export default function WorkspacePage() {
       if (!timestamp) return '';
       const date = new Date(timestamp.seconds * 1000);
       return formatDistanceToNow(date, { addSuffix: true, locale: de });
+    }
+
+    const handleDeleteNote = async (noteId: string, noteTitle: string) => {
+      if (!user) return;
+      const noteDocRef = doc(firestore, `users/${user.uid}/quickNotes`, noteId);
+      await deleteDoc(noteDocRef);
+      toast({
+        title: "Notiz gelöscht!",
+        description: `Die Notiz "${noteTitle}" wurde endgültig gelöscht.`
+      });
     }
 
 
@@ -149,7 +161,7 @@ export default function WorkspacePage() {
                                 <Button variant="ghost" size="icon" disabled>
                                     <Share2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" disabled>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteNote(note.id, note.title)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                            </div>
