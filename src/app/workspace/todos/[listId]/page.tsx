@@ -35,6 +35,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
 
 type Task = {
   id: string;
@@ -94,6 +96,7 @@ export default function TodoListPage() {
   const [newTaskPriority, setNewTaskPriority] = useState(0);
   const [newTaskNote, setNewTaskNote] = useState('');
 
+  const [isAddTaskExpanded, setIsAddTaskExpanded] = useState(false);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
@@ -149,7 +152,7 @@ export default function TodoListPage() {
 
   useEffect(() => {
     if (isLoadingList) return;
-    if (isNewList && !title.trim()) return;
+    if (isNewList && !title.trim() && tasks.length === 0) return;
     
     const hasChanged = isNewList || (todoList && (
         title !== todoList.title || 
@@ -203,6 +206,7 @@ export default function TodoListPage() {
       setNewTaskDueDate('');
       setNewTaskPriority(0);
       setNewTaskNote('');
+      setIsAddTaskExpanded(false);
     }
   };
 
@@ -393,14 +397,26 @@ export default function TodoListPage() {
       </header>
 
       <main className="space-y-4">
-        <Card className="p-4">
-            <form onSubmit={handleAddTask} className="space-y-3">
-                <Input 
-                    placeholder="Neue Aufgabe hinzufügen..."
-                    value={newTaskText}
-                    onChange={(e) => setNewTaskText(e.target.value)}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Collapsible open={isAddTaskExpanded} onOpenChange={setIsAddTaskExpanded}>
+            <form onSubmit={handleAddTask}>
+              <div className="flex w-full items-center space-x-2">
+                 <CollapsibleTrigger asChild>
+                    <button type="button" className="flex-1" onClick={() => setIsAddTaskExpanded(true)}>
+                        <Input 
+                            placeholder="Neue Aufgabe hinzufügen..."
+                            value={newTaskText}
+                            onChange={(e) => setNewTaskText(e.target.value)}
+                            className="flex-1"
+                        />
+                     </button>
+                  </CollapsibleTrigger>
+                  <Button type="submit" size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+              </div>
+
+              <CollapsibleContent className="space-y-3 mt-3">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <Label htmlFor="new-task-due-date" className="text-xs">Fälligkeit</Label>
                         <Input 
@@ -435,8 +451,9 @@ export default function TodoListPage() {
                     <Plus className="mr-2 h-4 w-4" />
                     Aufgabe hinzufügen
                 </Button>
+              </CollapsibleContent>
             </form>
-        </Card>
+          </Collapsible>
 
 
         <div className="space-y-2">
