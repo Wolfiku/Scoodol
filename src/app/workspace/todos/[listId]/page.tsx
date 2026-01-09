@@ -29,6 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow, format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -304,15 +305,15 @@ export default function TodoListPage() {
       </AlertDialog>
       
       {editingTask && (
-        <Sheet open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
-            <SheetContent className="flex flex-col">
-                <SheetHeader>
-                    <SheetTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</SheetTitle>
-                    {editingTask.id !== 'new' && <SheetDescription>{editingTask.text}</SheetDescription>}
-                </SheetHeader>
+        <Dialog open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</DialogTitle>
+                    {editingTask.id !== 'new' && <DialogDescription>{editingTask.text}</DialogDescription>}
+                </DialogHeader>
                 <TaskEditForm task={editingTask} onSave={handleSaveTaskDetails} onCancel={() => setIsEditTaskSheetOpen(false)}/>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
       )}
 
 
@@ -517,8 +518,8 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
 
     return (
         <>
-            <ScrollArea className="flex-1 pr-6">
-                <div className="py-4 space-y-4">
+            <ScrollArea className="flex-1 pr-6 -mr-6">
+                <div className="space-y-4 my-4">
                     <div>
                         <Label htmlFor="edit-task-text">Aufgabe</Label>
                         <Input 
@@ -558,10 +559,10 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
                     </div>
                 </div>
             </ScrollArea>
-            <SheetFooter className="pt-4 border-t">
+            <DialogFooter className="pt-4 border-t">
                 <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
                 <Button onClick={handleSave}>Speichern</Button>
-            </SheetFooter>
+            </DialogFooter>
         </>
     )
 }
