@@ -272,23 +272,31 @@ export default function TodoListPage() {
   };
   
   const handleSettingChange = (key: keyof ListSettings, value: any) => {
-      setSettings(prev => {
-          const newSettings = {...prev, [key]: value};
-          // Logic for dependent settings
-          if (key === 'advancedMode' && !value) {
-              newSettings.enableSubtasks = false;
-              newSettings.enableGroups = false;
-              newSettings.enableColorGroups = false;
-              newSettings.enableNumericPriority = false;
-          }
-          if (key === 'enableGroups' && !value) {
-              newSettings.enableColorGroups = false;
-          }
-           if (key === 'enableGroups' && value && !newSettings.groups) {
-              newSettings.groups = []; // Initialize groups array
-          }
-          return newSettings;
-      });
+    if (key === 'enableNumericPriority' && !value) {
+        // If numeric priority is being disabled, cap all priorities at 3.
+        setTasks(prevTasks => prevTasks.map(task => ({
+            ...task,
+            priority: (task.priority && task.priority > 3) ? 3 : task.priority,
+        })));
+    }
+    
+    setSettings(prev => {
+        const newSettings = {...prev, [key]: value};
+        // Logic for dependent settings
+        if (key === 'advancedMode' && !value) {
+            newSettings.enableSubtasks = false;
+            newSettings.enableGroups = false;
+            newSettings.enableColorGroups = false;
+            newSettings.enableNumericPriority = false;
+        }
+        if (key === 'enableGroups' && !value) {
+            newSettings.enableColorGroups = false;
+        }
+        if (key === 'enableGroups' && value && !newSettings.groups) {
+            newSettings.groups = []; // Initialize groups array
+        }
+        return newSettings;
+    });
   }
 
   const getFormattedDate = (timestamp: TodoList['updatedAt'] | undefined) => {
@@ -529,7 +537,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         onSave(editedTask);
     }
     
-    const handleAddSubtask = (e: React.FormEvent) => {
+    const addSubtask = (e: React.FormEvent) => {
         e.preventDefault();
         if (newSubtaskText.trim()) {
             const newSubtask: Task = {
@@ -555,18 +563,18 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         handleFieldChange('subtasks', updatedSubtasks);
     }
 
-    const moveSubtask = (subtaskId: string, direction: 'up' | 'down') => {
+    const moveSubtask = (index: number, direction: 'up' | 'down') => {
         const subtasks = editedTask.subtasks || [];
-        const index = subtasks.findIndex(s => s.id === subtaskId);
-        if (index === -1) return;
-
+        if (!subtasks) return;
+    
         const newSubtasks = [...subtasks];
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
         if (targetIndex >= 0 && targetIndex < newSubtasks.length) {
             [newSubtasks[index], newSubtasks[targetIndex]] = [newSubtasks[targetIndex], newSubtasks[index]];
+            handleFieldChange('subtasks', newSubtasks);
         }
-        handleFieldChange('subtasks', newSubtasks);
-    }
+    };
 
     return (
         <div className="flex flex-col h-full">
@@ -655,10 +663,10 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                             {(editedTask.subtasks || []).map((subtask, index) => (
                                 <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
                                     <div className="flex flex-col">
-                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
+                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(index, 'up')} disabled={index === 0}>
                                             <ArrowUp className="w-3 h-3" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
+                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(index, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
                                             <ArrowDown className="w-3 h-3" />
                                         </Button>
                                     </div>
@@ -678,7 +686,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                                     </Button>
                                 </div>
                             ))}
-                            <form onSubmit={handleAddSubtask} className="flex items-center gap-2 pt-2">
+                            <form onSubmit={addSubtask} className="flex items-center gap-2 pt-2">
                                 <Input 
                                     placeholder="Neue Subtask"
                                     value={newSubtaskText}
@@ -732,6 +740,8 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editingGroupName, setEditingGroupName] = useState('');
+    const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
+    const [newGroupColor, setNewGroupColor] = useState(generateColor());
 
     const handleAddGroup = (e: React.FormEvent) => {
         e.preventDefault();
@@ -739,17 +749,18 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             const newGroup: Group = {
                 id: Date.now().toString(),
                 name: newGroupName.trim(),
-                color: generateColor(),
+                color: newGroupColor,
             };
             onSettingChange('groups', [...(settings.groups || []), newGroup]);
             setNewGroupName('');
+            setNewGroupColor(generateColor());
         }
     };
 
     const handleUpdateGroup = () => {
         if (editingGroupId && editingGroupName.trim()) {
             const updatedGroups = (settings.groups || []).map(g =>
-                g.id === editingGroupId ? { ...g, name: editingGroupName.trim() } : g
+                g.id === editingGroupId ? { ...g, name: editingGroupName.trim(), color: editingGroupColor } : g
             );
             onSettingChange('groups', updatedGroups);
             setEditingGroupId(null);
@@ -781,10 +792,6 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                         <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="groups-mode">Gruppen</Label>
                             <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => onSettingChange('enableGroups', c)} />
-                        </div>
-                        <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
-                            <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
-                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => onSettingChange('enableColorGroups', c)} />
                         </div>
                         <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
@@ -822,11 +829,20 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                                     {(settings.groups || []).map(group => (
                                         <div key={group.id} className="flex items-center gap-2">
                                             {editingGroupId === group.id ? (
-                                                <Input 
-                                                    value={editingGroupName}
-                                                    onChange={e => setEditingGroupName(e.target.value)}
-                                                    className="h-8"
-                                                />
+                                                <>
+                                                    <Input 
+                                                        value={editingGroupName}
+                                                        onChange={e => setEditingGroupName(e.target.value)}
+                                                        className="h-8 flex-1"
+                                                    />
+                                                     <Input 
+                                                        type="color"
+                                                        value={editingGroupColor}
+                                                        onChange={e => setEditingGroupColor(e.target.value)}
+                                                        className="h-8 w-10 p-1"
+                                                    />
+                                                </>
+
                                             ) : (
                                                 <>
                                                     <span className="w-3 h-3 rounded-full" style={{backgroundColor: group.color}}></span>
@@ -836,7 +852,7 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                                             {editingGroupId === group.id ? (
                                                 <Button size="icon" variant="ghost" onClick={handleUpdateGroup} className="h-8 w-8"><Check className="h-4 w-4"/></Button>
                                             ) : (
-                                                <Button size="icon" variant="ghost" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }} className="h-8 w-8"><Pencil className="h-4 w-4"/></Button>
+                                                <Button size="icon" variant="ghost" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); setEditingGroupColor(group.color); }} className="h-8 w-8"><Pencil className="h-4 w-4"/></Button>
                                             )}
                                             <Button size="icon" variant="ghost" onClick={() => handleDeleteGroup(group.id)} className="h-8 w-8"><Trash2 className="h-4 w-4"/></Button>
                                         </div>
@@ -848,7 +864,13 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                                             placeholder="Neue Gruppe"
                                             value={newGroupName}
                                             onChange={e => setNewGroupName(e.target.value)}
-                                            className="h-9"
+                                            className="h-9 flex-1"
+                                        />
+                                         <Input 
+                                            type="color"
+                                            value={newGroupColor}
+                                            onChange={e => setNewGroupColor(e.target.value)}
+                                            className="h-9 w-12 p-1"
                                         />
                                         <Button type="submit" size="icon" className="h-9 w-9"><Plus className="h-4 w-4"/></Button>
                                     </form>
@@ -877,3 +899,4 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             </ScrollArea>
     )
 }
+
