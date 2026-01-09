@@ -3,12 +3,21 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare, Loader2 } from 'lucide-react';
+import { Plus, MessageSquare, Loader2, FileText, BarChart3, StickyNote, MoreHorizontal, Search } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 type UserProfile = {
   role?: 'user' | 'admin' | 'workspace_plus_user';
@@ -57,10 +66,37 @@ export default function WorkspacePage() {
             <header className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Scoodol Workspace</h1>
                 <div className="flex gap-2">
-                    <Button>
-                        <Plus className="mr-2" />
-                        Neu
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button>
+                              <Plus className="mr-2" />
+                              Neu
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56" align="end">
+                        <DropdownMenuLabel>Erstellen</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem disabled>
+                          <StickyNote className="mr-2 h-4 w-4" />
+                          <span>Quick Note</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled>
+                          <FileText className="mr-2 h-4 w-4" />
+                          <span>Dokument</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled>
+                          <BarChart3 className="mr-2 h-4 w-4" />
+                          <span>Stats</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href="/workspace/explore">
+                            <MoreHorizontal className="mr-2 h-4 w-4" />
+                            <span>Weiteres ...</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </header>
 
