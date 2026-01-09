@@ -136,7 +136,7 @@ export default function WorkspacePage() {
                         <DropdownMenuItem asChild>
                           <Link href="/workspace/explore">
                             <MoreHorizontal className="mr-2 h-4 w-4" />
-                            <span>Weiteres ...</span>
+                            <span>Weiteres</span>
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
