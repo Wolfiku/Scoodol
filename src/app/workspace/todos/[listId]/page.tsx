@@ -107,7 +107,6 @@ export default function TodoListPage() {
   , [firestore, user, listId, isNewList]);
 
   const { data: todoList, isLoading: isLoadingList } = useDoc<TodoList>(listDocRef);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     if (todoList) {
@@ -164,18 +163,8 @@ export default function TodoListPage() {
     }
 
     setSaveStatus('dirty');
-    if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-    }
-    debounceTimer.current = setTimeout(() => {
-        handleSave();
-    }, 1500);
+    handleSave();
 
-    return () => {
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current);
-        }
-    };
   }, [title, tasks, settings, todoList, isLoadingList, handleSave, isNewList]);
 
 
@@ -517,7 +506,7 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
     }
 
     return (
-        <>
+        <div className="flex flex-col h-full">
             <ScrollArea className="flex-1 pr-6 -mr-6">
                 <div className="space-y-4 my-4">
                     <div>
@@ -541,7 +530,7 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
                         <Label className="mb-2 block">Priorität</Label>
                         <div className="flex items-center gap-1">
                             {[1, 2, 3].map(p => (
-                                <Button key={p} type="button" variant={editedTask.priority === p ? 'default' : 'ghost'} size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
+                                <Button key={p} type="button" variant="ghost" size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
                                     <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
                                 </Button>
                             ))}
@@ -563,6 +552,6 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
                 <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
                 <Button onClick={handleSave}>Speichern</Button>
             </DialogFooter>
-        </>
+        </div>
     )
 }
