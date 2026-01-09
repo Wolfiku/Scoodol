@@ -30,6 +30,7 @@ import {
 import { format, formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import ShareNoteDialog from '@/app/components/share-note-dialog';
+import CustomMarkdownRenderer from '@/app/components/custom-markdown-renderer';
 
 
 type QuickNote = {
@@ -121,7 +122,7 @@ export default function NotePage() {
 
 
   useEffect(() => {
-    if (isLoadingNote || isLocked || (note && title === note.title && content === note.content)) {
+    if (isLoadingNote || (note && title === note.title && content === note.content)) {
       return;
     }
 
@@ -218,7 +219,7 @@ export default function NotePage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isLocked} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -279,13 +280,19 @@ export default function NotePage() {
                 </DropdownMenu>
             </div>
 
-            <Textarea 
-                placeholder="Schreib hier deine Gedanken auf..."
-                className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                readOnly={isLocked}
-            />
+            {isLocked ? (
+                <div className="w-full h-full flex-1">
+                    <CustomMarkdownRenderer content={content} />
+                </div>
+            ) : (
+                <Textarea 
+                    placeholder="Schreib hier deine Gedanken auf... Du kannst Markdown verwenden!"
+                    className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    readOnly={isLocked}
+                />
+            )}
       </main>
     </div>
   );
