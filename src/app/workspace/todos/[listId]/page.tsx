@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, MessageSquare } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,8 +34,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 
 type Task = {
@@ -92,14 +90,13 @@ export default function TodoListPage() {
   const [settings, setSettings] = useState<ListSettings>({});
 
   const [newTaskText, setNewTaskText] = useState('');
-  const [newTaskDueDate, setNewTaskDueDate] = useState('');
-  const [newTaskPriority, setNewTaskPriority] = useState(0);
-  const [newTaskNote, setNewTaskNote] = useState('');
-
-  const [isAddTaskExpanded, setIsAddTaskExpanded] = useState(false);
+  
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
+  const [isEditTaskSheetOpen, setIsEditTaskSheetOpen] = useState(false);
+
 
   const listDocRef = useMemoFirebase(() => 
     !isNewList && user && typeof listId === 'string'
@@ -197,18 +194,22 @@ export default function TodoListPage() {
         id: Date.now().toString(),
         text: newTaskText.trim(),
         done: false,
-        dueDate: newTaskDueDate || undefined,
-        priority: newTaskPriority || undefined,
-        note: newTaskNote || undefined,
       };
       setTasks(prev => [...prev, newTask]);
       setNewTaskText('');
-      setNewTaskDueDate('');
-      setNewTaskPriority(0);
-      setNewTaskNote('');
-      setIsAddTaskExpanded(false);
     }
   };
+
+  const handleOpenEditSheet = (task: Task) => {
+    setEditingTask(task);
+    setIsEditTaskSheetOpen(true);
+  }
+
+  const handleSaveTaskDetails = (updatedTask: Task) => {
+      setTasks(prev => prev.map(task => task.id === updatedTask.id ? updatedTask : task));
+      setIsEditTaskSheetOpen(false);
+      setEditingTask(null);
+  }
 
   const toggleTaskDone = (taskId: string) => {
     setTasks(prev => 
@@ -282,6 +283,19 @@ export default function TodoListPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {editingTask && (
+        <Sheet open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
+            <SheetContent>
+                <SheetHeader>
+                    <SheetTitle>Aufgabe bearbeiten</SheetTitle>
+                    <SheetDescription>{editingTask.text}</SheetDescription>
+                </SheetHeader>
+                <TaskEditForm task={editingTask} onSave={handleSaveTaskDetails} onCancel={() => setIsEditTaskSheetOpen(false)}/>
+            </SheetContent>
+        </Sheet>
+      )}
+
 
       <Sheet open={isSettingsSheetOpen} onOpenChange={setIsSettingsSheetOpen}>
         <SheetContent className="flex flex-col">
@@ -397,63 +411,19 @@ export default function TodoListPage() {
       </header>
 
       <main className="space-y-4">
-          <Collapsible open={isAddTaskExpanded} onOpenChange={setIsAddTaskExpanded}>
-            <form onSubmit={handleAddTask}>
-              <div className="flex w-full items-center space-x-2">
-                 <CollapsibleTrigger asChild>
-                    <button type="button" className="flex-1" onClick={() => setIsAddTaskExpanded(true)}>
-                        <Input 
-                            placeholder="Neue Aufgabe hinzufügen..."
-                            value={newTaskText}
-                            onChange={(e) => setNewTaskText(e.target.value)}
-                            className="flex-1"
-                        />
-                     </button>
-                  </CollapsibleTrigger>
-                  <Button type="submit" size="icon">
+        <form onSubmit={handleAddTask}>
+            <div className="flex w-full items-center space-x-2">
+                <Input 
+                    placeholder="Neue Aufgabe hinzufügen..."
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    className="flex-1"
+                />
+                <Button type="submit" size="icon">
                     <Plus className="h-4 w-4" />
-                  </Button>
-              </div>
-
-              <CollapsibleContent className="space-y-3 mt-3">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <Label htmlFor="new-task-due-date" className="text-xs">Fälligkeit</Label>
-                        <Input 
-                            id="new-task-due-date"
-                            type="date"
-                            value={newTaskDueDate}
-                            onChange={(e) => setNewTaskDueDate(e.target.value)}
-                        />
-                    </div>
-                    <div>
-                         <Label className="text-xs mb-2 block">Priorität</Label>
-                         <div className="flex items-center gap-1">
-                             {[1,2,3].map(p => (
-                                 <Button key={p} type="button" variant={newTaskPriority === p ? 'default' : 'ghost'} size="icon" onClick={() => setNewTaskPriority(p === newTaskPriority ? 0 : p)}>
-                                     <Star className={`w-5 h-5 ${newTaskPriority >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
-                                 </Button>
-                             ))}
-                         </div>
-                    </div>
-                </div>
-                 <div>
-                    <Label htmlFor="new-task-note" className="text-xs">Notiz</Label>
-                    <Textarea 
-                        id="new-task-note"
-                        placeholder="Zusätzliche Details..."
-                        value={newTaskNote}
-                        onChange={(e) => setNewTaskNote(e.target.value)}
-                        rows={2}
-                    />
-                </div>
-                 <Button type="submit" className="w-full">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Aufgabe hinzufügen
                 </Button>
-              </CollapsibleContent>
-            </form>
-          </Collapsible>
+            </div>
+        </form>
 
 
         <div className="space-y-2">
@@ -487,9 +457,14 @@ export default function TodoListPage() {
                                 <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-background whitespace-pre-wrap">{task.note}</p>
                              )}
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        </Button>
+                        <div className="flex">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditSheet(task)}>
+                                <Pencil className="h-4 w-4 text-muted-foreground"/>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
             ))}
@@ -500,4 +475,67 @@ export default function TodoListPage() {
       </main>
     </div>
   );
+}
+
+
+function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: Task) => void, onCancel: () => void }) {
+    const [editedTask, setEditedTask] = useState<Task>(task);
+
+    useEffect(() => {
+        setEditedTask(task);
+    }, [task]);
+
+    const handleFieldChange = (field: keyof Task, value: any) => {
+        setEditedTask(prev => ({...prev, [field]: value }));
+    }
+
+    const handleSave = () => {
+        onSave(editedTask);
+    }
+
+    return (
+        <div className="py-4 space-y-4">
+            <div>
+                <Label htmlFor="edit-task-text">Aufgabe</Label>
+                <Input 
+                    id="edit-task-text"
+                    value={editedTask.text}
+                    onChange={(e) => handleFieldChange('text', e.target.value)}
+                />
+            </div>
+            <div>
+                <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
+                <Input 
+                    id="edit-task-due-date"
+                    type="date"
+                    value={editedTask.dueDate || ''}
+                    onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+                />
+            </div>
+             <div>
+                <Label className="mb-2 block">Priorität</Label>
+                 <div className="flex items-center gap-1">
+                     {[1, 2, 3].map(p => (
+                         <Button key={p} type="button" variant={editedTask.priority === p ? 'default' : 'ghost'} size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
+                             <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
+                         </Button>
+                     ))}
+                 </div>
+            </div>
+             <div>
+                <Label htmlFor="edit-task-note">Notiz</Label>
+                <Textarea 
+                    id="edit-task-note"
+                    placeholder="Zusätzliche Details..."
+                    value={editedTask.note || ''}
+                    onChange={(e) => handleFieldChange('note', e.target.value)}
+                    rows={4}
+                />
+            </div>
+            <SheetFooter className="pt-4">
+                <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
+                <Button onClick={handleSave}>Speichern</Button>
+            </SheetFooter>
+        </div>
+    )
 }
