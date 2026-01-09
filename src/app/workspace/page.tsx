@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2 } from 'lucide-react';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
@@ -131,6 +131,12 @@ export default function WorkspacePage() {
                           <Link href="/workspace/notes/new">
                             <StickyNote className="mr-2 h-4 w-4" />
                             <span>Quick Note</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/workspace/todos/new">
+                            <ListTodo className="mr-2 h-4 w-4" />
+                            <span>To-Do-Liste</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem disabled>

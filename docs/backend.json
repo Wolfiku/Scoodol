@@ -97,6 +97,34 @@
         "isLocked": { "type": "boolean", "description": "Indicates if the note is locked for editing." }
       },
       "required": ["title", "ownerId", "createdAt", "updatedAt"]
+    },
+    "TodoItem": {
+        "title": "Todo Item",
+        "type": "object",
+        "description": "A single item in a to-do list.",
+        "properties": {
+            "id": { "type": "string", "description": "Unique client-side generated ID for the item." },
+            "text": { "type": "string", "description": "The content of the to-do item." },
+            "done": { "type": "boolean", "description": "Whether the to-do item is completed." }
+        },
+        "required": ["id", "text", "done"]
+    },
+    "TodoList": {
+        "title": "To-Do List",
+        "type": "object",
+        "description": "A to-do list document.",
+        "properties": {
+            "title": { "type": "string", "description": "The title of the to-do list." },
+            "ownerId": { "type": "string", "description": "The UID of the user who owns the list." },
+            "createdAt": { "type": "object", "description": "Timestamp of when the list was created." },
+            "updatedAt": { "type": "object", "description": "Timestamp of when the list was last updated." },
+            "tasks": {
+                "type": "array",
+                "description": "The list of to-do items.",
+                "items": { "$ref": "#/entities/TodoItem" }
+            }
+        },
+        "required": ["title", "ownerId", "createdAt", "updatedAt", "tasks"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -113,6 +141,10 @@
       {
         "path": "/users/{userId}/quickNotes/{noteId}",
         "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Stores quick notes for a specific user." }
+      },
+      {
+        "path": "/users/{userId}/todoLists/{listId}",
+        "definition": { "schema": { "$ref": "#/entities/TodoList" }, "description": "Stores to-do lists for a specific user." }
       },
       {
         "path": "/groups/{groupId}",
