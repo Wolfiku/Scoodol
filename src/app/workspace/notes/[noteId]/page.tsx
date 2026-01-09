@@ -257,11 +257,11 @@ export default function NotePage() {
                             <Save className="mr-2 h-4 w-4" />
                             <span>Jetzt speichern</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setIsInfoDialogOpen(true)} disabled={isNewNote}>
+                        <DropdownMenuItem onClick={() => setIsInfoDialogOpen(true)} disabled={!note}>
                             <Info className="mr-2 h-4 w-4" />
                             <span>Info</span>
                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)} disabled={isNewNote}>
+                         <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)} disabled={!note}>
                             <Share2 className="mr-2 h-4 w-4" />
                             <span>Teilen</span>
                         </DropdownMenuItem>
@@ -271,7 +271,7 @@ export default function NotePage() {
                             <span>{isLocked ? 'Entsperren' : 'Sperren'}</span>
                         </DropdownMenuItem>
                          <DropdownMenuSeparator />
-                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewNote || isLocked} className="text-destructive focus:text-destructive">
+                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={!note || isLocked} className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
                             <span>Löschen</span>
                         </DropdownMenuItem>
