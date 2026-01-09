@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -156,12 +155,6 @@ export default function WorkspacePage() {
                             <span>Quick Note</span>
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href="/workspace/todos/new">
-                            <ListTodo className="mr-2 h-4 w-4" />
-                            <span>To-Do-Liste</span>
-                          </Link>
-                        </DropdownMenuItem>
                         <DropdownMenuItem disabled>
                           <FileText className="mr-2 h-4 w-4" />
                           <span>Dokument</span>
@@ -207,7 +200,7 @@ export default function WorkspacePage() {
                                   </Link>
                                 </Button>
                                 {item.type === 'note' && (
-                                   <Button variant="ghost" size="icon" onClick={() => handleShareClick(item)}>
+                                   <Button variant="ghost" size="icon" onClick={() => handleShareClick(item as QuickNote)}>
                                         <Share2 className="h-4 w-4" />
                                     </Button>
                                 )}
