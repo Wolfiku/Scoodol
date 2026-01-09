@@ -24,7 +24,10 @@ import {
 type QuickNote = {
   title: string;
   content: string;
-  createdAt: any;
+  createdAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
   updatedAt: any;
   ownerId: string;
 }
@@ -93,19 +96,13 @@ export default function NotePage() {
         setIsSaving(false);
     }
   }
-
-  const handleDelete = async () => {
-      if (isNewNote || !noteDocRef) return;
-      setIsDeleting(true);
-      try {
-          await deleteDoc(noteDocRef);
-          toast({ title: 'Notiz gelöscht!' });
-          router.push('/workspace');
-      } catch (error) {
-           toast({ variant: 'destructive', title: 'Fehler', description: 'Die Notiz konnte nicht gelöscht werden.' });
-           setIsDeleting(false);
-      }
+  
+  const getFormattedDate = () => {
+    if (!note || !note.createdAt) return null;
+    const date = new Date(note.createdAt.seconds * 1000);
+    return date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
   }
+
 
   const isLoading = isUserLoading || isLoadingNote;
 
@@ -125,8 +122,9 @@ export default function NotePage() {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Zurück zum Workspace
             </Button>
-            <div className="flex gap-2">
-                 <Button onClick={handleSave} disabled={isSaving} size="icon">
+            <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">{getFormattedDate()}</span>
+                 <Button onClick={handleSave} disabled={isSaving} size="icon" variant="ghost" className="text-primary">
                     {isSaving ? <Loader2 className="animate-spin"/> : <Save />}
                     <span className="sr-only">Speichern</span>
                 </Button>
