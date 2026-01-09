@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, MessageSquare } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,20 +26,40 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 type Task = {
   id: string;
   text: string;
   done: boolean;
+  dueDate?: string;
+  priority?: number;
+  note?: string;
+  subtasks?: Task[];
+  group?: string;
 };
+
+type ListSettings = {
+    advancedMode?: boolean;
+    enableSubtasks?: boolean;
+    enableGroups?: boolean;
+    enableColorGroups?: boolean;
+    sortBy?: 'default' | 'dueDate' | 'priority' | 'alphabetical';
+    weeklyReset?: boolean;
+    enableNumericPriority?: boolean;
+}
 
 type TodoList = {
   title: string;
   tasks: Task[];
+  settings?: ListSettings;
   createdAt: {
     seconds: number;
     nanoseconds: number;
@@ -66,7 +86,13 @@ export default function TodoListPage() {
   
   const [title, setTitle] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [settings, setSettings] = useState<ListSettings>({});
+
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState(0);
+  const [newTaskNote, setNewTaskNote] = useState('');
+
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
@@ -83,7 +109,8 @@ export default function TodoListPage() {
   useEffect(() => {
     if (todoList) {
       setTitle(todoList.title);
-      setTasks(todoList.tasks);
+      setTasks(todoList.tasks || []);
+      setSettings(todoList.settings || {});
       setSaveStatus('idle');
     }
   }, [todoList]);
@@ -98,6 +125,7 @@ export default function TodoListPage() {
         const newDocRef = await addDoc(listsColRef, {
           title,
           tasks,
+          settings,
           ownerId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -108,6 +136,7 @@ export default function TodoListPage() {
         await setDoc(listDocRef, {
           title,
           tasks,
+          settings,
           updatedAt: serverTimestamp(),
         }, { merge: true });
       }
@@ -115,13 +144,17 @@ export default function TodoListPage() {
     } catch (error) {
       setSaveStatus('dirty');
     }
-  }, [firestore, user, title, tasks, isNewList, listDocRef, router]);
+  }, [firestore, user, title, tasks, settings, isNewList, listDocRef, router]);
 
   useEffect(() => {
     if (isLoadingList) return;
     if (isNewList && !title.trim()) return;
     
-    const hasChanged = isNewList || (todoList && (title !== todoList.title || JSON.stringify(tasks) !== JSON.stringify(todoList.tasks)));
+    const hasChanged = isNewList || (todoList && (
+        title !== todoList.title || 
+        JSON.stringify(tasks) !== JSON.stringify(todoList.tasks) ||
+        JSON.stringify(settings) !== JSON.stringify(todoList.settings)
+    ));
     
     if (!hasChanged) {
         return;
@@ -140,7 +173,7 @@ export default function TodoListPage() {
             clearTimeout(debounceTimer.current);
         }
     };
-  }, [title, tasks, todoList, isLoadingList, handleSave, isNewList]);
+  }, [title, tasks, settings, todoList, isLoadingList, handleSave, isNewList]);
 
 
   const handleDelete = async () => {
@@ -160,9 +193,15 @@ export default function TodoListPage() {
         id: Date.now().toString(),
         text: newTaskText.trim(),
         done: false,
+        dueDate: newTaskDueDate || undefined,
+        priority: newTaskPriority || undefined,
+        note: newTaskNote || undefined,
       };
       setTasks(prev => [...prev, newTask]);
       setNewTaskText('');
+      setNewTaskDueDate('');
+      setNewTaskPriority(0);
+      setNewTaskNote('');
     }
   };
 
@@ -177,6 +216,21 @@ export default function TodoListPage() {
   const deleteTask = (taskId: string) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
   };
+  
+  const handleSettingChange = (key: keyof ListSettings, value: any) => {
+      const newSettings = {...settings, [key]: value};
+      // Logic for dependent settings
+      if (key === 'advancedMode' && !value) {
+          newSettings.enableSubtasks = false;
+          newSettings.enableGroups = false;
+          newSettings.enableColorGroups = false;
+          newSettings.enableNumericPriority = false;
+      }
+      if (key === 'enableGroups' && !value) {
+          newSettings.enableColorGroups = false;
+      }
+      setSettings(newSettings);
+  }
 
   const getFormattedDate = (timestamp: TodoList['updatedAt'] | undefined) => {
     if (!timestamp) return '';
@@ -225,14 +279,61 @@ export default function TodoListPage() {
       </AlertDialog>
 
       <Sheet open={isSettingsSheetOpen} onOpenChange={setIsSettingsSheetOpen}>
-        <SheetContent>
+        <SheetContent className="flex flex-col">
             <SheetHeader>
                 <SheetTitle>Listen-Einstellungen</SheetTitle>
                 <SheetDescription>Verwalte die Einstellungen für deine To-Do-Liste "{title}".</SheetDescription>
             </SheetHeader>
-            <div className="py-4 space-y-6">
-                <p className="text-sm text-muted-foreground">Hier kommen bald weitere Einstellungen, z.B. für die Sortierung.</p>
+            <div className="py-4 space-y-6 overflow-y-auto flex-1 pr-6">
+                <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
+                    <div className="flex flex-row items-center justify-between">
+                        <Label htmlFor="advanced-mode" className="font-bold">Erweiterter Modus</Label>
+                        <Switch id="advanced-mode" checked={settings.advancedMode} onCheckedChange={(c) => handleSettingChange('advancedMode', c)} />
+                    </div>
+                     <p className="text-xs text-muted-foreground">Aktiviere zusätzliche Funktionen für Power-User.</p>
+                </div>
+
+                <div className={`space-y-4 ${!settings.advancedMode ? 'opacity-50' : ''}`}>
+                    <div className="flex flex-row items-center justify-between">
+                        <Label htmlFor="subtasks-mode">Subtasks</Label>
+                        <Switch id="subtasks-mode" disabled={!settings.advancedMode} checked={settings.enableSubtasks} onCheckedChange={(c) => handleSettingChange('enableSubtasks', c)} />
+                    </div>
+                     <div className="flex flex-row items-center justify-between">
+                        <Label htmlFor="groups-mode">Gruppen</Label>
+                        <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => handleSettingChange('enableGroups', c)} />
+                    </div>
+                    <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
+                        <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
+                        <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => handleSettingChange('enableColorGroups', c)} />
+                    </div>
+                     <div className="flex flex-row items-center justify-between">
+                        <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
+                        <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => handleSettingChange('enableNumericPriority', c)} />
+                    </div>
+                </div>
                 
+                 <Separator />
+
+                <div className="space-y-2">
+                    <Label>Standard-Sortierung</Label>
+                    <Select value={settings.sortBy || 'default'} onValueChange={(v) => handleSettingChange('sortBy', v)}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Sortierung wählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="default">Manuell</SelectItem>
+                            <SelectItem value="dueDate">Fälligkeitsdatum</SelectItem>
+                            <SelectItem value="priority">Priorität</SelectItem>
+                            <SelectItem value="alphabetical">Alphabetisch</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="flex flex-row items-center justify-between">
+                    <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
+                    <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => handleSettingChange('weeklyReset', c)} />
+                </div>
+
+
                 <Separator />
 
                 <div>
@@ -291,29 +392,87 @@ export default function TodoListPage() {
       </header>
 
       <main className="space-y-4">
-        <form onSubmit={handleAddTask} className="flex gap-2">
-          <Input 
-            placeholder="Neue Aufgabe hinzufügen..."
-            value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
-          />
-          <Button type="submit">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </form>
+        <Card className="p-4">
+            <form onSubmit={handleAddTask} className="space-y-3">
+                <Input 
+                    placeholder="Neue Aufgabe hinzufügen..."
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <Label htmlFor="new-task-due-date" className="text-xs">Fälligkeit</Label>
+                        <Input 
+                            id="new-task-due-date"
+                            type="date"
+                            value={newTaskDueDate}
+                            onChange={(e) => setNewTaskDueDate(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                         <Label className="text-xs mb-2 block">Priorität</Label>
+                         <div className="flex items-center gap-1">
+                             {[1,2,3].map(p => (
+                                 <Button key={p} type="button" variant={newTaskPriority === p ? 'default' : 'ghost'} size="icon" onClick={() => setNewTaskPriority(p === newTaskPriority ? 0 : p)}>
+                                     <Star className={`w-5 h-5 ${newTaskPriority >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
+                                 </Button>
+                             ))}
+                         </div>
+                    </div>
+                </div>
+                 <div>
+                    <Label htmlFor="new-task-note" className="text-xs">Notiz</Label>
+                    <Textarea 
+                        id="new-task-note"
+                        placeholder="Zusätzliche Details..."
+                        value={newTaskNote}
+                        onChange={(e) => setNewTaskNote(e.target.value)}
+                        rows={2}
+                    />
+                </div>
+                 <Button type="submit" className="w-full">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Aufgabe hinzufügen
+                </Button>
+            </form>
+        </Card>
+
 
         <div className="space-y-2">
             {tasks.map(task => (
-                <div key={task.id} className="flex items-center gap-3 p-2 bg-secondary rounded-md">
-                    <Checkbox 
-                        id={`task-${task.id}`}
-                        checked={task.done}
-                        onCheckedChange={() => toggleTaskDone(task.id)}
-                    />
-                    <label htmlFor={`task-${task.id}`} className={`flex-1 text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
-                    <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
+                <div key={task.id} className="p-3 bg-secondary rounded-md">
+                    <div className="flex items-start gap-3">
+                        <Checkbox 
+                            id={`task-${task.id}`}
+                            className="mt-1"
+                            checked={task.done}
+                            onCheckedChange={() => toggleTaskDone(task.id)}
+                        />
+                        <div className="flex-1">
+                            <label htmlFor={`task-${task.id}`} className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
+                               {task.dueDate && (
+                                   <div className="flex items-center gap-1">
+                                       <Calendar className="w-3 h-3" />
+                                       <span>{format(new Date(task.dueDate), 'd. MMM', {locale: de})}</span>
+                                   </div>
+                               )}
+                               {task.priority && (
+                                   <div className="flex items-center gap-0.5">
+                                       {[...Array(task.priority)].map((_, i) => (
+                                            <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                       ))}
+                                   </div>
+                               )}
+                            </div>
+                             {task.note && (
+                                <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-background whitespace-pre-wrap">{task.note}</p>
+                             )}
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                    </div>
                 </div>
             ))}
         </div>
