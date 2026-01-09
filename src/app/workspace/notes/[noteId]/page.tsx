@@ -91,10 +91,9 @@ export default function NotePage() {
         setSaveStatus('idle');
 
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Fehler', description: 'Die Notiz konnte nicht gespeichert werden.' });
         setSaveStatus('dirty'); // Revert to dirty if save fails
     }
-  }, [firestore, user, isNewNote, noteDocRef, router, toast]);
+  }, [firestore, user, isNewNote, noteDocRef, router]);
 
 
   useEffect(() => {
@@ -163,42 +162,44 @@ export default function NotePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen p-4 md:p-8">
-        <header className="flex justify-between items-center mb-6 shrink-0">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}>
-                <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-4">
-                 <Button 
-                    variant="ghost" 
-                    onClick={toggleDateDisplay} 
-                    className="text-sm text-muted-foreground px-2"
-                    disabled={!note?.updatedAt || note.createdAt.seconds === note.updatedAt.seconds}
-                  >
-                    {getFormattedDate()}
-                </Button>
-                <div className="flex items-center justify-center h-8 w-8">
-                   {renderSaveStatus()}
-                </div>
-            </div>
-        </header>
-
-        <main className="flex-1 flex flex-col min-h-0">
-             <Input 
-                placeholder="Gib deiner Notiz einen Titel..."
-                className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto mb-4"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                disabled={isLoading && !isNewNote}
+    <div className="flex flex-col h-screen">
+      <div className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')} className="absolute top-4 left-4 md:top-8 md:left-8 z-10">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        <main className="flex-1 flex flex-col min-h-0 pt-12">
+            <Input 
+              placeholder="Gib deiner Notiz einen Titel..."
+              className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={isLoading && !isNewNote}
             />
+
+            <div className="flex justify-end items-center gap-4 py-2">
+              <Button 
+                  variant="ghost" 
+                  onClick={toggleDateDisplay} 
+                  className="text-xs text-muted-foreground px-2 h-auto"
+                  disabled={!note?.updatedAt || note.createdAt.seconds === note.updatedAt.seconds}
+                >
+                  {getFormattedDate()}
+              </Button>
+              <div className="flex items-center justify-center h-6 w-6">
+                 {renderSaveStatus()}
+              </div>
+            </div>
+
             <Textarea 
-                placeholder="Schreib hier deine Gedanken auf..."
-                className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={isLoading && !isNewNote}
+              placeholder="Schreib hier deine Gedanken auf..."
+              className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              disabled={isLoading && !isNewNote}
             />
         </main>
+      </div>
     </div>
   );
 }
