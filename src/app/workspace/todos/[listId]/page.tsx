@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -116,6 +117,7 @@ export default function TodoListPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [isMounted, setIsMounted] = useState(false);
   
   const [title, setTitle] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -145,6 +147,9 @@ export default function TodoListPage() {
 
   const { data: homeworks } = useCollection<Omit<Homework, 'id'>>(homeworksRef);
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   useEffect(() => {
     if (todoList) {
@@ -156,44 +161,54 @@ export default function TodoListPage() {
   }, [todoList]);
 
     useEffect(() => {
-        if (!settings.syncHomework || !homeworks) {
-            // If sync is disabled, remove any existing homework sync tasks
-            if (tasks.some(t => t.id === HOMEWORK_SYNC_TASK_ID || t.homeworkId)) {
-                setTasks(currentTasks => currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID && !t.homeworkId));
-            }
-            return;
+    if (!settings.syncHomework || !homeworks || !isMounted || !user || !firestore) {
+      return;
+    }
+
+    // This logic runs when homeworks or sync settings change
+    const activeHomeworks = homeworks.filter(hw => {
+      const isNotDone = !hw.done;
+      const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
+      return isNotDone || isDoneRecently;
+    });
+
+    setTasks(currentTasks => {
+      let tasksChanged = false;
+      const nonHwTasks = currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
+      const existingSyncTask = currentTasks.find(t => t.id === HOMEWORK_SYNC_TASK_ID);
+
+      const homeworkSubtasks: Task[] = activeHomeworks.map(hw => ({
+        id: `hw-${hw.id}`,
+        text: `${hw.subject || 'Allg.'}: ${hw.task}`,
+        done: hw.done,
+        homeworkId: hw.id,
+      }));
+
+      if (activeHomeworks.length === 0) {
+        if (existingSyncTask) {
+          tasksChanged = true;
+          return nonHwTasks;
         }
+        return currentTasks;
+      }
+      
+      const allSubtasksDone = homeworkSubtasks.every(st => st.done);
 
-        const activeHomeworks = homeworks.filter(hw => {
-            const isNotDone = !hw.done;
-            const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
-            return isNotDone || isDoneRecently;
-        });
+      if (!existingSyncTask || JSON.stringify(existingSyncTask.subtasks) !== JSON.stringify(homeworkSubtasks)) {
+        tasksChanged = true;
+        const newSyncTask: Task = {
+          id: HOMEWORK_SYNC_TASK_ID,
+          text: 'Hausaufgaben',
+          done: allSubtasksDone,
+          subtasks: homeworkSubtasks,
+        };
+        return [newSyncTask, ...nonHwTasks];
+      }
 
-        // Use a function for setState to ensure we have the latest tasks state
-        setTasks(currentTasks => {
-            const existingHomeworkTaskIds = new Set(currentTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
-            
-            const newTasksFromHomework = activeHomeworks
-                .filter(hw => !existingHomeworkTaskIds.has(hw.id))
-                .map(hw => ({
-                    id: `hw-${hw.id}`,
-                    text: `HA: ${hw.subject || ''} - ${hw.task}`,
-                    done: hw.done,
-                    homeworkId: hw.id,
-                }));
+      return currentTasks;
+    });
 
-            const tasksToKeep = currentTasks.filter(t => !t.homeworkId || activeHomeworks.some(hw => `hw-${hw.id}` === t.id));
-
-            if (newTasksFromHomework.length > 0) {
-                 return [...tasksToKeep, ...newTasksFromHomework];
-            }
-            
-            return tasksToKeep;
-        });
-
-
-    }, [settings.syncHomework, homeworks]);
+  }, [settings.syncHomework, homeworks, isMounted, user, firestore]);
 
 
     const handleSave = useCallback(async () => {
@@ -314,7 +329,7 @@ export default function TodoListPage() {
         prevTasks.map(task => {
             if (task.id === taskId) {
                 // Logic for toggling a subtask
-                if (subtaskId && settings.enableSubtasks) {
+                if (subtaskId && (settings.enableSubtasks || task.id === HOMEWORK_SYNC_TASK_ID)) {
                     const updatedSubtasks = (task.subtasks || []).map(sub => {
                         if (sub.id === subtaskId) {
                             if (!sub.done) {
@@ -335,7 +350,7 @@ export default function TodoListPage() {
                     }
 
                     // Cascade done state to all subtasks if parent is checked
-                    const updatedSubtasks = newDoneState && task.subtasks && settings.enableSubtasks
+                    const updatedSubtasks = newDoneState && task.subtasks && (settings.enableSubtasks || task.id === HOMEWORK_SYNC_TASK_ID)
                         ? task.subtasks.map(sub => ({ ...sub, done: true }))
                         : task.subtasks;
                     
@@ -586,7 +601,7 @@ export default function TodoListPage() {
                                 <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-background whitespace-pre-wrap">{task.note}</p>
                              )}
                             
-                            {settings.enableSubtasks && task.subtasks && task.subtasks.length > 0 && (
+                            {(settings.enableSubtasks || task.id === HOMEWORK_SYNC_TASK_ID) && task.subtasks && task.subtasks.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-background/50 space-y-2">
                                     {task.subtasks.map((subtask, index) => (
                                         <div key={subtask.id} className="flex items-center gap-2">
@@ -853,7 +868,6 @@ function SettingsForm({ settings, onSettingChange, isNewList }: { settings: List
     const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
     const [newGroupColor, setNewGroupColor] = useState(generateColor());
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
 
