@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +53,15 @@ type Task = {
   note?: string;
   subtasks?: Task[];
   group?: string; // Group ID
+  homeworkId?: string; // Reference to the original homework item
 };
+
+type Homework = {
+  id: string;
+  task: string;
+  subject: string;
+  done: boolean;
+}
 
 type Group = {
     id: string;
@@ -69,6 +77,7 @@ type ListSettings = {
     weeklyReset?: boolean;
     enableNumericPriority?: boolean;
     groups?: Group[];
+    syncHomework?: boolean;
 }
 
 type TodoList = {
@@ -84,6 +93,7 @@ type TodoList = {
     nanoseconds: number;
   };
   ownerId: string;
+  lastHomeworkSync?: string;
 };
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
@@ -92,6 +102,8 @@ const generateColor = () => {
     const hue = Math.floor(Math.random() * 360);
     return `hsl(${hue}, 70%, 75%)`;
 }
+
+const HOMEWORK_SYNC_TASK_ID = 'system-homework-sync';
 
 export default function TodoListPage() {
   const router = useRouter();
@@ -125,6 +137,12 @@ export default function TodoListPage() {
 
   const { data: todoList, isLoading: isLoadingList } = useDoc<TodoList>(listDocRef);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+   const homeworksRef = useMemoFirebase(() => 
+    user ? collection(firestore, `users/${user.uid}/homeworks`) : null
+  , [firestore, user]);
+
+  const { data: homeworks } = useCollection<Omit<Homework, 'id'>>(homeworksRef);
 
   
   useEffect(() => {
@@ -193,6 +211,63 @@ export default function TodoListPage() {
         }
     };
   }, [title, tasks, settings, todoList, isLoadingList, handleSave]);
+  
+  
+    // Effect for Homework Sync
+  useEffect(() => {
+    if (!settings.syncHomework || !homeworks || !listDocRef) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const lastSync = todoList?.lastHomeworkSync;
+
+    if (lastSync === today) return; // Already synced today
+
+    const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+
+    if (incompleteHomeworks.length === 0) {
+        // If no incomplete homework, remove the sync task if it exists and is empty
+        const existingTask = tasks.find(t => t.id === HOMEWORK_SYNC_TASK_ID);
+        if (existingTask && (!existingTask.subtasks || existingTask.subtasks.every(st => st.done))) {
+             setTasks(currentTasks => currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID));
+        }
+        return;
+    }
+
+    const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+        id: `hw-${hw.id}`,
+        text: `${hw.subject}: ${hw.task}`,
+        done: false,
+        homeworkId: hw.id
+    }));
+
+    setTasks(currentTasks => {
+        const existingTaskIndex = currentTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+        let newTasks = [...currentTasks];
+
+        if (existingTaskIndex > -1) {
+            // Update existing task
+            newTasks[existingTaskIndex] = {
+                ...newTasks[existingTaskIndex],
+                subtasks: homeworkSubtasks
+            };
+        } else {
+            // Add new task
+            const newSyncTask: Task = {
+                id: HOMEWORK_SYNC_TASK_ID,
+                text: "Hausaufgaben",
+                done: false,
+                subtasks: homeworkSubtasks,
+            };
+            newTasks = [newSyncTask, ...newTasks];
+        }
+        return newTasks;
+    });
+
+    // Update last sync date in Firestore
+    updateDoc(listDocRef, { lastHomeworkSync: today });
+    toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben hinzugefügt.`});
+
+  }, [settings.syncHomework, homeworks, todoList, listDocRef, tasks]);
 
 
   const handleDelete = async () => {
@@ -248,13 +323,21 @@ export default function TodoListPage() {
   }
 
   const toggleTaskDone = (taskId: string, subtaskId?: string) => {
+    let homeworkIdToUpdate: string | undefined;
+
     setTasks(prevTasks =>
         prevTasks.map(task => {
             if (task.id === taskId) {
                 if (subtaskId) {
-                    const updatedSubtasks = (task.subtasks || []).map(sub =>
-                        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
-                    );
+                    const updatedSubtasks = (task.subtasks || []).map(sub => {
+                        if (sub.id === subtaskId) {
+                             if (!sub.done) { // Only update if marking as done
+                                homeworkIdToUpdate = sub.homeworkId;
+                            }
+                            return { ...sub, done: !sub.done };
+                        }
+                        return sub;
+                    });
                     return { ...task, subtasks: updatedSubtasks };
                 } else {
                     return { ...task, done: !task.done };
@@ -263,6 +346,11 @@ export default function TodoListPage() {
             return task;
         })
     );
+
+    if (homeworkIdToUpdate && firestore && user) {
+        const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, homeworkIdToUpdate);
+        updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
+    }
   };
 
 
@@ -278,6 +366,7 @@ export default function TodoListPage() {
             newSettings.enableSubtasks = false;
             newSettings.enableGroups = false;
             newSettings.enableNumericPriority = false;
+            newSettings.syncHomework = false;
         }
         if (key === 'enableGroups' && value && !newSettings.groups) {
             newSettings.groups = [];
@@ -286,11 +375,10 @@ export default function TodoListPage() {
     });
 
     if (key === 'enableNumericPriority' && !value) {
-        const updatedTasks = tasks.map(task => ({
+        setTasks(currentTasks => currentTasks.map(task => ({
             ...task,
             priority: (task.priority && task.priority > 3) ? 3 : task.priority,
-        }));
-        setTasks(updatedTasks);
+        })));
     }
   }
 
@@ -440,6 +528,7 @@ export default function TodoListPage() {
                             className="mt-1"
                             checked={task.done}
                             onCheckedChange={() => toggleTaskDone(task.id)}
+                            disabled={task.id === HOMEWORK_SYNC_TASK_ID}
                         />
                         <div className="flex-1">
                             <label htmlFor={`task-${task.id}`} className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
@@ -495,14 +584,16 @@ export default function TodoListPage() {
                             )}
 
                         </div>
-                        <div className="flex">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(task)}>
-                                <Pencil className="h-4 w-4 text-muted-foreground"/>
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                            </Button>
-                        </div>
+                        {task.id !== HOMEWORK_SYNC_TASK_ID && (
+                            <div className="flex">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(task)}>
+                                    <Pencil className="h-4 w-4 text-muted-foreground"/>
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
             ))}
@@ -792,6 +883,15 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                             <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
                             <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => onSettingChange('enableNumericPriority', c)} />
                         </div>
+                         <Separator />
+                        <h4 className="font-semibold">Syncs</h4>
+                         <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="sync-homework-mode" className="flex flex-col gap-1">
+                                <span>Hausaufgaben synchronisieren</span>
+                                 <span className="text-xs font-normal text-muted-foreground">Erstellt eine Aufgabe mit allen unerledigten Hausaufgaben.</span>
+                            </Label>
+                            <Switch id="sync-homework-mode" disabled={!settings.advancedMode} checked={settings.syncHomework} onCheckedChange={(c) => onSettingChange('syncHomework', c)} />
+                        </div>
                     </div>
                     
                     <Separator />
@@ -894,6 +994,3 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             </ScrollArea>
     )
 }
-
-
-
