@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,39 +124,44 @@ export default function TodoListPage() {
   }, [todoList]);
 
   const handleSave = useCallback(async () => {
-    if (!firestore || !user || !title.trim()) return;
+    if (!firestore || !user || !title.trim()) {
+        return;
+    };
     setSaveStatus('saving');
 
     try {
-      if (isNewList) {
-        const listsColRef = collection(firestore, `users/${user.uid}/todoLists`);
-        const newDocRef = await addDoc(listsColRef, {
-          title,
-          tasks,
-          settings,
-          ownerId: user.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        router.replace(`/workspace/todos/${newDocRef.id}`);
-      } else {
-        if (!listDocRef) return;
-        await setDoc(listDocRef, {
-          title,
-          tasks,
-          settings,
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
-      }
-      setSaveStatus('idle');
+        if (isNewList) {
+            const listsColRef = collection(firestore, `users/${user.uid}/todoLists`);
+            const newDocRef = await addDoc(listsColRef, {
+                title: title,
+                tasks: tasks,
+                settings: settings,
+                ownerId: user.uid,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+            router.replace(`/workspace/todos/${newDocRef.id}`);
+
+        } else {
+            if (!listDocRef) return;
+            await setDoc(listDocRef, {
+                title: title,
+                tasks: tasks,
+                settings: settings,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+        }
+        setSaveStatus('idle');
+
     } catch (error) {
-      setSaveStatus('dirty');
+        setSaveStatus('dirty');
     }
   }, [firestore, user, title, tasks, settings, isNewList, listDocRef, router]);
 
+
   useEffect(() => {
     if (isLoadingList || (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks) && JSON.stringify(settings) === JSON.stringify(todoList.settings))) {
-        return;
+      return;
     }
 
     if (title.trim() || tasks.length > 0) {
@@ -581,6 +586,20 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         handleFieldChange('subtasks', updatedSubtasks);
     }
 
+    const moveSubtask = (subtaskId: string, direction: 'up' | 'down') => {
+        const subtasks = editedTask.subtasks || [];
+        const index = subtasks.findIndex(s => s.id === subtaskId);
+        if (index === -1) return;
+
+        const newSubtasks = [...subtasks];
+        if (direction === 'up' && index > 0) {
+            [newSubtasks[index - 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index - 1]];
+        } else if (direction === 'down' && index < newSubtasks.length - 1) {
+            [newSubtasks[index + 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index + 1]];
+        }
+        handleFieldChange('subtasks', newSubtasks);
+    }
+
     return (
         <div className="flex flex-col h-full">
             <Tabs defaultValue="general" className="w-full flex-1 flex flex-col">
@@ -652,7 +671,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                 <TabsContent value="subtasks" className="flex-1 overflow-auto">
                     <ScrollArea className="h-[300px] pr-4">
                         <div className="space-y-2 mt-4">
-                            {(editedTask.subtasks || []).map(subtask => (
+                            {(editedTask.subtasks || []).map((subtask, index) => (
                                 <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
                                     <Checkbox 
                                         id={`subtask-edit-${subtask.id}`}
@@ -665,6 +684,12 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                                     >
                                         {subtask.text}
                                     </label>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
+                                        <ArrowDown className="w-3.5 h-3.5" />
+                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteSubtask(subtask.id)}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
