@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock, Trash2, Edit, BookOpen } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -237,7 +237,7 @@ export default function NotePage() {
                     className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    readOnly={isLocked || !isEditing}
+                    readOnly={!showEditor}
                     onClick={() => !isLocked && setIsEditing(true)}
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
@@ -258,10 +258,26 @@ export default function NotePage() {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             <span>Zurück</span>
                         </DropdownMenuItem>
+
+                        <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={isLocked}>
+                            {isEditing ? (
+                                <>
+                                    <BookOpen className="mr-2 h-4 w-4" />
+                                    <span>Lesemodus</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    <span>Bearbeiten</span>
+                                </>
+                            )}
+                        </DropdownMenuItem>
+                        
                         <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || isLocked}>
                             <Save className="mr-2 h-4 w-4" />
                             <span>Jetzt speichern</span>
                         </DropdownMenuItem>
+                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setIsInfoDialogOpen(true)} disabled={!note}>
                             <Info className="mr-2 h-4 w-4" />
                             <span>Info</span>
