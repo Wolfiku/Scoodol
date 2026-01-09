@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 
@@ -64,6 +64,8 @@ export default function NotePage() {
   const [isLocked, setIsLocked] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [dateDisplayType, setDateDisplayType] = useState<'updated' | 'created'>('updated');
+
 
   const noteDocRef = useMemoFirebase(() => 
     !isNewNote && user && typeof noteId === 'string'
@@ -151,10 +153,16 @@ export default function NotePage() {
   }
 
 
-  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined) => {
+  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, type: 'created' | 'updated') => {
     if (!timestamp) return '...';
     const date = new Date(timestamp.seconds * 1000);
-    return formatDistanceToNow(date, { addSuffix: true, locale: de });
+    const yesterday = subDays(new Date(), 1);
+    
+    if (isBefore(date, yesterday)) {
+      return format(date, "d. MMMM yyyy", { locale: de });
+    } else {
+      return formatDistanceToNow(date, { addSuffix: true, locale: de });
+    }
   }
 
   const renderSaveStatus = () => {
@@ -225,7 +233,9 @@ export default function NotePage() {
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
-                    {note?.updatedAt && <span>{getFormattedDate(note.updatedAt)}</span>}
+                    <span className="cursor-pointer hover:text-foreground" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
+                        {getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType)}
+                    </span>
                     {renderSaveStatus()}
                 </div>
                 <DropdownMenu>
