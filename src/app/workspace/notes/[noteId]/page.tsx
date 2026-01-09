@@ -189,7 +189,7 @@ export default function NotePage() {
           case 'saving':
               return <Loader2 className="h-4 w-4 animate-spin" />;
           case 'idle':
-              return <Check className="h-4 w-4" />;
+              return isEditing ? <Check className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />;
           case 'dirty':
           default:
             return <Save className="h-4 w-4" />;
@@ -253,7 +253,7 @@ export default function NotePage() {
                     className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    readOnly={!showEditor}
+                    readOnly={!isEditing}
                 />
                  {note?.isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
@@ -324,7 +324,9 @@ export default function NotePage() {
                     autoFocus
                 />
             ) : (
-                <div className="w-full h-full flex-1">
+                <div 
+                    className="w-full h-full flex-1"
+                >
                     <CustomMarkdownRenderer content={content} />
                 </div>
             )}
