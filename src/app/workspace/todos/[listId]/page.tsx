@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +41,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 
 
 type Task = {
@@ -446,7 +447,11 @@ export default function TodoListPage() {
                                        <span>{format(new Date(task.dueDate), 'd. MMM', {locale: de})}</span>
                                    </div>
                                )}
-                               {task.priority && (
+                               {settings.enableNumericPriority && task.priority ? (
+                                    <Badge variant="outline" className="text-xs">
+                                        P: {task.priority}
+                                    </Badge>
+                                ) : task.priority ? (
                                    <div className="flex items-center gap-0.5">
                                        {[...Array(task.priority)].map((_, i) => (
                                             <Button key={i} variant="ghost" className="p-0 h-auto cursor-default">
@@ -454,7 +459,7 @@ export default function TodoListPage() {
                                             </Button>
                                        ))}
                                    </div>
-                               )}
+                               ) : null}
                                {task.group && getGroupById(task.group) && (
                                     <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className="text-xs font-medium text-black/70">
                                         {getGroupById(task.group)?.name}
@@ -608,16 +613,29 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                                     </PopoverContent>
                                 </Popover>
                             </div>
-                            <div>
-                                <Label className="mb-2 block">Priorität</Label>
-                                <div className="flex items-center gap-1">
-                                    {[1, 2, 3].map(p => (
-                                        <Button key={p} type="button" variant="ghost" size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
-                                            <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
-                                        </Button>
-                                    ))}
+                            {settings.enableNumericPriority ? (
+                                <div>
+                                    <Label className="mb-2 block">Priorität: {editedTask.priority || 'Keine'}</Label>
+                                    <Slider
+                                        defaultValue={[editedTask.priority || 0]}
+                                        min={0}
+                                        max={10}
+                                        step={1}
+                                        onValueChange={(value) => handleFieldChange('priority', value[0])}
+                                    />
                                 </div>
-                            </div>
+                            ) : (
+                                <div>
+                                    <Label className="mb-2 block">Priorität</Label>
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3].map(p => (
+                                            <Button key={p} type="button" variant="ghost" size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
+                                                <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <Label htmlFor="edit-task-note">Notiz</Label>
                                 <Textarea 
@@ -848,8 +866,7 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                            closeSheet();
                            // We need a small delay for the delete dialog to not clash with the sheet closing
                            setTimeout(() => {
-                                const trigger = document.getElementById('delete-list-trigger');
-                                if(trigger) trigger.click();
+                                setIsDeleteDialogOpen(true);
                            }, 100);
                         }} disabled={isNewList}>
                             <Trash2 className="mr-2 h-4 w-4" />
