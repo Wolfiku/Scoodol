@@ -65,7 +65,6 @@ type ListSettings = {
     advancedMode?: boolean;
     enableSubtasks?: boolean;
     enableGroups?: boolean;
-    enableColorGroups?: boolean;
     sortBy?: 'default' | 'dueDate' | 'priority' | 'alphabetical';
     weeklyReset?: boolean;
     enableNumericPriority?: boolean;
@@ -272,33 +271,27 @@ export default function TodoListPage() {
   };
   
   const handleSettingChange = (key: keyof ListSettings, value: any) => {
-    let tasksToUpdate = [...tasks];
-    if (key === 'enableNumericPriority' && !value) {
-        // If numeric priority is being disabled, cap all priorities at 3.
-        tasksToUpdate = tasks.map(task => ({
-            ...task,
-            priority: (task.priority && task.priority > 3) ? 3 : task.priority,
-        }));
-        setTasks(tasksToUpdate);
-    }
-    
     setSettings(prev => {
         const newSettings = {...prev, [key]: value};
-        // Logic for dependent settings
+        
         if (key === 'advancedMode' && !value) {
             newSettings.enableSubtasks = false;
             newSettings.enableGroups = false;
-            newSettings.enableColorGroups = false;
             newSettings.enableNumericPriority = false;
         }
-        if (key === 'enableGroups' && !value) {
-            newSettings.enableColorGroups = false;
-        }
         if (key === 'enableGroups' && value && !newSettings.groups) {
-            newSettings.groups = []; // Initialize groups array
+            newSettings.groups = [];
         }
         return newSettings;
     });
+
+    if (key === 'enableNumericPriority' && !value) {
+        const updatedTasks = tasks.map(task => ({
+            ...task,
+            priority: (task.priority && task.priority > 3) ? 3 : task.priority,
+        }));
+        setTasks(updatedTasks);
+    }
   }
 
   const getFormattedDate = (timestamp: TodoList['updatedAt'] | undefined) => {
@@ -901,5 +894,6 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             </ScrollArea>
     )
 }
+
 
 
