@@ -31,6 +31,7 @@ import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import ShareNoteDialog from '@/app/components/share-note-dialog';
 
 
 type UserProfile = {
@@ -40,6 +41,7 @@ type UserProfile = {
 type QuickNote = {
   id: string;
   title: string;
+  content: string;
   updatedAt: {
     seconds: number;
     nanoseconds: number;
@@ -52,6 +54,8 @@ export default function WorkspacePage() {
     const router = useRouter();
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [sharingNote, setSharingNote] = useState<QuickNote | null>(null);
+    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
@@ -100,6 +104,11 @@ export default function WorkspacePage() {
         title: "Notiz gelöscht!",
         description: `Die Notiz "${noteTitle}" wurde endgültig gelöscht.`
       });
+    }
+
+    const handleShareClick = (note: QuickNote) => {
+      setSharingNote(note);
+      setIsShareDialogOpen(true);
     }
 
 
@@ -169,7 +178,7 @@ export default function WorkspacePage() {
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>
-                                <Button variant="ghost" size="icon" disabled>
+                                <Button variant="ghost" size="icon" onClick={() => handleShareClick(note)}>
                                     <Share2 className="h-4 w-4" />
                                 </Button>
                                 <AlertDialog>
@@ -201,6 +210,14 @@ export default function WorkspacePage() {
                   </div>
                 )}
             </div>
+
+            {sharingNote && (
+              <ShareNoteDialog 
+                open={isShareDialogOpen} 
+                onOpenChange={setIsShareDialogOpen} 
+                note={sharingNote} 
+              />
+            )}
         </div>
     );
 }
