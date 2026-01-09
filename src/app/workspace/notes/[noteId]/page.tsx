@@ -324,7 +324,7 @@ export default function NotePage() {
                     autoFocus
                 />
             ) : (
-                <div className="w-full h-full flex-1" onClick={() => !note?.isLocked && setIsEditing(true)}>
+                <div className="w-full h-full flex-1">
                     <CustomMarkdownRenderer content={content} />
                 </div>
             )}
