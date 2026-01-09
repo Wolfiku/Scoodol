@@ -165,9 +165,8 @@ export default function NotePage() {
   return (
     <div className="flex flex-col h-screen p-4 md:p-8">
         <header className="flex justify-between items-center mb-6 shrink-0">
-            <Button variant="ghost" onClick={() => router.push('/workspace')} className="">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Zurück zum Workspace
+            <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}>
+                <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-4">
                  <Button 
