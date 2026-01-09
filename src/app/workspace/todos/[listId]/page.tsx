@@ -350,7 +350,54 @@ export default function TodoListPage() {
         return settings.groups.find(g => g.id === groupId);
     }
     
-    const runHomeworkSync = () => {
+    const runHomeworkSync = useCallback(() => {
+        if (!settings.syncHomework || !homeworks) {
+            return { wasUpdated: false, count: 0 };
+        }
+
+        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+        let updated = false;
+
+        setTasks(currentTasks => {
+            let newTasks = [...currentTasks];
+            const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+
+            const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+                id: `hw-${hw.id}`,
+                text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
+                done: false,
+                homeworkId: hw.id
+            }));
+
+            if (incompleteHomeworks.length === 0) {
+                if (existingTaskIndex > -1) {
+                    newTasks.splice(existingTaskIndex, 1);
+                    updated = true;
+                }
+            } else {
+                const newSyncTask: Task = {
+                    id: HOMEWORK_SYNC_TASK_ID,
+                    text: "Hausaufgaben",
+                    done: false,
+                    subtasks: homeworkSubtasks,
+                };
+                if (existingTaskIndex > -1) {
+                    if (JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(homeworkSubtasks)) {
+                        newTasks[existingTaskIndex] = newSyncTask;
+                        updated = true;
+                    }
+                } else {
+                    newTasks.unshift(newSyncTask);
+                    updated = true;
+                }
+            }
+            return updated ? newTasks : currentTasks;
+        });
+
+        return { wasUpdated: updated, count: incompleteHomeworks.length };
+    }, [homeworks, settings.syncHomework]);
+    
+    const handleManualSync = () => {
         if (!settings.syncHomework) {
             toast({
                 variant: 'destructive',
@@ -359,68 +406,12 @@ export default function TodoListPage() {
             });
             return;
         }
-        if (!homeworks) {
-            toast({
-                variant: 'destructive',
-                title: 'Fehler',
-                description: 'Hausaufgaben konnten nicht geladen werden.'
-            });
-            return;
+        const { wasUpdated, count } = runHomeworkSync();
+        if (wasUpdated) {
+            toast({ title: 'Hausaufgaben synchronisiert!', description: `${count} unerledigte Aufgaben gefunden.` });
+        } else {
+            toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
         }
-
-        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
-        let wasUpdated = false;
-
-        setTasks(currentTasks => {
-            let newTasks = [...currentTasks];
-            const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-
-            const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                id: `hw-${hw.id}`,
-                text: `${hw.subject}: ${hw.task}`,
-                done: false,
-                homeworkId: hw.id
-            }));
-
-            if (incompleteHomeworks.length === 0) {
-                if (existingTaskIndex > -1) {
-                    const existingTask = newTasks[existingTaskIndex];
-                    if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
-                         newTasks = newTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
-                         wasUpdated = true;
-                    }
-                }
-            } else {
-                if (existingTaskIndex > -1) {
-                    // Using stringify for deep comparison of subtask arrays
-                    if (JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(homeworkSubtasks)) {
-                        newTasks[existingTaskIndex] = {
-                            ...newTasks[existingTaskIndex],
-                            subtasks: homeworkSubtasks
-                        };
-                        wasUpdated = true;
-                    }
-                } else {
-                    const newSyncTask: Task = {
-                        id: HOMEWORK_SYNC_TASK_ID,
-                        text: "Hausaufgaben",
-                        done: false,
-                        subtasks: homeworkSubtasks,
-                    };
-                    newTasks = [newSyncTask, ...newTasks];
-                    wasUpdated = true;
-                }
-            }
-
-            // Show toast message outside of the render cycle using a separate effect or callback
-            if (wasUpdated) {
-                toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben gefunden.` });
-            } else {
-                toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
-            }
-
-            return newTasks;
-        });
     }
 
 
@@ -482,7 +473,7 @@ export default function TodoListPage() {
                 onDelete={handleDelete} 
                 isNewList={isNewList} 
                 closeSheet={() => setIsSettingsSheetOpen(false)}
-                onSyncHomeworks={runHomeworkSync}
+                onSyncHomeworks={handleManualSync}
             />
         </SheetContent>
       </Sheet>
