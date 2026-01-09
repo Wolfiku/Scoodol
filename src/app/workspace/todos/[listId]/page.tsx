@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -635,8 +636,11 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="space-y-2 mt-4">
                             {(editedTask.subtasks || []).map((subtask, index) => (
                                 <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 cursor-grab" asChild>
-                                        <div><GripVertical className="w-4 h-4" /></div>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
+                                        <ArrowDown className="w-3.5 h-3.5" />
                                     </Button>
                                     <Checkbox 
                                         id={`subtask-edit-${subtask.id}`}
@@ -649,12 +653,6 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                                     >
                                         {subtask.text}
                                     </label>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
-                                        <ArrowUp className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
-                                        <ArrowDown className="w-3.5 h-3.5" />
-                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteSubtask(subtask.id)}>
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
@@ -679,24 +677,22 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="my-4 space-y-2">
                              <Label>Gruppe zuweisen</Label>
                             {(settings.groups && settings.groups.length > 0) ? (
-                                <RadioGroup
-                                    value={editedTask.group}
-                                    onValueChange={(value) => handleFieldChange('group', value)}
-                                >
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value={undefined as any} id="no-group" />
-                                        <Label htmlFor="no-group" className="font-normal">Keine Gruppe</Label>
-                                    </div>
-                                    {settings.groups.map(group => (
-                                        <div className="flex items-center space-x-2" key={group.id}>
-                                            <RadioGroupItem value={group.id} id={`group-${group.id}`} />
-                                            <Label htmlFor={`group-${group.id}`} className="font-normal flex items-center gap-2">
-                                                <span className="w-3 h-3 rounded-full" style={{backgroundColor: group.color}}></span>
-                                                {group.name}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </RadioGroup>
+                                <Select value={editedTask.group} onValueChange={(value) => handleFieldChange('group', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Gruppe wählen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">Keine Gruppe</SelectItem>
+                                        {settings.groups.map(group => (
+                                            <SelectItem key={group.id} value={group.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-3 h-3 rounded-full" style={{backgroundColor: group.color}}></span>
+                                                    {group.name}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             ) : (
                                 <p className="text-sm text-muted-foreground">Keine Gruppen für diese Liste erstellt. Füge welche in den Listen-Einstellungen hinzu.</p>
                             )}
@@ -862,4 +858,3 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
             </ScrollArea>
     )
 }
-
