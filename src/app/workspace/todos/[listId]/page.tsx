@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Trash2, Plus } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +23,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 
 type Task = {
   id: string;
@@ -66,6 +69,7 @@ export default function TodoListPage() {
   const [newTaskText, setNewTaskText] = useState('');
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
 
   const listDocRef = useMemoFirebase(() => 
     !isNewList && user && typeof listId === 'string'
@@ -115,10 +119,8 @@ export default function TodoListPage() {
 
   useEffect(() => {
     if (isLoadingList) return;
-    // For new lists, don't auto-save until there's a title.
     if (isNewList && !title.trim()) return;
     
-    // Check if anything has actually changed
     const hasChanged = isNewList || (todoList && (title !== todoList.title || JSON.stringify(tasks) !== JSON.stringify(todoList.tasks)));
     
     if (!hasChanged) {
@@ -222,6 +224,34 @@ export default function TodoListPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Sheet open={isSettingsSheetOpen} onOpenChange={setIsSettingsSheetOpen}>
+        <SheetContent>
+            <SheetHeader>
+                <SheetTitle>Listen-Einstellungen</SheetTitle>
+                <SheetDescription>Verwalte die Einstellungen für deine To-Do-Liste "{title}".</SheetDescription>
+            </SheetHeader>
+            <div className="py-4 space-y-6">
+                <p className="text-sm text-muted-foreground">Hier kommen bald weitere Einstellungen, z.B. für die Sortierung.</p>
+                
+                <Separator />
+
+                <div>
+                    <h4 className="font-semibold mb-2">Gefahrenzone</h4>
+                    <Button variant="destructive" onClick={() => {
+                        setIsSettingsSheetOpen(false);
+                        setIsDeleteDialogOpen(true);
+                    }} disabled={isNewList}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Liste endgültig löschen
+                    </Button>
+                </div>
+            </div>
+             <SheetFooter>
+                <Button variant="outline" onClick={() => setIsSettingsSheetOpen(false)}>Schließen</Button>
+            </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
       <header className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
@@ -247,7 +277,12 @@ export default function TodoListPage() {
                 <Save className="mr-2 h-4 w-4" />
                 <span>Jetzt speichern</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={!todoList} className="text-destructive focus:text-destructive">
+             <DropdownMenuItem onClick={() => setIsSettingsSheetOpen(true)} disabled={isNewList}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Einstellungen</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewList} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               <span>Löschen</span>
             </DropdownMenuItem>
