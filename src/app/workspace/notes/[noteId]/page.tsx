@@ -63,6 +63,7 @@ export default function NotePage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isLocked, setIsLocked] = useState(false);
+  const [isEditing, setIsEditing] = useState(isNewNote);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -179,6 +180,8 @@ export default function NotePage() {
       }
   }
 
+  const showEditor = !isLocked && isEditing;
+
 
   const isLoading = isUserLoading || isLoadingNote;
 
@@ -234,12 +237,13 @@ export default function NotePage() {
                     className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    readOnly={isLocked}
+                    readOnly={isLocked || !isEditing}
+                    onClick={() => !isLocked && setIsEditing(true)}
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
                     <span className="cursor-pointer hover:text-foreground" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
-                      {getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType)}
+                      {note ? getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType) : ''}
                     </span>
                     {renderSaveStatus()}
                 </div>
@@ -280,18 +284,19 @@ export default function NotePage() {
                 </DropdownMenu>
             </div>
 
-            {isLocked ? (
-                <div className="w-full h-full flex-1">
-                    <CustomMarkdownRenderer content={content} />
-                </div>
-            ) : (
+            {showEditor ? (
                 <Textarea 
                     placeholder="Schreib hier deine Gedanken auf... Du kannst Markdown verwenden!"
                     className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    readOnly={isLocked}
+                    autoFocus
+                    onDoubleClick={() => setIsEditing(false)}
                 />
+            ) : (
+                <div className="w-full h-full flex-1" onClick={() => !isLocked && setIsEditing(true)}>
+                    <CustomMarkdownRenderer content={content} />
+                </div>
             )}
       </main>
     </div>
