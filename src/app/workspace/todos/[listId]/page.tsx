@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -307,7 +308,7 @@ export default function TodoListPage() {
   
   const handleSettingChange = (key: keyof ListSettings, value: any) => {
     setSettings(prev => {
-        const newSettings = {...prev, [key]: value};
+        let newSettings = {...prev, [key]: value};
         
         if (key === 'advancedMode' && !value) {
             newSettings.enableSubtasks = false;
@@ -320,10 +321,11 @@ export default function TodoListPage() {
         }
 
         if (key === 'enableNumericPriority' && !value) {
-             setTasks(currentTasks => currentTasks.map(task => ({
+             const updatedTasks = tasks.map(task => ({
                 ...task,
                 priority: (task.priority && task.priority > 3) ? 3 : task.priority,
-            })));
+            }));
+            setTasks(updatedTasks);
         }
 
         return newSettings;
@@ -355,30 +357,27 @@ export default function TodoListPage() {
     
     const runHomeworkSync = () => {
         if (!settings.syncHomework || !homeworks) {
-            if (settings.syncHomework) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Sync nicht möglich',
-                    description: 'Hausaufgaben konnten nicht geladen werden.'
-                });
-            }
+             toast({
+                variant: 'destructive',
+                title: 'Sync nicht möglich',
+                description: 'Hausaufgaben konnten nicht geladen werden oder die Funktion ist deaktiviert.'
+            });
             return;
         }
     
         const incompleteHomeworks = homeworks.filter(hw => !hw.done);
     
         if (settings.enableSubtasks) {
-            // Logic for when subtasks are enabled
+            const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+                id: `hw-${hw.id}`,
+                text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
+                done: false,
+                homeworkId: hw.id
+            }));
+
             setTasks(currentTasks => {
                 const newTasks = [...currentTasks];
                 const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-    
-                const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                    id: `hw-${hw.id}`,
-                    text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
-                    done: false,
-                    homeworkId: hw.id
-                }));
     
                 if (incompleteHomeworks.length === 0) {
                     if (existingTaskIndex > -1) {
@@ -405,25 +404,22 @@ export default function TodoListPage() {
             });
         } else {
             // Logic for when subtasks are disabled
-            setTasks(currentTasks => {
-                // Filter out tasks that came from a previous homework sync
-                const nonHomeworkTasks = currentTasks.filter(t => !t.homeworkId);
+            const nonHomeworkTasks = tasks.filter(t => !t.homeworkId);
                 
-                const newHomeworkTasks: Task[] = incompleteHomeworks.map(hw => ({
-                    id: `hw-${hw.id}`,
-                    text: `HA: ${hw.subject || ''} - ${hw.task}`,
-                    done: false,
-                    homeworkId: hw.id,
-                }));
+            const newHomeworkTasks: Task[] = incompleteHomeworks.map(hw => ({
+                id: `hw-${hw.id}`,
+                text: `HA: ${hw.subject || ''} - ${hw.task}`,
+                done: false,
+                homeworkId: hw.id,
+            }));
 
-                if (newHomeworkTasks.length > 0) {
-                     toast({ title: 'Hausaufgaben synchronisiert!', description: `${newHomeworkTasks.length} Aufgaben wurden hinzugefügt.` });
-                } else {
-                     toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
-                }
-    
-                return [...nonHomeworkTasks, ...newHomeworkTasks];
-            });
+            if (newHomeworkTasks.length > 0) {
+                    toast({ title: 'Hausaufgaben synchronisiert!', description: `${newHomeworkTasks.length} Aufgaben wurden hinzugefügt.` });
+            } else {
+                    toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
+            }
+
+            setTasks([...nonHomeworkTasks, ...newHomeworkTasks]);
         }
     };
 
