@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, Pencil, FilePlus } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, FilePlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 type Task = {
@@ -452,7 +455,7 @@ export default function TodoListPage() {
                     <Plus className="h-4 w-4" />
                 </Button>
                 <Button type="button" variant="outline" size="icon" onClick={handleOpenNewTaskDialog}>
-                    <FilePlus className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                 </Button>
             </div>
         </form>
@@ -473,7 +476,7 @@ export default function TodoListPage() {
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                                {task.dueDate && (
                                    <div className="flex items-center gap-1">
-                                       <Calendar className="w-3 h-3" />
+                                       <CalendarIcon className="w-3 h-3" />
                                        <span>{format(new Date(task.dueDate), 'd. MMM', {locale: de})}</span>
                                    </div>
                                )}
@@ -574,12 +577,6 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         handleFieldChange('subtasks', updatedSubtasks);
     }
 
-    const getDefaultTab = () => {
-        if (settings.enableSubtasks) return 'subtasks';
-        return 'general';
-    }
-
-
     return (
         <div className="flex flex-col h-full">
             <Tabs defaultValue="general" className="w-full flex-1 flex flex-col">
@@ -601,12 +598,29 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                             </div>
                             <div>
                                 <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
-                                <Input 
-                                    id="edit-task-due-date"
-                                    type="date"
-                                    value={editedTask.dueDate || ''}
-                                    onChange={(e) => handleFieldChange('dueDate', e.target.value)}
-                                />
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !editedTask.dueDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {editedTask.dueDate ? format(new Date(editedTask.dueDate), "PPP", { locale: de }) : <span>Datum wählen</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={editedTask.dueDate ? new Date(editedTask.dueDate) : undefined}
+                                            onSelect={(date) => handleFieldChange('dueDate', date ? format(date, 'yyyy-MM-dd') : undefined)}
+                                            initialFocus
+                                            locale={de}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                             <div>
                                 <Label className="mb-2 block">Priorität</Label>
