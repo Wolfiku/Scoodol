@@ -213,64 +213,63 @@ export default function TodoListPage() {
     };
   }, [title, tasks, settings, todoList, isLoadingList, handleSave]);
   
+  const syncHomeworkTasks = useCallback((currentTasks: Task[]) => {
+      if (!settings.syncHomework || !homeworks || !listDocRef) return currentTasks;
+
+      const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+      let newTasks = [...currentTasks];
+      const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+
+      if (incompleteHomeworks.length === 0) {
+          if (existingTaskIndex > -1) {
+              const existingTask = newTasks[existingTaskIndex];
+              if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
+                  newTasks = newTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
+              }
+          }
+      } else {
+          const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+              id: `hw-${hw.id}`,
+              text: `${hw.subject}: ${hw.task}`,
+              done: false,
+              homeworkId: hw.id
+          }));
+
+          if (existingTaskIndex > -1) {
+              newTasks[existingTaskIndex] = {
+                  ...newTasks[existingTaskIndex],
+                  subtasks: homeworkSubtasks
+              };
+          } else {
+              const newSyncTask: Task = {
+                  id: HOMEWORK_SYNC_TASK_ID,
+                  text: "Hausaufgaben",
+                  done: false,
+                  subtasks: homeworkSubtasks,
+              };
+              newTasks = [newSyncTask, ...newTasks];
+          }
+      }
+      return newTasks;
+  }, [settings.syncHomework, homeworks, listDocRef]);
   
     // Effect for Homework Sync
   useEffect(() => {
-    if (!settings.syncHomework || !homeworks || !listDocRef) return;
+    if (!settings.syncHomework || !homeworks || !listDocRef || isNewList) return;
     
     const today = new Date().toISOString().split('T')[0];
     const lastSync = todoList?.lastHomeworkSync;
 
     if (lastSync === today) return; // Already synced today
 
-    const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+    setTasks(currentTasks => syncHomeworkTasks(currentTasks));
+    
+    if (lastSync !== today) {
+        updateDoc(listDocRef, { lastHomeworkSync: today });
+        toast({ title: 'Hausaufgaben synchronisiert!', description: `Unerledigte Aufgaben wurden zur Liste hinzugefügt.`});
+    }
 
-    setTasks(currentTasks => {
-        let newTasks = [...currentTasks];
-        const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-
-        if (incompleteHomeworks.length === 0) {
-            // If no incomplete homework, remove the sync task if it exists and all its subtasks are done
-            if (existingTaskIndex > -1) {
-                const existingTask = newTasks[existingTaskIndex];
-                 if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
-                    newTasks = newTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
-                }
-            }
-        } else {
-             const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                id: `hw-${hw.id}`,
-                text: `${hw.subject}: ${hw.task}`,
-                done: false,
-                homeworkId: hw.id
-            }));
-
-            if (existingTaskIndex > -1) {
-                // Update existing task
-                newTasks[existingTaskIndex] = {
-                    ...newTasks[existingTaskIndex],
-                    subtasks: homeworkSubtasks
-                };
-            } else {
-                // Add new task
-                const newSyncTask: Task = {
-                    id: HOMEWORK_SYNC_TASK_ID,
-                    text: "Hausaufgaben",
-                    done: false,
-                    subtasks: homeworkSubtasks,
-                };
-                newTasks = [newSyncTask, ...newTasks];
-            }
-             if (lastSync !== today) {
-                updateDoc(listDocRef, { lastHomeworkSync: today });
-                toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben hinzugefügt.`});
-            }
-        }
-        return newTasks;
-    });
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.syncHomework, homeworks, todoList?.lastHomeworkSync, listDocRef]);
+  }, [settings.syncHomework, homeworks, todoList?.lastHomeworkSync, listDocRef, isNewList, syncHomeworkTasks, toast]);
 
 
   const handleDelete = async () => {
