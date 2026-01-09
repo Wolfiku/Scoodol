@@ -284,6 +284,9 @@ export default function TodoListPage() {
                     });
                     return { ...task, subtasks: updatedSubtasks };
                 } else {
+                     if (!task.done) { // Only update if marking as done
+                        homeworkIdToUpdate = task.homeworkId;
+                    }
                     return { ...task, done: !task.done };
                 }
             }
@@ -317,7 +320,7 @@ export default function TodoListPage() {
         }
 
         if (key === 'enableNumericPriority' && !value) {
-            setTasks(currentTasks => currentTasks.map(task => ({
+             setTasks(currentTasks => currentTasks.map(task => ({
                 ...task,
                 priority: (task.priority && task.priority > 3) ? 3 : task.priority,
             })));
@@ -350,69 +353,79 @@ export default function TodoListPage() {
         return settings.groups.find(g => g.id === groupId);
     }
     
-    const runHomeworkSync = useCallback(() => {
+    const runHomeworkSync = () => {
         if (!settings.syncHomework || !homeworks) {
-            return { wasUpdated: false, count: 0 };
-        }
-
-        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
-        let updated = false;
-
-        setTasks(currentTasks => {
-            let newTasks = [...currentTasks];
-            const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-
-            const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                id: `hw-${hw.id}`,
-                text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
-                done: false,
-                homeworkId: hw.id
-            }));
-
-            if (incompleteHomeworks.length === 0) {
-                if (existingTaskIndex > -1) {
-                    newTasks.splice(existingTaskIndex, 1);
-                    updated = true;
-                }
-            } else {
-                const newSyncTask: Task = {
-                    id: HOMEWORK_SYNC_TASK_ID,
-                    text: "Hausaufgaben",
-                    done: false,
-                    subtasks: homeworkSubtasks,
-                };
-                if (existingTaskIndex > -1) {
-                    if (JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(homeworkSubtasks)) {
-                        newTasks[existingTaskIndex] = newSyncTask;
-                        updated = true;
-                    }
-                } else {
-                    newTasks.unshift(newSyncTask);
-                    updated = true;
-                }
+            if (settings.syncHomework) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Sync nicht möglich',
+                    description: 'Hausaufgaben konnten nicht geladen werden.'
+                });
             }
-            return updated ? newTasks : currentTasks;
-        });
-
-        return { wasUpdated: updated, count: incompleteHomeworks.length };
-    }, [homeworks, settings.syncHomework]);
-    
-    const handleManualSync = () => {
-        if (!settings.syncHomework) {
-            toast({
-                variant: 'destructive',
-                title: 'Sync nicht aktiv',
-                description: 'Aktiviere zuerst den Hausaufgaben-Sync in den Einstellungen.'
-            });
             return;
         }
-        const { wasUpdated, count } = runHomeworkSync();
-        if (wasUpdated) {
-            toast({ title: 'Hausaufgaben synchronisiert!', description: `${count} unerledigte Aufgaben gefunden.` });
+    
+        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+    
+        if (settings.enableSubtasks) {
+            // Logic for when subtasks are enabled
+            setTasks(currentTasks => {
+                const newTasks = [...currentTasks];
+                const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+    
+                const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+                    id: `hw-${hw.id}`,
+                    text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
+                    done: false,
+                    homeworkId: hw.id
+                }));
+    
+                if (incompleteHomeworks.length === 0) {
+                    if (existingTaskIndex > -1) {
+                        newTasks.splice(existingTaskIndex, 1);
+                        toast({ title: 'Hausaufgaben-Sync', description: 'Alle Hausaufgaben sind erledigt!' });
+                    } else {
+                         toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
+                    }
+                } else {
+                    const newSyncTask: Task = {
+                        id: HOMEWORK_SYNC_TASK_ID,
+                        text: "Hausaufgaben",
+                        done: false,
+                        subtasks: homeworkSubtasks,
+                    };
+                    if (existingTaskIndex > -1) {
+                        newTasks[existingTaskIndex] = newSyncTask;
+                    } else {
+                        newTasks.unshift(newSyncTask);
+                    }
+                     toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben gefunden.` });
+                }
+                return newTasks;
+            });
         } else {
-            toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
+            // Logic for when subtasks are disabled
+            setTasks(currentTasks => {
+                // Filter out tasks that came from a previous homework sync
+                const nonHomeworkTasks = currentTasks.filter(t => !t.homeworkId);
+                
+                const newHomeworkTasks: Task[] = incompleteHomeworks.map(hw => ({
+                    id: `hw-${hw.id}`,
+                    text: `HA: ${hw.subject || ''} - ${hw.task}`,
+                    done: false,
+                    homeworkId: hw.id,
+                }));
+
+                if (newHomeworkTasks.length > 0) {
+                     toast({ title: 'Hausaufgaben synchronisiert!', description: `${newHomeworkTasks.length} Aufgaben wurden hinzugefügt.` });
+                } else {
+                     toast({ title: 'Hausaufgaben-Sync', description: 'Keine offenen Hausaufgaben gefunden.' });
+                }
+    
+                return [...nonHomeworkTasks, ...newHomeworkTasks];
+            });
         }
-    }
+    };
 
 
   const isLoading = isUserLoading || isLoadingList;
@@ -473,7 +486,7 @@ export default function TodoListPage() {
                 onDelete={handleDelete} 
                 isNewList={isNewList} 
                 closeSheet={() => setIsSettingsSheetOpen(false)}
-                onSyncHomeworks={handleManualSync}
+                onSyncHomeworks={runHomeworkSync}
             />
         </SheetContent>
       </Sheet>
@@ -544,7 +557,7 @@ export default function TodoListPage() {
                             className="mt-1"
                             checked={task.done}
                             onCheckedChange={() => toggleTaskDone(task.id)}
-                            disabled={task.id === HOMEWORK_SYNC_TASK_ID}
+                            disabled={task.id === HOMEWORK_SYNC_TASK_ID && (task.subtasks || []).every(st => st.done)}
                         />
                         <div className="flex-1">
                             <label htmlFor={`task-${task.id}`} className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
@@ -807,7 +820,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="my-4 space-y-2">
                              <Label>Gruppe zuweisen</Label>
                             {(settings.groups && settings.groups.length > 0) ? (
-                                <Select value={editedTask.group} onValueChange={(value) => handleFieldChange('group', value === 'no-group' ? undefined : value)}>
+                                <Select value={editedTask.group || 'no-group'} onValueChange={(value) => handleFieldChange('group', value === 'no-group' ? undefined : value)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Gruppe wählen" />
                                     </SelectTrigger>
@@ -844,6 +857,7 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
     const [editingGroupName, setEditingGroupName] = useState('');
     const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
     const [newGroupColor, setNewGroupColor] = useState(generateColor());
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const handleAddGroup = (e: React.FormEvent) => {
         e.preventDefault();
@@ -904,7 +918,7 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                          <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="sync-homework-mode" className="flex flex-col gap-1">
                                 <span>Hausaufgaben synchronisieren</span>
-                                 <span className="text-xs font-normal text-muted-foreground">Erstellt eine Aufgabe mit allen unerledigten Hausaufgaben.</span>
+                                 <span className="text-xs font-normal text-muted-foreground">Erstellt Aufgaben aus deinem Hausaufgabenplaner.</span>
                             </Label>
                             <Switch id="sync-homework-mode" disabled={!settings.advancedMode} checked={settings.syncHomework} onCheckedChange={(c) => onSettingChange('syncHomework', c)} />
                         </div>
@@ -999,19 +1013,29 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
 
                     <Separator />
 
-                    <div>
-                        <h4 className="font-semibold mb-2">Gefahrenzone</h4>
-                        <Button variant="destructive" onClick={() => {
-                           closeSheet();
-                           // We need a small delay for the delete dialog to not clash with the sheet closing
-                           setTimeout(() => {
-                                setIsDeleteDialogOpen(true);
-                           }, 100);
-                        }} disabled={isNewList}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Liste endgültig löschen
-                        </Button>
-                    </div>
+                     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <AlertDialogTrigger asChild>
+                             <div className="space-y-2">
+                                <h4 className="font-semibold mb-2">Gefahrenzone</h4>
+                                <Button variant="destructive" disabled={isNewList}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Liste endgültig löschen
+                                </Button>
+                            </div>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Liste wirklich löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            Diese Aktion kann nicht rückgängig gemacht werden. Bist du sicher?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => {onDelete(); closeSheet();}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </ScrollArea>
     )
