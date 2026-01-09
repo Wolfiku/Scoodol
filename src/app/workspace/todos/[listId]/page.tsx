@@ -28,7 +28,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow, format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
@@ -172,7 +172,7 @@ export default function TodoListPage() {
   }, [firestore, user, title, tasks, settings, isNewList, listDocRef, router]);
 
 
-    useEffect(() => {
+  useEffect(() => {
     if (isLoadingList || (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks) && JSON.stringify(settings) === JSON.stringify(todoList.settings))) {
       return;
     }
@@ -636,12 +636,14 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="space-y-2 mt-4">
                             {(editedTask.subtasks || []).map((subtask, index) => (
                                 <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
-                                        <ArrowUp className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
-                                        <ArrowDown className="w-3.5 h-3.5" />
-                                    </Button>
+                                    <div className="flex flex-col">
+                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(subtask.id, 'up')} disabled={index === 0}>
+                                            <ArrowUp className="w-3 h-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => moveSubtask(subtask.id, 'down')} disabled={index === (editedTask.subtasks || []).length - 1}>
+                                            <ArrowDown className="w-3 h-3" />
+                                        </Button>
+                                    </div>
                                     <Checkbox 
                                         id={`subtask-edit-${subtask.id}`}
                                         checked={subtask.done}
@@ -677,12 +679,12 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="my-4 space-y-2">
                              <Label>Gruppe zuweisen</Label>
                             {(settings.groups && settings.groups.length > 0) ? (
-                                <Select value={editedTask.group} onValueChange={(value) => handleFieldChange('group', value)}>
+                                <Select value={editedTask.group} onValueChange={(value) => handleFieldChange('group', value === 'no-group' ? undefined : value)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Gruppe wählen" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Keine Gruppe</SelectItem>
+                                        <SelectItem value="no-group">Keine Gruppe</SelectItem>
                                         {settings.groups.map(group => (
                                             <SelectItem key={group.id} value={group.id}>
                                                 <div className="flex items-center gap-2">
