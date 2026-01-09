@@ -196,7 +196,7 @@ export default function NotePage() {
       }
   }
 
-  const showEditor = !note?.isLocked && isEditing;
+  const showEditor = (isEditing && !note?.isLocked) || (isNewNote);
 
 
   const isLoading = isUserLoading || isLoadingNote;
@@ -253,7 +253,7 @@ export default function NotePage() {
                     className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    readOnly={!isEditing}
+                    readOnly={!showEditor}
                 />
                  {note?.isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
@@ -326,6 +326,7 @@ export default function NotePage() {
             ) : (
                 <div 
                     className="w-full h-full flex-1"
+                     onClick={() => { if (!note?.isLocked) { setIsEditing(true); } }}
                 >
                     <CustomMarkdownRenderer content={content} />
                 </div>
