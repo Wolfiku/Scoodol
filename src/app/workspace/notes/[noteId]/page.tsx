@@ -142,7 +142,7 @@ export default function NotePage() {
   }, [title, content, note, isLoadingNote, handleSave, isLocked]);
 
   const handleDelete = async () => {
-      if(isNewNote || !noteDocRef) return;
+      if(isNewNote || !noteDocRef || isLocked) return;
       
       await deleteDoc(noteDocRef);
       toast({
@@ -229,7 +229,7 @@ export default function NotePage() {
                     className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    disabled={isLoading && !isNewNote || isLocked}
+                    readOnly={isLocked}
                 />
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
@@ -249,7 +249,7 @@ export default function NotePage() {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             <span>Zurück</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}>
+                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || isLocked}>
                             <Save className="mr-2 h-4 w-4" />
                             <span>Jetzt speichern</span>
                         </DropdownMenuItem>
@@ -267,7 +267,7 @@ export default function NotePage() {
                             <span>{isLocked ? 'Entsperren' : 'Sperren'}</span>
                         </DropdownMenuItem>
                          <DropdownMenuSeparator />
-                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewNote} className="text-destructive focus:text-destructive">
+                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewNote || isLocked} className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
                             <span>Löschen</span>
                         </DropdownMenuItem>
@@ -280,7 +280,7 @@ export default function NotePage() {
                 className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                disabled={(isLoading && !isNewNote) || isLocked}
+                readOnly={isLocked}
             />
       </main>
     </div>
