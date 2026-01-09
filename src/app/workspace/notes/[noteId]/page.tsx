@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +19,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 type QuickNote = {
@@ -112,7 +110,7 @@ export default function NotePage() {
   const isLoading = isUserLoading || isLoadingNote;
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin text-primary" /></div>;
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
   
   if (!user || user.isAnonymous) {
@@ -121,8 +119,8 @@ export default function NotePage() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-        <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col h-screen p-4 md:p-8">
+        <header className="flex justify-between items-center mb-6 shrink-0">
             <Button variant="ghost" onClick={() => router.push('/workspace')} className="">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Zurück zum Workspace
@@ -155,26 +153,22 @@ export default function NotePage() {
                     Speichern
                 </Button>
             </div>
-        </div>
+        </header>
 
-        <Card className="min-h-[70vh] flex flex-col">
-            <CardHeader>
-                <Input 
-                    placeholder="Gib deiner Notiz einen Titel..."
-                    className="text-2xl font-bold border-0 shadow-none focus-visible:ring-0 p-0"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                />
-            </CardHeader>
-            <CardContent className="flex-1">
-                <Textarea 
-                    placeholder="Schreib hier deine Gedanken auf..."
-                    className="w-full h-full border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                />
-            </CardContent>
-        </Card>
+        <main className="flex-1 flex flex-col min-h-0">
+             <Input 
+                placeholder="Gib deiner Notiz einen Titel..."
+                className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto mb-4"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+            />
+            <Textarea 
+                placeholder="Schreib hier deine Gedanken auf..."
+                className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+            />
+        </main>
     </div>
   );
 }
