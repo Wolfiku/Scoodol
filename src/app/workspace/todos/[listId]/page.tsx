@@ -90,7 +90,7 @@ type SaveStatus = 'idle' | 'dirty' | 'saving';
 
 const generateColor = () => {
     const hue = Math.floor(Math.random() * 360);
-    return `hsl(${hue}, 50%, 85%)`; // Light pastel color
+    return `hsl(${hue}, 70%, 75%)`;
 }
 
 export default function TodoListPage() {
