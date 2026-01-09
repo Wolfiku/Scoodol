@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -115,27 +114,32 @@ export default function TodoListPage() {
   }, [firestore, user, title, tasks, isNewList, listDocRef, router]);
 
   useEffect(() => {
-    if (isLoadingList || isNewList) return;
-    if (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks)) {
+    if (isLoadingList) return;
+    // For new lists, don't auto-save until there's a title.
+    if (isNewList && !title.trim()) return;
+    
+    // Check if anything has actually changed
+    const hasChanged = isNewList || (todoList && (title !== todoList.title || JSON.stringify(tasks) !== JSON.stringify(todoList.tasks)));
+    
+    if (!hasChanged) {
         return;
     }
 
-    if (title.trim()) {
-      setSaveStatus('dirty');
-      if (debounceTimer.current) {
+    setSaveStatus('dirty');
+    if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
-      }
-      debounceTimer.current = setTimeout(() => {
-        handleSave();
-      }, 1500);
     }
+    debounceTimer.current = setTimeout(() => {
+        handleSave();
+    }, 1500);
 
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
     };
   }, [title, tasks, todoList, isLoadingList, handleSave, isNewList]);
+
 
   const handleDelete = async () => {
     if (isNewList || !listDocRef) return;
@@ -239,6 +243,10 @@ export default function TodoListPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}>
+                <Save className="mr-2 h-4 w-4" />
+                <span>Jetzt speichern</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={!todoList} className="text-destructive focus:text-destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               <span>Löschen</span>
