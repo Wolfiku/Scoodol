@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -17,7 +16,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +26,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 import { format, formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
+import ShareNoteDialog from '@/app/components/share-note-dialog';
 
 
 type QuickNote = {
@@ -64,6 +64,7 @@ export default function NotePage() {
   const [isLocked, setIsLocked] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [dateDisplayType, setDateDisplayType] = useState<'updated' | 'created'>('updated');
 
 
@@ -156,14 +157,14 @@ export default function NotePage() {
   const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, type: 'created' | 'updated') => {
     if (!timestamp) return '';
     const date = new Date(timestamp.seconds * 1000);
-    const yesterday = subDays(new Date(), 1);
+    const dayAgo = subDays(new Date(), 1);
     
-    if (isBefore(date, yesterday)) {
-      return format(date, "d. MMMM yyyy", { locale: de });
+    if (isBefore(date, dayAgo)) {
+      return format(date, "d. MMM. yyyy", { locale: de });
     } else {
       return formatDistanceToNow(date, { addSuffix: true, locale: de });
     }
-  }
+  };
 
   const renderSaveStatus = () => {
       switch(saveStatus) {
@@ -222,6 +223,9 @@ export default function NotePage() {
             </AlertDialogContent>
         </AlertDialog>
 
+        {note && <ShareNoteDialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen} note={note} />}
+
+
       <main className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8">
             <div className="flex items-center gap-4 mb-4">
                 <Input 
@@ -234,7 +238,7 @@ export default function NotePage() {
                  {isLocked && <Lock className="h-5 w-5 text-green-500" />}
                 <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
                     <span className="cursor-pointer hover:text-foreground" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
-                        {getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType)}
+                      {getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType)}
                     </span>
                     {renderSaveStatus()}
                 </div>
@@ -257,7 +261,7 @@ export default function NotePage() {
                             <Info className="mr-2 h-4 w-4" />
                             <span>Info</span>
                         </DropdownMenuItem>
-                         <DropdownMenuItem disabled>
+                         <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)} disabled={isNewNote}>
                             <Share2 className="mr-2 h-4 w-4" />
                             <span>Teilen</span>
                         </DropdownMenuItem>
