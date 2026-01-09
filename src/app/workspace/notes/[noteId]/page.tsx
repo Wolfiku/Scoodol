@@ -9,7 +9,27 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
+
 
 type QuickNote = {
   title: string;
@@ -26,7 +46,6 @@ type QuickNote = {
 }
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
-type DateDisplayType = 'created' | 'updated';
 
 export default function NotePage() {
   const router = useRouter();
@@ -41,7 +60,8 @@ export default function NotePage() {
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [dateDisplayType, setDateDisplayType] = useState<DateDisplayType>('created');
+  const [isLocked, setIsLocked] = useState(false);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
   const noteDocRef = useMemoFirebase(() => 
     !isNewNote && user && typeof noteId === 'string'
@@ -62,7 +82,7 @@ export default function NotePage() {
   }, [note]);
 
     const handleSave = useCallback(async (currentTitle: string, currentContent: string) => {
-    if (!firestore || !user || !currentTitle.trim()) {
+    if (!firestore || !user || !currentTitle.trim() || isLocked) {
         return;
     };
     setSaveStatus('saving');
@@ -77,7 +97,6 @@ export default function NotePage() {
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
-             // After creating, redirect to the new note's URL to enable further auto-saving
             router.replace(`/workspace/notes/${newDocRef.id}`);
 
         } else {
@@ -91,13 +110,13 @@ export default function NotePage() {
         setSaveStatus('idle');
 
     } catch (error) {
-        setSaveStatus('dirty'); // Revert to dirty if save fails
+        setSaveStatus('dirty');
     }
-  }, [firestore, user, isNewNote, noteDocRef, router]);
+  }, [firestore, user, isNewNote, noteDocRef, router, isLocked]);
 
 
   useEffect(() => {
-    if (isLoadingNote || (note && title === note.title && content === note.content)) {
+    if (isLoadingNote || isLocked || (note && title === note.title && content === note.content)) {
       return;
     }
 
@@ -108,7 +127,7 @@ export default function NotePage() {
         }
         debounceTimer.current = setTimeout(() => {
             handleSave(title, content);
-        }, 1500); // 1.5 second delay
+        }, 1500);
     }
 
     return () => {
@@ -116,26 +135,14 @@ export default function NotePage() {
             clearTimeout(debounceTimer.current);
         }
     };
-  }, [title, content, note, isLoadingNote, handleSave]);
+  }, [title, content, note, isLoadingNote, handleSave, isLocked]);
 
 
-  const getFormattedDate = () => {
-    if (!note) return null;
-    const dateToShow = dateDisplayType === 'created' ? note.createdAt : note.updatedAt;
-    if (!dateToShow) return null;
-
-    const date = new Date(dateToShow.seconds * 1000);
-    const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
-    
-    return formattedDate;
+  const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp.seconds * 1000);
+    return format(date, "d. MMMM yyyy, HH:mm", { locale: de });
   }
-  
-  const toggleDateDisplay = () => {
-      if (note && note.updatedAt && note.createdAt.seconds !== note.updatedAt.seconds) {
-        setDateDisplayType(prev => prev === 'created' ? 'updated' : 'created');
-      }
-  }
-
 
   const renderSaveStatus = () => {
       switch(saveStatus) {
@@ -163,43 +170,78 @@ export default function NotePage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')} className="absolute top-4 left-4 md:top-8 md:left-8 z-10">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        
-        <main className="flex-1 flex flex-col min-h-0 pt-12">
-            <Input 
-              placeholder="Gib deiner Notiz einen Titel..."
-              className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={isLoading && !isNewNote}
-            />
+       <AlertDialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Notiz-Informationen</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Hier sind die Details zu deiner Notiz.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="text-sm space-y-2">
+                <p><strong>Titel:</strong> {note?.title || 'Kein Titel'}</p>
+                <p><strong>Erstellt am:</strong> {getFormattedDate(note?.createdAt)}</p>
+                <p><strong>Zuletzt geändert:</strong> {getFormattedDate(note?.updatedAt)}</p>
+            </div>
+            <AlertDialogFooter>
+                <Button onClick={() => setIsInfoDialogOpen(false)}>Schließen</Button>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-            <div className="flex justify-end items-center gap-4 py-2">
-              <Button 
-                  variant="ghost" 
-                  onClick={toggleDateDisplay} 
-                  className="text-xs text-muted-foreground px-2 h-auto"
-                  disabled={!note?.updatedAt || note.createdAt.seconds === note.updatedAt.seconds}
-                >
-                  {getFormattedDate()}
-              </Button>
-              <div className="flex items-center justify-center h-6 w-6">
-                 {renderSaveStatus()}
-              </div>
+      <main className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8">
+            <div className="flex items-center gap-4 mb-4">
+                <Input 
+                    placeholder="Gib deiner Notiz einen Titel..."
+                    className="text-3xl md:text-4xl font-bold border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={isLoading && !isNewNote || isLocked}
+                />
+                 {isLocked && <Lock className="h-5 w-5 text-green-500" />}
+                <div className="flex items-center justify-center h-6 w-6">
+                    {renderSaveStatus()}
+                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => router.back()}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            <span>Zurück</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSave(title, content)} disabled={saveStatus !== 'dirty'}>
+                            <Save className="mr-2 h-4 w-4" />
+                            <span>Jetzt speichern</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsInfoDialogOpen(true)} disabled={isNewNote}>
+                            <Info className="mr-2 h-4 w-4" />
+                            <span>Info</span>
+                        </DropdownMenuItem>
+                         <DropdownMenuItem disabled>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            <span>Teilen</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setIsLocked(!isLocked)}>
+                            {isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
+                            <span>{isLocked ? 'Entsperren' : 'Sperren'}</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <Textarea 
-              placeholder="Schreib hier deine Gedanken auf..."
-              className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={isLoading && !isNewNote}
+                placeholder="Schreib hier deine Gedanken auf..."
+                className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-base leading-relaxed"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                disabled={(isLoading && !isNewNote) || isLocked}
             />
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
