@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar, Pencil, FilePlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 type Task = {
@@ -97,7 +98,7 @@ export default function TodoListPage() {
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
-  const [isEditTaskSheetOpen, setIsEditTaskSheetOpen] = useState(false);
+  const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
 
 
   const listDocRef = useMemoFirebase(() => 
@@ -192,19 +193,19 @@ export default function TodoListPage() {
     }
   };
 
-  const handleOpenEditSheet = (task: Task) => {
+  const handleOpenEditDialog = (task: Task) => {
     setEditingTask(task);
-    setIsEditTaskSheetOpen(true);
+    setIsEditTaskDialogOpen(true);
   }
 
-  const handleOpenNewTaskSheet = () => {
+  const handleOpenNewTaskDialog = () => {
     const tempTask: Task = {
         id: 'new',
         text: newTaskText,
         done: false
     };
     setEditingTask(tempTask);
-    setIsEditTaskSheetOpen(true);
+    setIsEditTaskDialogOpen(true);
   }
 
 
@@ -217,7 +218,7 @@ export default function TodoListPage() {
           // This is an update to an existing task
           setTasks(prev => prev.map(task => task.id === updatedTask.id ? updatedTask : task));
       }
-      setIsEditTaskSheetOpen(false);
+      setIsEditTaskDialogOpen(false);
       setEditingTask(null);
   }
 
@@ -306,8 +307,8 @@ export default function TodoListPage() {
       </AlertDialog>
       
       {editingTask && (
-        <Dialog open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
-            <DialogContent>
+        <Dialog open={isEditTaskDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskDialogOpen(isOpen);}}>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</DialogTitle>
                     {editingTask.id !== 'new' && <DialogDescription>{editingTask.text}</DialogDescription>}
@@ -315,7 +316,7 @@ export default function TodoListPage() {
                 <TaskEditForm 
                     task={editingTask} 
                     onSave={handleSaveTaskDetails} 
-                    onCancel={() => setIsEditTaskSheetOpen(false)}
+                    onCancel={() => setIsEditTaskDialogOpen(false)}
                     settings={settings}
                 />
             </DialogContent>
@@ -450,8 +451,8 @@ export default function TodoListPage() {
                  <Button type="submit" size="icon">
                     <Plus className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="outline" size="icon" onClick={handleOpenNewTaskSheet}>
-                    <Pencil className="h-4 w-4" />
+                <Button type="button" variant="outline" size="icon" onClick={handleOpenNewTaskDialog}>
+                    <FilePlus className="h-4 w-4" />
                 </Button>
             </div>
         </form>
@@ -511,7 +512,7 @@ export default function TodoListPage() {
 
                         </div>
                         <div className="flex">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditSheet(task)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(task)}>
                                 <Pencil className="h-4 w-4 text-muted-foreground"/>
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
@@ -573,89 +574,107 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         handleFieldChange('subtasks', updatedSubtasks);
     }
 
+    const getDefaultTab = () => {
+        if (settings.enableSubtasks) return 'subtasks';
+        return 'general';
+    }
+
 
     return (
         <div className="flex flex-col h-full">
-            <ScrollArea className="flex-1 pr-6 -mr-6">
-                <div className="space-y-4 my-4">
-                    <div>
-                        <Label htmlFor="edit-task-text">Aufgabe</Label>
-                        <Input 
-                            id="edit-task-text"
-                            value={editedTask.text}
-                            onChange={(e) => handleFieldChange('text', e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
-                        <Input 
-                            id="edit-task-due-date"
-                            type="date"
-                            value={editedTask.dueDate || ''}
-                            onChange={(e) => handleFieldChange('dueDate', e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <Label className="mb-2 block">Priorität</Label>
-                        <div className="flex items-center gap-1">
-                            {[1, 2, 3].map(p => (
-                                <Button key={p} type="button" variant="ghost" size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
-                                    <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <Label htmlFor="edit-task-note">Notiz</Label>
-                        <Textarea 
-                            id="edit-task-note"
-                            placeholder="Zusätzliche Details..."
-                            value={editedTask.note || ''}
-                            onChange={(e) => handleFieldChange('note', e.target.value)}
-                            rows={4}
-                        />
-                    </div>
-
-                    {settings.enableSubtasks && (
-                        <div>
-                            <Separator className="my-4" />
-                            <Label>Subtasks</Label>
-                            <div className="space-y-2 mt-2">
-                                {(editedTask.subtasks || []).map(subtask => (
-                                    <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
-                                        <Checkbox 
-                                            id={`subtask-edit-${subtask.id}`}
-                                            checked={subtask.done}
-                                            onCheckedChange={() => toggleSubtask(subtask.id)}
-                                        />
-                                        <label 
-                                            htmlFor={`subtask-edit-${subtask.id}`}
-                                            className={`flex-1 ${subtask.done ? 'line-through text-muted-foreground' : ''}`}
-                                        >
-                                            {subtask.text}
-                                        </label>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteSubtask(subtask.id)}>
-                                            <Trash2 className="w-3.5 h-3.5" />
+            <Tabs defaultValue="general" className="w-full flex-1 flex flex-col">
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="general">Allgemein</TabsTrigger>
+                    <TabsTrigger value="subtasks" disabled={!settings.enableSubtasks}>Subtasks</TabsTrigger>
+                    <TabsTrigger value="groups" disabled={!settings.enableGroups}>Gruppen</TabsTrigger>
+                </TabsList>
+                <TabsContent value="general" className="flex-1 overflow-auto">
+                     <ScrollArea className="h-[300px] pr-4">
+                        <div className="space-y-4 my-4">
+                            <div>
+                                <Label htmlFor="edit-task-text">Aufgabe</Label>
+                                <Input 
+                                    id="edit-task-text"
+                                    value={editedTask.text}
+                                    onChange={(e) => handleFieldChange('text', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="edit-task-due-date">Fälligkeit</Label>
+                                <Input 
+                                    id="edit-task-due-date"
+                                    type="date"
+                                    value={editedTask.dueDate || ''}
+                                    onChange={(e) => handleFieldChange('dueDate', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <Label className="mb-2 block">Priorität</Label>
+                                <div className="flex items-center gap-1">
+                                    {[1, 2, 3].map(p => (
+                                        <Button key={p} type="button" variant="ghost" size="icon" onClick={() => handleFieldChange('priority', p === editedTask.priority ? 0 : p)}>
+                                            <Star className={`w-5 h-5 ${ (editedTask.priority || 0) >= p ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
                                         </Button>
-                                    </div>
-                                ))}
-                                <form onSubmit={handleAddSubtask} className="flex items-center gap-2">
-                                    <Input 
-                                        placeholder="Neue Subtask"
-                                        value={newSubtaskText}
-                                        onChange={(e) => setNewSubtaskText(e.target.value)}
-                                        className="h-9"
-                                    />
-                                    <Button type="submit" size="icon" className="h-9 w-9">
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </form>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <Label htmlFor="edit-task-note">Notiz</Label>
+                                <Textarea 
+                                    id="edit-task-note"
+                                    placeholder="Zusätzliche Details..."
+                                    value={editedTask.note || ''}
+                                    onChange={(e) => handleFieldChange('note', e.target.value)}
+                                    rows={4}
+                                />
                             </div>
                         </div>
-                    )}
-                </div>
-            </ScrollArea>
-            <DialogFooter className="pt-4 border-t">
+                    </ScrollArea>
+                </TabsContent>
+                <TabsContent value="subtasks" className="flex-1 overflow-auto">
+                    <ScrollArea className="h-[300px] pr-4">
+                        <div className="space-y-2 mt-4">
+                            {(editedTask.subtasks || []).map(subtask => (
+                                <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
+                                    <Checkbox 
+                                        id={`subtask-edit-${subtask.id}`}
+                                        checked={subtask.done}
+                                        onCheckedChange={() => toggleSubtask(subtask.id)}
+                                    />
+                                    <label 
+                                        htmlFor={`subtask-edit-${subtask.id}`}
+                                        className={`flex-1 ${subtask.done ? 'line-through text-muted-foreground' : ''}`}
+                                    >
+                                        {subtask.text}
+                                    </label>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteSubtask(subtask.id)}>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
+                            ))}
+                            <form onSubmit={handleAddSubtask} className="flex items-center gap-2 pt-2">
+                                <Input 
+                                    placeholder="Neue Subtask"
+                                    value={newSubtaskText}
+                                    onChange={(e) => setNewSubtaskText(e.target.value)}
+                                    className="h-9"
+                                />
+                                <Button type="submit" size="icon" className="h-9 w-9">
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </form>
+                        </div>
+                     </ScrollArea>
+                </TabsContent>
+                <TabsContent value="groups" className="flex-1 overflow-auto">
+                     <ScrollArea className="h-[300px] pr-4">
+                        <div className="text-center text-muted-foreground p-8">
+                            <p>Gruppen-Zuweisung kommt bald hierher.</p>
+                        </div>
+                    </ScrollArea>
+                </TabsContent>
+            </Tabs>
+            <DialogFooter className="pt-4 mt-4 border-t">
                 <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
                 <Button onClick={handleSave}>Speichern</Button>
             </DialogFooter>
