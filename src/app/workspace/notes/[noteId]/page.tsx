@@ -126,31 +126,9 @@ export default function NotePage() {
                 Zurück zum Workspace
             </Button>
             <div className="flex gap-2">
-                {!isNewNote && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" disabled={isDeleting}>
-                                {isDeleting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2"/>}
-                                Löschen
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Bist du sicher?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Diese Aktion kann nicht rückgängig gemacht werden. Die Notiz wird dauerhaft gelöscht.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDelete}>Endgültig löschen</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
-                 <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2"/>}
-                    Speichern
+                 <Button onClick={handleSave} disabled={isSaving} size="icon">
+                    {isSaving ? <Loader2 className="animate-spin"/> : <Save />}
+                    <span className="sr-only">Speichern</span>
                 </Button>
             </div>
         </header>
