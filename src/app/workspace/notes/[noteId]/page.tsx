@@ -18,11 +18,15 @@ type QuickNote = {
     seconds: number;
     nanoseconds: number;
   };
-  updatedAt: any;
+  updatedAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
   ownerId: string;
 }
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
+type DateDisplayType = 'created' | 'updated';
 
 export default function NotePage() {
   const router = useRouter();
@@ -37,6 +41,7 @@ export default function NotePage() {
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [dateDisplayType, setDateDisplayType] = useState<DateDisplayType>('created');
 
   const noteDocRef = useMemoFirebase(() => 
     !isNewNote && user && typeof noteId === 'string'
@@ -116,10 +121,24 @@ export default function NotePage() {
 
 
   const getFormattedDate = () => {
-    if (!note || !note.createdAt) return null;
-    const date = new Date(note.createdAt.seconds * 1000);
-    return date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (!note) return null;
+    const dateToShow = dateDisplayType === 'created' ? note.createdAt : note.updatedAt;
+    if (!dateToShow) return null;
+
+    const date = new Date(dateToShow.seconds * 1000);
+    const prefix = dateDisplayType === 'created' ? 'Erstellt' : 'Geändert';
+    const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `${prefix}: ${formattedDate}, ${formattedTime}`;
   }
+  
+  const toggleDateDisplay = () => {
+      if (note && note.updatedAt && note.createdAt.seconds !== note.updatedAt.seconds) {
+        setDateDisplayType(prev => prev === 'created' ? 'updated' : 'created');
+      }
+  }
+
 
   const renderSaveStatus = () => {
       switch(saveStatus) {
@@ -153,7 +172,14 @@ export default function NotePage() {
                 Zurück zum Workspace
             </Button>
             <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">{getFormattedDate()}</span>
+                 <Button 
+                    variant="ghost" 
+                    onClick={toggleDateDisplay} 
+                    className="text-sm text-muted-foreground px-2"
+                    disabled={!note?.updatedAt || note.createdAt.seconds === note.updatedAt.seconds}
+                  >
+                    {getFormattedDate()}
+                </Button>
                 <div className="flex items-center justify-center h-8 w-8">
                    {renderSaveStatus()}
                 </div>
