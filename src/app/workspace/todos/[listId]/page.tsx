@@ -115,7 +115,7 @@ export default function TodoListPage() {
   }, [firestore, user, title, tasks, isNewList, listDocRef, router]);
 
   useEffect(() => {
-    if (isLoadingList) return;
+    if (isLoadingList || isNewList) return;
     if (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks)) {
         return;
     }
@@ -135,7 +135,7 @@ export default function TodoListPage() {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [title, tasks, todoList, isLoadingList, handleSave]);
+  }, [title, tasks, todoList, isLoadingList, handleSave, isNewList]);
 
   const handleDelete = async () => {
     if (isNewList || !listDocRef) return;

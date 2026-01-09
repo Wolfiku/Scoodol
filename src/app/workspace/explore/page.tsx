@@ -1,9 +1,11 @@
 
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const templates = [
     {
@@ -21,8 +23,14 @@ const templates = [
 ]
 
 export default function ExplorePage() {
+    const router = useRouter();
+
     return (
         <div className="container mx-auto p-4 md:p-8">
+            <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Zurück
+            </Button>
             <header className="mb-8">
                 <h1 className="text-4xl font-bold">Entdecken</h1>
                 <p className="text-lg text-muted-foreground">Durchsuche alle verfügbaren Vorlagen und Tools.</p>
