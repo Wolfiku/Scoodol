@@ -159,6 +159,7 @@ export default function TodoListPage() {
     ));
     
     if (!hasChanged) {
+        setSaveStatus('idle');
         return;
     }
 
@@ -220,13 +221,24 @@ export default function TodoListPage() {
       setEditingTask(null);
   }
 
-  const toggleTaskDone = (taskId: string) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === taskId ? { ...task, done: !task.done } : task
-      )
+  const toggleTaskDone = (taskId: string, subtaskId?: string) => {
+    setTasks(prevTasks =>
+        prevTasks.map(task => {
+            if (task.id === taskId) {
+                if (subtaskId) {
+                    const updatedSubtasks = (task.subtasks || []).map(sub =>
+                        sub.id === subtaskId ? { ...sub, done: !sub.done } : sub
+                    );
+                    return { ...task, subtasks: updatedSubtasks };
+                } else {
+                    return { ...task, done: !task.done };
+                }
+            }
+            return task;
+        })
     );
   };
+
 
   const deleteTask = (taskId: string) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
@@ -300,7 +312,12 @@ export default function TodoListPage() {
                     <DialogTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</DialogTitle>
                     {editingTask.id !== 'new' && <DialogDescription>{editingTask.text}</DialogDescription>}
                 </DialogHeader>
-                <TaskEditForm task={editingTask} onSave={handleSaveTaskDetails} onCancel={() => setIsEditTaskSheetOpen(false)}/>
+                <TaskEditForm 
+                    task={editingTask} 
+                    onSave={handleSaveTaskDetails} 
+                    onCancel={() => setIsEditTaskSheetOpen(false)}
+                    settings={settings}
+                />
             </DialogContent>
         </Dialog>
       )}
@@ -312,69 +329,71 @@ export default function TodoListPage() {
                 <SheetTitle>Listen-Einstellungen</SheetTitle>
                 <SheetDescription>Verwalte die Einstellungen für deine To-Do-Liste "{title}".</SheetDescription>
             </SheetHeader>
-            <div className="py-4 space-y-6 overflow-y-auto flex-1 pr-6">
-                <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
+            <ScrollArea className="flex-1 pr-6 -mr-6">
+                <div className="py-4 space-y-6">
+                    <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="advanced-mode" className="font-bold">Erweiterter Modus</Label>
+                            <Switch id="advanced-mode" checked={settings.advancedMode} onCheckedChange={(c) => handleSettingChange('advancedMode', c)} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Aktiviere zusätzliche Funktionen für Power-User.</p>
+                    </div>
+
+                    <div className={`space-y-4 ${!settings.advancedMode ? 'opacity-50' : ''}`}>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="subtasks-mode">Subtasks</Label>
+                            <Switch id="subtasks-mode" disabled={!settings.advancedMode} checked={settings.enableSubtasks} onCheckedChange={(c) => handleSettingChange('enableSubtasks', c)} />
+                        </div>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="groups-mode">Gruppen</Label>
+                            <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => handleSettingChange('enableGroups', c)} />
+                        </div>
+                        <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
+                            <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
+                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => handleSettingChange('enableColorGroups', c)} />
+                        </div>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
+                            <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => handleSettingChange('enableNumericPriority', c)} />
+                        </div>
+                    </div>
+                    
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <Label>Standard-Sortierung</Label>
+                        <Select value={settings.sortBy || 'default'} onValueChange={(v) => handleSettingChange('sortBy', v)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Sortierung wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="default">Manuell</SelectItem>
+                                <SelectItem value="dueDate">Fälligkeitsdatum</SelectItem>
+                                <SelectItem value="priority">Priorität</SelectItem>
+                                <SelectItem value="alphabetical">Alphabetisch</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="advanced-mode" className="font-bold">Erweiterter Modus</Label>
-                        <Switch id="advanced-mode" checked={settings.advancedMode} onCheckedChange={(c) => handleSettingChange('advancedMode', c)} />
+                        <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
+                        <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => handleSettingChange('weeklyReset', c)} />
                     </div>
-                     <p className="text-xs text-muted-foreground">Aktiviere zusätzliche Funktionen für Power-User.</p>
-                </div>
-
-                <div className={`space-y-4 ${!settings.advancedMode ? 'opacity-50' : ''}`}>
-                    <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="subtasks-mode">Subtasks</Label>
-                        <Switch id="subtasks-mode" disabled={!settings.advancedMode} checked={settings.enableSubtasks} onCheckedChange={(c) => handleSettingChange('enableSubtasks', c)} />
-                    </div>
-                     <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="groups-mode">Gruppen</Label>
-                        <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => handleSettingChange('enableGroups', c)} />
-                    </div>
-                    <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
-                        <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
-                        <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => handleSettingChange('enableColorGroups', c)} />
-                    </div>
-                     <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
-                        <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => handleSettingChange('enableNumericPriority', c)} />
-                    </div>
-                </div>
-                
-                 <Separator />
-
-                <div className="space-y-2">
-                    <Label>Standard-Sortierung</Label>
-                    <Select value={settings.sortBy || 'default'} onValueChange={(v) => handleSettingChange('sortBy', v)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Sortierung wählen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="default">Manuell</SelectItem>
-                            <SelectItem value="dueDate">Fälligkeitsdatum</SelectItem>
-                            <SelectItem value="priority">Priorität</SelectItem>
-                            <SelectItem value="alphabetical">Alphabetisch</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="flex flex-row items-center justify-between">
-                    <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
-                    <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => handleSettingChange('weeklyReset', c)} />
-                </div>
 
 
-                <Separator />
+                    <Separator />
 
-                <div>
-                    <h4 className="font-semibold mb-2">Gefahrenzone</h4>
-                    <Button variant="destructive" onClick={() => {
-                        setIsSettingsSheetOpen(false);
-                        setIsDeleteDialogOpen(true);
-                    }} disabled={isNewList}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Liste endgültig löschen
-                    </Button>
+                    <div>
+                        <h4 className="font-semibold mb-2">Gefahrenzone</h4>
+                        <Button variant="destructive" onClick={() => {
+                            setIsSettingsSheetOpen(false);
+                            setIsDeleteDialogOpen(true);
+                        }} disabled={isNewList}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Liste endgültig löschen
+                        </Button>
+                    </div>
                 </div>
-            </div>
+            </ScrollArea>
              <SheetFooter>
                 <Button variant="outline" onClick={() => setIsSettingsSheetOpen(false)}>Schließen</Button>
             </SheetFooter>
@@ -428,7 +447,7 @@ export default function TodoListPage() {
                     onChange={(e) => setNewTaskText(e.target.value)}
                     className="flex-1"
                 />
-                <Button type="submit" size="icon">
+                 <Button type="submit" size="icon">
                     <Plus className="h-4 w-4" />
                 </Button>
                 <Button type="button" variant="outline" size="icon" onClick={handleOpenNewTaskSheet}>
@@ -468,6 +487,28 @@ export default function TodoListPage() {
                              {task.note && (
                                 <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-background whitespace-pre-wrap">{task.note}</p>
                              )}
+                            
+                            {settings.enableSubtasks && task.subtasks && task.subtasks.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-background/50 space-y-2">
+                                    {task.subtasks.map(subtask => (
+                                        <div key={subtask.id} className="flex items-center gap-2">
+                                            <Checkbox 
+                                                id={`subtask-${subtask.id}`}
+                                                checked={subtask.done}
+                                                onCheckedChange={() => toggleTaskDone(task.id, subtask.id)}
+                                                className="w-3.5 h-3.5"
+                                            />
+                                            <label 
+                                                htmlFor={`subtask-${subtask.id}`} 
+                                                className={`text-xs flex-1 ${subtask.done ? 'line-through text-muted-foreground' : ''}`}
+                                            >
+                                                {subtask.text}
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                         </div>
                         <div className="flex">
                             <Button variant="ghost" size="icon" onClick={() => handleOpenEditSheet(task)}>
@@ -490,8 +531,9 @@ export default function TodoListPage() {
 }
 
 
-function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: Task) => void, onCancel: () => void }) {
+function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave: (task: Task) => void, onCancel: () => void, settings: ListSettings }) {
     const [editedTask, setEditedTask] = useState<Task>(task);
+    const [newSubtaskText, setNewSubtaskText] = useState("");
 
     useEffect(() => {
         setEditedTask(task);
@@ -504,6 +546,33 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
     const handleSave = () => {
         onSave(editedTask);
     }
+    
+    const handleAddSubtask = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newSubtaskText.trim()) {
+            const newSubtask: Task = {
+                id: Date.now().toString(),
+                text: newSubtaskText.trim(),
+                done: false
+            };
+            const updatedSubtasks = [...(editedTask.subtasks || []), newSubtask];
+            handleFieldChange('subtasks', updatedSubtasks);
+            setNewSubtaskText("");
+        }
+    }
+
+    const toggleSubtask = (subtaskId: string) => {
+        const updatedSubtasks = (editedTask.subtasks || []).map(sub => 
+            sub.id === subtaskId ? {...sub, done: !sub.done} : sub
+        );
+        handleFieldChange('subtasks', updatedSubtasks);
+    }
+
+    const deleteSubtask = (subtaskId: string) => {
+        const updatedSubtasks = (editedTask.subtasks || []).filter(sub => sub.id !== subtaskId);
+        handleFieldChange('subtasks', updatedSubtasks);
+    }
+
 
     return (
         <div className="flex flex-col h-full">
@@ -546,6 +615,44 @@ function TaskEditForm({ task, onSave, onCancel }: { task: Task, onSave: (task: T
                             rows={4}
                         />
                     </div>
+
+                    {settings.enableSubtasks && (
+                        <div>
+                            <Separator className="my-4" />
+                            <Label>Subtasks</Label>
+                            <div className="space-y-2 mt-2">
+                                {(editedTask.subtasks || []).map(subtask => (
+                                    <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
+                                        <Checkbox 
+                                            id={`subtask-edit-${subtask.id}`}
+                                            checked={subtask.done}
+                                            onCheckedChange={() => toggleSubtask(subtask.id)}
+                                        />
+                                        <label 
+                                            htmlFor={`subtask-edit-${subtask.id}`}
+                                            className={`flex-1 ${subtask.done ? 'line-through text-muted-foreground' : ''}`}
+                                        >
+                                            {subtask.text}
+                                        </label>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteSubtask(subtask.id)}>
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <form onSubmit={handleAddSubtask} className="flex items-center gap-2">
+                                    <Input 
+                                        placeholder="Neue Subtask"
+                                        value={newSubtaskText}
+                                        onChange={(e) => setNewSubtaskText(e.target.value)}
+                                        className="h-9"
+                                    />
+                                    <Button type="submit" size="icon" className="h-9 w-9">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </ScrollArea>
             <DialogFooter className="pt-4 border-t">
