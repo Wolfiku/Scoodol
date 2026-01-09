@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, updateDoc 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical, RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +74,7 @@ type ListSettings = {
     advancedMode?: boolean;
     enableSubtasks?: boolean;
     enableGroups?: boolean;
+    enableColorGroups?: boolean;
     sortBy?: 'default' | 'dueDate' | 'priority' | 'alphabetical';
     weeklyReset?: boolean;
     enableNumericPriority?: boolean;
@@ -94,7 +95,6 @@ type TodoList = {
     nanoseconds: number;
   };
   ownerId: string;
-  lastHomeworkSync?: string;
 };
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
@@ -212,64 +212,6 @@ export default function TodoListPage() {
         }
     };
   }, [title, tasks, settings, todoList, isLoadingList, handleSave]);
-  
-  const syncHomeworkTasks = useCallback((currentTasks: Task[]) => {
-      if (!settings.syncHomework || !homeworks || !listDocRef) return currentTasks;
-
-      const incompleteHomeworks = homeworks.filter(hw => !hw.done);
-      let newTasks = [...currentTasks];
-      const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
-
-      if (incompleteHomeworks.length === 0) {
-          if (existingTaskIndex > -1) {
-              const existingTask = newTasks[existingTaskIndex];
-              if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
-                  newTasks = newTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
-              }
-          }
-      } else {
-          const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-              id: `hw-${hw.id}`,
-              text: `${hw.subject}: ${hw.task}`,
-              done: false,
-              homeworkId: hw.id
-          }));
-
-          if (existingTaskIndex > -1) {
-              newTasks[existingTaskIndex] = {
-                  ...newTasks[existingTaskIndex],
-                  subtasks: homeworkSubtasks
-              };
-          } else {
-              const newSyncTask: Task = {
-                  id: HOMEWORK_SYNC_TASK_ID,
-                  text: "Hausaufgaben",
-                  done: false,
-                  subtasks: homeworkSubtasks,
-              };
-              newTasks = [newSyncTask, ...newTasks];
-          }
-      }
-      return newTasks;
-  }, [settings.syncHomework, homeworks, listDocRef]);
-  
-    // Effect for Homework Sync
-  useEffect(() => {
-    if (!settings.syncHomework || !homeworks || !listDocRef || isNewList) return;
-    
-    const today = new Date().toISOString().split('T')[0];
-    const lastSync = todoList?.lastHomeworkSync;
-
-    if (lastSync === today) return; // Already synced today
-
-    setTasks(currentTasks => syncHomeworkTasks(currentTasks));
-    
-    if (lastSync !== today) {
-        updateDoc(listDocRef, { lastHomeworkSync: today });
-        toast({ title: 'Hausaufgaben synchronisiert!', description: `Unerledigte Aufgaben wurden zur Liste hinzugefügt.`});
-    }
-
-  }, [settings.syncHomework, homeworks, todoList?.lastHomeworkSync, listDocRef, isNewList, syncHomeworkTasks, toast]);
 
 
   const handleDelete = async () => {
@@ -373,15 +315,16 @@ export default function TodoListPage() {
         if (key === 'enableGroups' && value && !newSettings.groups) {
             newSettings.groups = [];
         }
+
+        if (key === 'enableNumericPriority' && !value) {
+            setTasks(currentTasks => currentTasks.map(task => ({
+                ...task,
+                priority: (task.priority && task.priority > 3) ? 3 : task.priority,
+            })));
+        }
+
         return newSettings;
     });
-
-    if (key === 'enableNumericPriority' && !value) {
-        setTasks(currentTasks => currentTasks.map(task => ({
-            ...task,
-            priority: (task.priority && task.priority > 3) ? 3 : task.priority,
-        })));
-    }
   }
 
   const getFormattedDate = (timestamp: TodoList['updatedAt'] | undefined) => {
@@ -405,6 +348,70 @@ export default function TodoListPage() {
     const getGroupById = (groupId?: string) => {
         if (!groupId || !settings.groups) return null;
         return settings.groups.find(g => g.id === groupId);
+    }
+    
+    const runHomeworkSync = () => {
+        if (!settings.syncHomework || !homeworks) {
+            toast({
+                variant: 'destructive',
+                title: 'Sync nicht aktiv',
+                description: 'Aktiviere zuerst den Hausaufgaben-Sync in den Einstellungen.'
+            });
+            return;
+        }
+
+        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+        let wasUpdated = false;
+
+        setTasks(currentTasks => {
+            let newTasks = [...currentTasks];
+            const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+
+            if (incompleteHomeworks.length === 0) {
+                // If all homeworks are done, remove the sync task if it exists and all its subtasks are also done
+                if (existingTaskIndex > -1) {
+                    const existingTask = newTasks[existingTaskIndex];
+                    if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
+                         newTasks = newTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
+                         wasUpdated = true;
+                    }
+                }
+            } else {
+                 const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+                    id: `hw-${hw.id}`,
+                    text: `${hw.subject}: ${hw.task}`,
+                    done: false,
+                    homeworkId: hw.id
+                }));
+
+                if (existingTaskIndex > -1) {
+                    // Update existing task
+                    if (JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(homeworkSubtasks)) {
+                        newTasks[existingTaskIndex] = {
+                            ...newTasks[existingTaskIndex],
+                            subtasks: homeworkSubtasks
+                        };
+                        wasUpdated = true;
+                    }
+                } else {
+                     // Add new task
+                    const newSyncTask: Task = {
+                        id: HOMEWORK_SYNC_TASK_ID,
+                        text: "Hausaufgaben",
+                        done: false,
+                        subtasks: homeworkSubtasks,
+                    };
+                    newTasks = [newSyncTask, ...newTasks];
+                    wasUpdated = true;
+                }
+            }
+            if (wasUpdated) {
+                toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben gefunden.` });
+            } else {
+                 toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
+            }
+            return newTasks;
+        });
     }
 
 
@@ -460,7 +467,14 @@ export default function TodoListPage() {
                 <SheetTitle>Listen-Einstellungen</SheetTitle>
                 <SheetDescription>Verwalte die Einstellungen für deine To-Do-Liste "{title}".</SheetDescription>
             </SheetHeader>
-            <SettingsForm settings={settings} onSettingChange={handleSettingChange} onDelete={handleDelete} isNewList={isNewList} closeSheet={() => setIsSettingsSheetOpen(false)} />
+            <SettingsForm 
+                settings={settings} 
+                onSettingChange={handleSettingChange} 
+                onDelete={handleDelete} 
+                isNewList={isNewList} 
+                closeSheet={() => setIsSettingsSheetOpen(false)}
+                onSyncHomeworks={runHomeworkSync}
+            />
         </SheetContent>
       </Sheet>
 
@@ -555,7 +569,7 @@ export default function TodoListPage() {
                                    </div>
                                ) : null}
                                {task.group && getGroupById(task.group) && (
-                                    <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className="text-xs font-medium text-black/70">
+                                    <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className={cn("text-xs font-medium", settings.enableColorGroups ? "" : "text-black/70")}>
                                         {getGroupById(task.group)?.name}
                                     </Badge>
                                )}
@@ -824,7 +838,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
     )
 }
 
-function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void }) {
+function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet, onSyncHomeworks }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void, onSyncHomeworks: () => void }) {
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editingGroupName, setEditingGroupName] = useState('');
@@ -881,6 +895,13 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                             <Label htmlFor="groups-mode">Gruppen</Label>
                             <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => onSettingChange('enableGroups', c)} />
                         </div>
+                         <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="color-groups-mode" className="flex flex-col gap-1">
+                                 <span>Gruppen einfärben</span>
+                                 <span className="text-xs font-normal text-muted-foreground">Färbt den Text der Badges ein.</span>
+                            </Label>
+                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => onSettingChange('enableColorGroups', c)} />
+                        </div>
                         <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
                             <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => onSettingChange('enableNumericPriority', c)} />
@@ -894,6 +915,12 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                             </Label>
                             <Switch id="sync-homework-mode" disabled={!settings.advancedMode} checked={settings.syncHomework} onCheckedChange={(c) => onSettingChange('syncHomework', c)} />
                         </div>
+                        {settings.syncHomework && (
+                            <Button variant="outline" onClick={onSyncHomeworks} className="w-full">
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Jetzt synchronisieren
+                            </Button>
+                        )}
                     </div>
                     
                     <Separator />
