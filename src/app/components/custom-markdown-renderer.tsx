@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -8,7 +9,7 @@ type CustomMarkdownRendererProps = {
 
 const CustomMarkdownRenderer: React.FC<CustomMarkdownRendererProps> = ({ content }) => {
   const parseLine = (line: string) => {
-    // Headlines (must match the start of the line)
+    // Headlines must be at the start of the line.
     if (line.startsWith('# ')) return `<h1>${line.substring(2)}</h1>`;
     if (line.startsWith('## ')) return `<h2>${line.substring(3)}</h2>`;
     if (line.startsWith('### ')) return `<h3>${line.substring(4)}</h3>`;
@@ -16,24 +17,26 @@ const CustomMarkdownRenderer: React.FC<CustomMarkdownRendererProps> = ({ content
     if (line.startsWith('##### ')) return `<h5>${line.substring(6)}</h5>`;
     if (line.startsWith('###### ')) return `<h6>${line.substring(7)}</h6>`;
 
+    // For other elements, we process them within a paragraph.
     let parsedLine = line;
 
-    // Bold & Italic (***text***)
-    parsedLine = parsedLine.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+    // Process bold and italic first (***text***)
+    parsedLine = parsedLine.replace(/\*\*\*([^\*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
     
-    // Bold (**text**)
-    parsedLine = parsedLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Process bold (**text**)
+    parsedLine = parsedLine.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
     
-    // Italic (*text* or _text_)
-    parsedLine = parsedLine.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Process italic (*text* or _text_)
+    parsedLine = parsedLine.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
     parsedLine = parsedLine.replace(/_([^_]+)_/g, '<em>$1</em>');
-
-    // Strikethrough (~~text~~)
+    
+    // Process strikethrough (~~text~~)
     parsedLine = parsedLine.replace(/~~([^~]+)~~/g, '<s>$1</s>');
 
-    // Inline Code (`code`)
+    // Process inline code (`code`)
     parsedLine = parsedLine.replace(/`([^`]+)`/g, '<code>$1</code>');
 
+    // Wrap the processed line in a paragraph tag.
     return `<p>${parsedLine}</p>`;
   };
 
