@@ -351,11 +351,19 @@ export default function TodoListPage() {
     }
     
     const runHomeworkSync = () => {
-        if (!settings.syncHomework || !homeworks) {
+        if (!settings.syncHomework) {
             toast({
                 variant: 'destructive',
                 title: 'Sync nicht aktiv',
                 description: 'Aktiviere zuerst den Hausaufgaben-Sync in den Einstellungen.'
+            });
+            return;
+        }
+        if (!homeworks) {
+            toast({
+                variant: 'destructive',
+                title: 'Fehler',
+                description: 'Hausaufgaben konnten nicht geladen werden.'
             });
             return;
         }
@@ -367,8 +375,14 @@ export default function TodoListPage() {
             let newTasks = [...currentTasks];
             const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
 
+            const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
+                id: `hw-${hw.id}`,
+                text: `${hw.subject}: ${hw.task}`,
+                done: false,
+                homeworkId: hw.id
+            }));
+
             if (incompleteHomeworks.length === 0) {
-                // If all homeworks are done, remove the sync task if it exists and all its subtasks are also done
                 if (existingTaskIndex > -1) {
                     const existingTask = newTasks[existingTaskIndex];
                     if (!existingTask.subtasks || existingTask.subtasks.every(st => st.done)) {
@@ -377,15 +391,8 @@ export default function TodoListPage() {
                     }
                 }
             } else {
-                 const homeworkSubtasks: Task[] = incompleteHomeworks.map(hw => ({
-                    id: `hw-${hw.id}`,
-                    text: `${hw.subject}: ${hw.task}`,
-                    done: false,
-                    homeworkId: hw.id
-                }));
-
                 if (existingTaskIndex > -1) {
-                    // Update existing task
+                    // Using stringify for deep comparison of subtask arrays
                     if (JSON.stringify(newTasks[existingTaskIndex].subtasks) !== JSON.stringify(homeworkSubtasks)) {
                         newTasks[existingTaskIndex] = {
                             ...newTasks[existingTaskIndex],
@@ -394,7 +401,6 @@ export default function TodoListPage() {
                         wasUpdated = true;
                     }
                 } else {
-                     // Add new task
                     const newSyncTask: Task = {
                         id: HOMEWORK_SYNC_TASK_ID,
                         text: "Hausaufgaben",
@@ -405,11 +411,14 @@ export default function TodoListPage() {
                     wasUpdated = true;
                 }
             }
+
+            // Show toast message outside of the render cycle using a separate effect or callback
             if (wasUpdated) {
                 toast({ title: 'Hausaufgaben synchronisiert!', description: `${incompleteHomeworks.length} unerledigte Aufgaben gefunden.` });
             } else {
-                 toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
+                toast({ title: 'Alles aktuell!', description: 'Keine neuen Hausaufgaben zu synchronisieren.' });
             }
+
             return newTasks;
         });
     }
@@ -569,7 +578,7 @@ export default function TodoListPage() {
                                    </div>
                                ) : null}
                                {task.group && getGroupById(task.group) && (
-                                    <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className={cn("text-xs font-medium", settings.enableColorGroups ? "" : "text-black/70")}>
+                                    <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className={cn("text-xs font-medium")}>
                                         {getGroupById(task.group)?.name}
                                     </Badge>
                                )}
@@ -580,7 +589,7 @@ export default function TodoListPage() {
                             
                             {settings.enableSubtasks && task.subtasks && task.subtasks.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-background/50 space-y-2">
-                                    {task.subtasks.map(subtask => (
+                                    {task.subtasks.map((subtask, index) => (
                                         <div key={subtask.id} className="flex items-center gap-2">
                                             <Checkbox 
                                                 id={`subtask-${subtask.id}`}
@@ -894,13 +903,6 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                         <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="groups-mode">Gruppen</Label>
                             <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => onSettingChange('enableGroups', c)} />
-                        </div>
-                         <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="color-groups-mode" className="flex flex-col gap-1">
-                                 <span>Gruppen einfärben</span>
-                                 <span className="text-xs font-normal text-muted-foreground">Färbt den Text der Badges ein.</span>
-                            </Label>
-                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => onSettingChange('enableColorGroups', c)} />
                         </div>
                         <div className="flex flex-row items-center justify-between">
                             <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
