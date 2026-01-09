@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 
 type Task = {
@@ -50,7 +50,13 @@ type Task = {
   priority?: number;
   note?: string;
   subtasks?: Task[];
-  group?: string;
+  group?: string; // Group ID
+};
+
+type Group = {
+    id: string;
+    name: string;
+    color: string;
 };
 
 type ListSettings = {
@@ -61,6 +67,7 @@ type ListSettings = {
     sortBy?: 'default' | 'dueDate' | 'priority' | 'alphabetical';
     weeklyReset?: boolean;
     enableNumericPriority?: boolean;
+    groups?: Group[];
 }
 
 type TodoList = {
@@ -80,6 +87,11 @@ type TodoList = {
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
 
+const generateColor = () => {
+    const hue = Math.floor(Math.random() * 360);
+    return `hsl(${hue}, 50%, 85%)`; // Light pastel color
+}
+
 export default function TodoListPage() {
   const router = useRouter();
   const params = useParams();
@@ -93,7 +105,7 @@ export default function TodoListPage() {
   
   const [title, setTitle] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [settings, setSettings] = useState<ListSettings>({});
+  const [settings, setSettings] = useState<ListSettings>({ groups: [] });
 
   const [newTaskText, setNewTaskText] = useState('');
   
@@ -118,12 +130,12 @@ export default function TodoListPage() {
     if (todoList) {
       setTitle(todoList.title);
       setTasks(todoList.tasks || []);
-      setSettings(todoList.settings || {});
+      setSettings(todoList.settings || { groups: [] });
       setSaveStatus('idle');
     }
   }, [todoList]);
 
-  const handleSave = useCallback(async () => {
+    const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim()) {
         return;
     };
@@ -159,7 +171,7 @@ export default function TodoListPage() {
   }, [firestore, user, title, tasks, settings, isNewList, listDocRef, router]);
 
 
-  useEffect(() => {
+    useEffect(() => {
     if (isLoadingList || (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks) && JSON.stringify(settings) === JSON.stringify(todoList.settings))) {
       return;
     }
@@ -258,18 +270,23 @@ export default function TodoListPage() {
   };
   
   const handleSettingChange = (key: keyof ListSettings, value: any) => {
-      const newSettings = {...settings, [key]: value};
-      // Logic for dependent settings
-      if (key === 'advancedMode' && !value) {
-          newSettings.enableSubtasks = false;
-          newSettings.enableGroups = false;
-          newSettings.enableColorGroups = false;
-          newSettings.enableNumericPriority = false;
-      }
-      if (key === 'enableGroups' && !value) {
-          newSettings.enableColorGroups = false;
-      }
-      setSettings(newSettings);
+      setSettings(prev => {
+          const newSettings = {...prev, [key]: value};
+          // Logic for dependent settings
+          if (key === 'advancedMode' && !value) {
+              newSettings.enableSubtasks = false;
+              newSettings.enableGroups = false;
+              newSettings.enableColorGroups = false;
+              newSettings.enableNumericPriority = false;
+          }
+          if (key === 'enableGroups' && !value) {
+              newSettings.enableColorGroups = false;
+          }
+           if (key === 'enableGroups' && value && !newSettings.groups) {
+              newSettings.groups = []; // Initialize groups array
+          }
+          return newSettings;
+      });
   }
 
   const getFormattedDate = (timestamp: TodoList['updatedAt'] | undefined) => {
@@ -289,6 +306,12 @@ export default function TodoListPage() {
         return <Save className="h-4 w-4" />;
     }
   };
+  
+    const getGroupById = (groupId?: string) => {
+        if (!groupId || !settings.groups) return null;
+        return settings.groups.find(g => g.id === groupId);
+    }
+
 
   const isLoading = isUserLoading || isLoadingList;
 
@@ -342,74 +365,7 @@ export default function TodoListPage() {
                 <SheetTitle>Listen-Einstellungen</SheetTitle>
                 <SheetDescription>Verwalte die Einstellungen für deine To-Do-Liste "{title}".</SheetDescription>
             </SheetHeader>
-            <ScrollArea className="flex-1 pr-6 -mr-6">
-                <div className="py-4 space-y-6">
-                    <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
-                        <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="advanced-mode" className="font-bold">Erweiterter Modus</Label>
-                            <Switch id="advanced-mode" checked={settings.advancedMode} onCheckedChange={(c) => handleSettingChange('advancedMode', c)} />
-                        </div>
-                        <p className="text-xs text-muted-foreground">Aktiviere zusätzliche Funktionen für Power-User.</p>
-                    </div>
-
-                    <div className={`space-y-4 ${!settings.advancedMode ? 'opacity-50' : ''}`}>
-                        <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="subtasks-mode">Subtasks</Label>
-                            <Switch id="subtasks-mode" disabled={!settings.advancedMode} checked={settings.enableSubtasks} onCheckedChange={(c) => handleSettingChange('enableSubtasks', c)} />
-                        </div>
-                        <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="groups-mode">Gruppen</Label>
-                            <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => handleSettingChange('enableGroups', c)} />
-                        </div>
-                        <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
-                            <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
-                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => handleSettingChange('enableColorGroups', c)} />
-                        </div>
-                        <div className="flex flex-row items-center justify-between">
-                            <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
-                            <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => handleSettingChange('enableNumericPriority', c)} />
-                        </div>
-                    </div>
-                    
-                    <Separator />
-
-                    <div className="space-y-2">
-                        <Label>Standard-Sortierung</Label>
-                        <Select value={settings.sortBy || 'default'} onValueChange={(v) => handleSettingChange('sortBy', v)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Sortierung wählen" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="default">Manuell</SelectItem>
-                                <SelectItem value="dueDate">Fälligkeitsdatum</SelectItem>
-                                <SelectItem value="priority">Priorität</SelectItem>
-                                <SelectItem value="alphabetical">Alphabetisch</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-row items-center justify-between">
-                        <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
-                        <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => handleSettingChange('weeklyReset', c)} />
-                    </div>
-
-
-                    <Separator />
-
-                    <div>
-                        <h4 className="font-semibold mb-2">Gefahrenzone</h4>
-                        <Button variant="destructive" onClick={() => {
-                            setIsSettingsSheetOpen(false);
-                            setIsDeleteDialogOpen(true);
-                        }} disabled={isNewList}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Liste endgültig löschen
-                        </Button>
-                    </div>
-                </div>
-            </ScrollArea>
-             <SheetFooter>
-                <Button variant="outline" onClick={() => setIsSettingsSheetOpen(false)}>Schließen</Button>
-            </SheetFooter>
+            <SettingsForm settings={settings} onSettingChange={handleSettingChange} onDelete={handleDelete} isNewList={isNewList} closeSheet={() => setIsSettingsSheetOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -438,7 +394,7 @@ export default function TodoListPage() {
                 <Save className="mr-2 h-4 w-4" />
                 <span>Jetzt speichern</span>
             </DropdownMenuItem>
-             <DropdownMenuItem onClick={() => setIsSettingsSheetOpen(true)} disabled={isNewList}>
+             <DropdownMenuItem onClick={() => setIsSettingsSheetOpen(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Einstellungen</span>
             </DropdownMenuItem>
@@ -492,9 +448,16 @@ export default function TodoListPage() {
                                {task.priority && (
                                    <div className="flex items-center gap-0.5">
                                        {[...Array(task.priority)].map((_, i) => (
-                                            <Star key={i} className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                            <Button key={i} variant="ghost" className="p-0 h-auto cursor-default">
+                                                <Star className={`w-3 h-3 text-amber-400 fill-amber-400`} />
+                                            </Button>
                                        ))}
                                    </div>
+                               )}
+                               {task.group && getGroupById(task.group) && (
+                                    <Badge style={{ backgroundColor: getGroupById(task.group)?.color }} className="text-xs font-medium text-black/70">
+                                        {getGroupById(task.group)?.name}
+                                    </Badge>
                                )}
                             </div>
                              {task.note && (
@@ -592,10 +555,9 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         if (index === -1) return;
 
         const newSubtasks = [...subtasks];
-        if (direction === 'up' && index > 0) {
-            [newSubtasks[index - 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index - 1]];
-        } else if (direction === 'down' && index < newSubtasks.length - 1) {
-            [newSubtasks[index + 1], newSubtasks[index]] = [newSubtasks[index], newSubtasks[index + 1]];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex >= 0 && targetIndex < newSubtasks.length) {
+            [newSubtasks[index], newSubtasks[targetIndex]] = [newSubtasks[targetIndex], newSubtasks[index]];
         }
         handleFieldChange('subtasks', newSubtasks);
     }
@@ -673,6 +635,9 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                         <div className="space-y-2 mt-4">
                             {(editedTask.subtasks || []).map((subtask, index) => (
                                 <div key={subtask.id} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded-md">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 cursor-grab" asChild>
+                                        <div><GripVertical className="w-4 h-4" /></div>
+                                    </Button>
                                     <Checkbox 
                                         id={`subtask-edit-${subtask.id}`}
                                         checked={subtask.done}
@@ -711,8 +676,30 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
                 </TabsContent>
                 <TabsContent value="groups" className="flex-1 overflow-auto">
                      <ScrollArea className="h-[300px] pr-4">
-                        <div className="text-center text-muted-foreground p-8">
-                            <p>Gruppen-Zuweisung kommt bald hierher.</p>
+                        <div className="my-4 space-y-2">
+                             <Label>Gruppe zuweisen</Label>
+                            {(settings.groups && settings.groups.length > 0) ? (
+                                <RadioGroup
+                                    value={editedTask.group}
+                                    onValueChange={(value) => handleFieldChange('group', value)}
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value={undefined as any} id="no-group" />
+                                        <Label htmlFor="no-group" className="font-normal">Keine Gruppe</Label>
+                                    </div>
+                                    {settings.groups.map(group => (
+                                        <div className="flex items-center space-x-2" key={group.id}>
+                                            <RadioGroupItem value={group.id} id={`group-${group.id}`} />
+                                            <Label htmlFor={`group-${group.id}`} className="font-normal flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full" style={{backgroundColor: group.color}}></span>
+                                                {group.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Keine Gruppen für diese Liste erstellt. Füge welche in den Listen-Einstellungen hinzu.</p>
+                            )}
                         </div>
                     </ScrollArea>
                 </TabsContent>
@@ -724,3 +711,155 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
         </div>
     )
 }
+
+function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void }) {
+    const [newGroupName, setNewGroupName] = useState('');
+    const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+    const [editingGroupName, setEditingGroupName] = useState('');
+
+    const handleAddGroup = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newGroupName.trim() && (settings.groups?.length || 0) < 10) {
+            const newGroup: Group = {
+                id: Date.now().toString(),
+                name: newGroupName.trim(),
+                color: generateColor(),
+            };
+            onSettingChange('groups', [...(settings.groups || []), newGroup]);
+            setNewGroupName('');
+        }
+    };
+
+    const handleUpdateGroup = () => {
+        if (editingGroupId && editingGroupName.trim()) {
+            const updatedGroups = (settings.groups || []).map(g =>
+                g.id === editingGroupId ? { ...g, name: editingGroupName.trim() } : g
+            );
+            onSettingChange('groups', updatedGroups);
+            setEditingGroupId(null);
+            setEditingGroupName('');
+        }
+    }
+
+    const handleDeleteGroup = (groupId: string) => {
+        const updatedGroups = (settings.groups || []).filter(g => g.id !== groupId);
+        onSettingChange('groups', updatedGroups);
+    }
+    
+    return (
+         <ScrollArea className="flex-1 pr-6 -mr-6">
+                <div className="py-4 space-y-6">
+                    <div className="p-4 border rounded-lg space-y-4 bg-secondary/50">
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="advanced-mode" className="font-bold">Erweiterter Modus</Label>
+                            <Switch id="advanced-mode" checked={settings.advancedMode} onCheckedChange={(c) => onSettingChange('advancedMode', c)} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Aktiviere zusätzliche Funktionen für Power-User.</p>
+                    </div>
+
+                    <div className={`space-y-4 ${!settings.advancedMode ? 'opacity-50' : ''}`}>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="subtasks-mode">Subtasks</Label>
+                            <Switch id="subtasks-mode" disabled={!settings.advancedMode} checked={settings.enableSubtasks} onCheckedChange={(c) => onSettingChange('enableSubtasks', c)} />
+                        </div>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="groups-mode">Gruppen</Label>
+                            <Switch id="groups-mode" disabled={!settings.advancedMode} checked={settings.enableGroups} onCheckedChange={(c) => onSettingChange('enableGroups', c)} />
+                        </div>
+                        <div className={`flex flex-row items-center justify-between ${!settings.enableGroups ? 'opacity-50' : ''}`}>
+                            <Label htmlFor="color-groups-mode">Gruppen einfärben</Label>
+                            <Switch id="color-groups-mode" disabled={!settings.advancedMode || !settings.enableGroups} checked={settings.enableColorGroups} onCheckedChange={(c) => onSettingChange('enableColorGroups', c)} />
+                        </div>
+                        <div className="flex flex-row items-center justify-between">
+                            <Label htmlFor="numeric-priority-mode">Numerische Priorität</Label>
+                            <Switch id="numeric-priority-mode" disabled={!settings.advancedMode} checked={settings.enableNumericPriority} onCheckedChange={(c) => onSettingChange('enableNumericPriority', c)} />
+                        </div>
+                    </div>
+                    
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <Label>Standard-Sortierung</Label>
+                        <Select value={settings.sortBy || 'default'} onValueChange={(v) => onSettingChange('sortBy', v)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Sortierung wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="default">Manuell</SelectItem>
+                                <SelectItem value="dueDate">Fälligkeitsdatum</SelectItem>
+                                <SelectItem value="priority">Priorität</SelectItem>
+                                <SelectItem value="alphabetical">Alphabetisch</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex flex-row items-center justify-between">
+                        <Label htmlFor="weekly-reset">Wöchentlicher Reset</Label>
+                        <Switch id="weekly-reset" checked={settings.weeklyReset} onCheckedChange={(c) => onSettingChange('weeklyReset', c)} />
+                    </div>
+                    
+                     {settings.enableGroups && (
+                        <>
+                            <Separator />
+                            <div className="space-y-4">
+                                <h4 className="font-semibold">Gruppen verwalten</h4>
+                                <div className="space-y-2">
+                                    {(settings.groups || []).map(group => (
+                                        <div key={group.id} className="flex items-center gap-2">
+                                            {editingGroupId === group.id ? (
+                                                <Input 
+                                                    value={editingGroupName}
+                                                    onChange={e => setEditingGroupName(e.target.value)}
+                                                    className="h-8"
+                                                />
+                                            ) : (
+                                                <>
+                                                    <span className="w-3 h-3 rounded-full" style={{backgroundColor: group.color}}></span>
+                                                    <span className="flex-1">{group.name}</span>
+                                                </>
+                                            )}
+                                            {editingGroupId === group.id ? (
+                                                <Button size="icon" variant="ghost" onClick={handleUpdateGroup} className="h-8 w-8"><Check className="h-4 w-4"/></Button>
+                                            ) : (
+                                                <Button size="icon" variant="ghost" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }} className="h-8 w-8"><Pencil className="h-4 w-4"/></Button>
+                                            )}
+                                            <Button size="icon" variant="ghost" onClick={() => handleDeleteGroup(group.id)} className="h-8 w-8"><Trash2 className="h-4 w-4"/></Button>
+                                        </div>
+                                    ))}
+                                </div>
+                                { (settings.groups?.length || 0) < 10 && (
+                                    <form onSubmit={handleAddGroup} className="flex items-center gap-2">
+                                        <Input
+                                            placeholder="Neue Gruppe"
+                                            value={newGroupName}
+                                            onChange={e => setNewGroupName(e.target.value)}
+                                            className="h-9"
+                                        />
+                                        <Button type="submit" size="icon" className="h-9 w-9"><Plus className="h-4 w-4"/></Button>
+                                    </form>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+
+                    <Separator />
+
+                    <div>
+                        <h4 className="font-semibold mb-2">Gefahrenzone</h4>
+                        <Button variant="destructive" onClick={() => {
+                           closeSheet();
+                           // We need a small delay for the delete dialog to not clash with the sheet closing
+                           setTimeout(() => {
+                                const trigger = document.getElementById('delete-list-trigger');
+                                if(trigger) trigger.click();
+                           }, 100);
+                        }} disabled={isNewList}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Liste endgültig löschen
+                        </Button>
+                    </div>
+                </div>
+            </ScrollArea>
+    )
+}
+
