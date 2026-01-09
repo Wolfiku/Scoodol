@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil, FilePlus } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Trash2, Plus, Settings, Star, Calendar as CalendarIcon, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +111,8 @@ export default function TodoListPage() {
   , [firestore, user, listId, isNewList]);
 
   const { data: todoList, isLoading: isLoadingList } = useDoc<TodoList>(listDocRef);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
   
   useEffect(() => {
     if (todoList) {
@@ -153,24 +155,26 @@ export default function TodoListPage() {
   }, [firestore, user, title, tasks, settings, isNewList, listDocRef, router]);
 
   useEffect(() => {
-    if (isLoadingList) return;
-    if (isNewList && !title.trim() && tasks.length === 0) return;
-    
-    const hasChanged = isNewList || (todoList && (
-        title !== todoList.title || 
-        JSON.stringify(tasks) !== JSON.stringify(todoList.tasks) ||
-        JSON.stringify(settings) !== JSON.stringify(todoList.settings)
-    ));
-    
-    if (!hasChanged) {
-        setSaveStatus('idle');
+    if (isLoadingList || (todoList && title === todoList.title && JSON.stringify(tasks) === JSON.stringify(todoList.tasks) && JSON.stringify(settings) === JSON.stringify(todoList.settings))) {
         return;
     }
 
-    setSaveStatus('dirty');
-    handleSave();
+    if (title.trim() || tasks.length > 0) {
+        setSaveStatus('dirty');
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+        debounceTimer.current = setTimeout(() => {
+            handleSave();
+        }, 1500);
+    }
 
-  }, [title, tasks, settings, todoList, isLoadingList, handleSave, isNewList]);
+    return () => {
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+    };
+  }, [title, tasks, settings, todoList, isLoadingList, handleSave]);
 
 
   const handleDelete = async () => {
