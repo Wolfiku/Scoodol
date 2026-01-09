@@ -162,10 +162,6 @@ export default function TodoListPage() {
 
     useEffect(() => {
     if (!isMounted || !settings.syncHomework || !homeworks) {
-      // If not syncing, ensure no homework tasks remain
-      if(isMounted && !settings.syncHomework) {
-        setTasks(currentTasks => currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID));
-      }
       return;
     }
 
@@ -175,26 +171,23 @@ export default function TodoListPage() {
       return isNotDone || isDoneRecently;
     });
 
-    const homeworkSubtasks: Task[] = relevantHomeworks.map(hw => ({
-      id: `hw-${hw.id}`,
-      text: `${hw.subject || 'Allg.'}: ${hw.task}`,
-      done: hw.done,
-      homeworkId: hw.id,
-    }));
-
     setTasks(currentTasks => {
+      const homeworkSubtasks: Task[] = relevantHomeworks.map(hw => ({
+        id: `hw-${hw.id}`,
+        text: `${hw.subject || 'Allg.'}: ${hw.task}`,
+        done: hw.done,
+        homeworkId: hw.id,
+      }));
+
       const nonHwTasks = currentTasks.filter(t => t.id !== HOMEWORK_SYNC_TASK_ID);
       const existingSyncTask = currentTasks.find(t => t.id === HOMEWORK_SYNC_TASK_ID);
       
-      // If no relevant homeworks, remove the sync task if it exists
       if (homeworkSubtasks.length === 0) {
-        if (existingSyncTask) return nonHwTasks;
-        return currentTasks;
+        return existingSyncTask ? nonHwTasks : currentTasks;
       }
       
       const allSubtasksDone = homeworkSubtasks.every(st => st.done);
 
-      // Create new sync task or check if update is needed
       const newSyncTask: Task = {
         id: HOMEWORK_SYNC_TASK_ID,
         text: 'Hausaufgaben',
@@ -202,13 +195,17 @@ export default function TodoListPage() {
         subtasks: homeworkSubtasks,
       };
 
-      // If task doesn't exist or subtasks have changed, update the list
-      if (!existingSyncTask || JSON.stringify(existingSyncTask.subtasks) !== JSON.stringify(newSyncTask.subtasks)) {
-         return [newSyncTask, ...nonHwTasks];
+      if (!existingSyncTask) {
+        return [newSyncTask, ...nonHwTasks];
       }
 
+      if (JSON.stringify(existingSyncTask.subtasks) !== JSON.stringify(newSyncTask.subtasks) || existingSyncTask.done !== newSyncTask.done) {
+        return [newSyncTask, ...nonHwTasks];
+      }
+      
       return currentTasks;
     });
+
   }, [isMounted, settings.syncHomework, homeworks]);
 
 
@@ -326,13 +323,12 @@ export default function TodoListPage() {
   const toggleTaskDone = (taskId: string, subtaskId?: string) => {
     let homeworkIdToUpdate: string | undefined;
     let newDoneStateForHomework: boolean | undefined;
-    
+
     setTasks(prevTasks =>
         prevTasks.map(task => {
             if (task.id === taskId) {
-                // Logic for toggling a subtask
-                if (subtaskId && (settings.enableSubtasks || task.id === HOMEWORK_SYNC_TASK_ID)) {
-                    const updatedSubtasks = (task.subtasks || []).map(sub => {
+                if (subtaskId && task.subtasks) {
+                    const updatedSubtasks = task.subtasks.map(sub => {
                         if (sub.id === subtaskId) {
                             if (sub.homeworkId) {
                                 homeworkIdToUpdate = sub.homeworkId;
@@ -344,23 +340,19 @@ export default function TodoListPage() {
                     });
                     const allSubtasksDone = updatedSubtasks.every(st => st.done);
                     return { ...task, subtasks: updatedSubtasks, done: allSubtasksDone };
-                } 
-                // Logic for toggling a main task
-                else {
+                } else {
                     const newDoneState = !task.done;
-                    if (task.homeworkId) { 
+                    if (task.homeworkId) {
                         homeworkIdToUpdate = task.homeworkId;
                         newDoneStateForHomework = newDoneState;
                     }
-
                     const updatedSubtasks = task.subtasks?.map(sub => {
-                        if(newDoneState && !sub.done && sub.homeworkId && firestore && user) {
-                           const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, sub.homeworkId);
-                           updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
+                        if (sub.homeworkId && firestore && user) {
+                            const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, sub.homeworkId);
+                            updateDoc(homeworkDocRef, { done: newDoneState, completedAt: newDoneState ? Date.now() : null });
                         }
-                        return { ...sub, done: newDoneState }
+                        return { ...sub, done: newDoneState };
                     });
-
                     return { ...task, done: newDoneState, subtasks: updatedSubtasks };
                 }
             }
@@ -370,9 +362,11 @@ export default function TodoListPage() {
 
     if (homeworkIdToUpdate !== undefined && newDoneStateForHomework !== undefined && firestore && user) {
         const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, homeworkIdToUpdate);
-        const updateData: { done: boolean, completedAt?: number } = { done: newDoneStateForHomework };
+        const updateData: { done: boolean, completedAt?: number | null } = { done: newDoneStateForHomework };
         if (newDoneStateForHomework) {
             updateData.completedAt = Date.now();
+        } else {
+            updateData.completedAt = null;
         }
         updateDoc(homeworkDocRef, updateData);
     }
@@ -513,13 +507,13 @@ export default function TodoListPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}>
-                <Save className="mr-2 h-4 w-4" />
-                <span>Jetzt speichern</span>
-            </DropdownMenuItem>
              <DropdownMenuItem onClick={() => setIsSettingsSheetOpen(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Einstellungen</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}>
+                <Save className="mr-2 h-4 w-4" />
+                <span>Jetzt speichern</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewList} className="text-destructive focus:text-destructive">
@@ -585,7 +579,7 @@ export default function TodoListPage() {
                                    <div className="flex items-center gap-0.5">
                                        {[...Array(task.priority)].map((_, i) => (
                                             <Button key={i} variant="ghost" className="p-0 h-auto cursor-default">
-                                                <Star className={`w-3 h-3 ${ (editedTask?.priority || 0) >= i + 1 ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
+                                                <Star className={`w-3 h-3 ${ (editingTask?.priority || 0) >= i + 1 ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'}`}/>
                                             </Button>
                                        ))}
                                    </div>
