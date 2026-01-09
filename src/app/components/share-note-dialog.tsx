@@ -26,7 +26,7 @@ export default function ShareNoteDialog({ open, onOpenChange, note }: ShareNoteD
     let url = '';
 
     if (platform === 'whatsapp') {
-      url = `whatsapp://send?text=${encodeURIComponent(text)}`;
+      url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     } else if (platform === 'email') {
       url = `mailto:?subject=${encodeURIComponent(note.title)}&body=${encodeURIComponent(note.content)}`;
     }
