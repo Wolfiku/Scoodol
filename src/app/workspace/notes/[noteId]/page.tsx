@@ -126,11 +126,9 @@ export default function NotePage() {
     if (!dateToShow) return null;
 
     const date = new Date(dateToShow.seconds * 1000);
-    const prefix = dateDisplayType === 'created' ? 'Erstellt' : 'Geändert';
     const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
-    const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    return `${prefix}: ${formattedDate}, ${formattedTime}`;
+    
+    return formattedDate;
   }
   
   const toggleDateDisplay = () => {
