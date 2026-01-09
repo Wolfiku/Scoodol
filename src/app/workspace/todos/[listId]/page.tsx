@@ -17,7 +17,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -63,6 +62,7 @@ type Homework = {
   task: string;
   subject: string;
   done: boolean;
+  completedAt?: number;
 }
 
 type Group = {
@@ -165,18 +165,20 @@ export default function TodoListPage() {
             return;
         }
 
-        const incompleteHomeworks = homeworks.filter(hw => !hw.done);
+        const activeHomeworks = homeworks.filter(hw => {
+            const isNotDone = !hw.done;
+            const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
+            return isNotDone || isDoneRecently;
+        });
         
         setTasks(currentTasks => {
-            const newTasks = [...currentTasks];
+            let newTasks = [...currentTasks];
             let changesMade = false;
 
-            // This comparison is naive and might cause loops if not careful.
-            // A deep comparison of relevant properties would be better.
-            const getHomeworkSubtasks = () => incompleteHomeworks.map(hw => ({
+            const getHomeworkSubtasks = () => activeHomeworks.map(hw => ({
                 id: `hw-${hw.id}`,
                 text: `${hw.subject || 'Hausaufgabe'}: ${hw.task}`,
-                done: false,
+                done: hw.done,
                 homeworkId: hw.id
             }));
             
@@ -184,16 +186,17 @@ export default function TodoListPage() {
                 const homeworkSubtasks: Task[] = getHomeworkSubtasks();
                 const existingTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
 
-                if (incompleteHomeworks.length === 0) {
+                if (activeHomeworks.length === 0) {
                     if (existingTaskIndex > -1) {
                         newTasks.splice(existingTaskIndex, 1);
                         changesMade = true;
                     }
                 } else {
+                    const allSubtasksDone = homeworkSubtasks.every(st => st.done);
                     const newSyncTask: Task = {
                         id: HOMEWORK_SYNC_TASK_ID,
                         text: "Hausaufgaben",
-                        done: false,
+                        done: allSubtasksDone,
                         subtasks: homeworkSubtasks,
                     };
                     if (existingTaskIndex === -1 || JSON.stringify(newTasks[existingTaskIndex].subtasks?.map(st => st.id)) !== JSON.stringify(newSyncTask.subtasks?.map(st => st.id))) {
@@ -206,12 +209,11 @@ export default function TodoListPage() {
                     }
                 }
             } else {
-                // Logic for when subtasks are disabled
                 const existingSyncedHomeworkIds = new Set(newTasks.filter(t => t.homeworkId).map(t => t.homeworkId));
-                const currentIncompleteIds = new Set(incompleteHomeworks.map(hw => hw.id));
+                const currentActiveIds = new Set(activeHomeworks.map(hw => hw.id));
 
-                const tasksToRemove = newTasks.filter(t => t.homeworkId && !currentIncompleteIds.has(t.homeworkId));
-                const tasksToAdd = incompleteHomeworks.filter(hw => !existingSyncedHomeworkIds.has(hw.id));
+                const tasksToRemove = newTasks.filter(t => t.homeworkId && !currentActiveIds.has(t.homeworkId));
+                const tasksToAdd = activeHomeworks.filter(hw => !existingSyncedHomeworkIds.has(hw.id));
 
                 if (tasksToRemove.length > 0 || tasksToAdd.length > 0) {
                     changesMade = true;
@@ -224,8 +226,7 @@ export default function TodoListPage() {
                     }));
                     newTasks.splice(0, newTasks.length, ...intermediateTasks, ...newIndividualTasks);
                 }
-                 // Also remove the main sync task if it exists
-                const mainTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
+                 const mainTaskIndex = newTasks.findIndex(t => t.id === HOMEWORK_SYNC_TASK_ID);
                 if (mainTaskIndex > -1) {
                     newTasks.splice(mainTaskIndex, 1);
                     changesMade = true;
@@ -351,26 +352,43 @@ export default function TodoListPage() {
 
   const toggleTaskDone = (taskId: string, subtaskId?: string) => {
     let homeworkIdToUpdate: string | undefined;
-
+    
     setTasks(prevTasks =>
         prevTasks.map(task => {
             if (task.id === taskId) {
+                // Logic for toggling a subtask
                 if (subtaskId) {
                     const updatedSubtasks = (task.subtasks || []).map(sub => {
                         if (sub.id === subtaskId) {
-                             if (!sub.done) { // Only update if marking as done
+                            if (!sub.done) {
                                 homeworkIdToUpdate = sub.homeworkId;
                             }
                             return { ...sub, done: !sub.done };
                         }
                         return sub;
                     });
-                    return { ...task, subtasks: updatedSubtasks };
-                } else {
-                     if (!task.done) { // Only update if marking as done
+                    const allSubtasksDone = updatedSubtasks.every(st => st.done);
+                    return { ...task, subtasks: updatedSubtasks, done: allSubtasksDone };
+                } 
+                // Logic for toggling a main task
+                else {
+                    const newDoneState = !task.done;
+                    if (newDoneState) { 
                         homeworkIdToUpdate = task.homeworkId;
                     }
-                    return { ...task, done: !task.done };
+
+                    // Cascade done state to all subtasks if parent is checked
+                    const updatedSubtasks = newDoneState && task.subtasks 
+                        ? task.subtasks.map(sub => {
+                            if (!sub.done && sub.homeworkId) {
+                                // We delay this so the main update can go through
+                                setTimeout(() => toggleTaskDone(taskId, sub.id), 0);
+                            }
+                            return { ...sub, done: true };
+                        })
+                        : task.subtasks;
+
+                    return { ...task, done: newDoneState, subtasks: updatedSubtasks };
                 }
             }
             return task;
@@ -381,7 +399,7 @@ export default function TodoListPage() {
         const homeworkDocRef = doc(firestore, `users/${user.uid}/homeworks`, homeworkIdToUpdate);
         updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
     }
-  };
+};
 
 
   const deleteTask = (taskId: string) => {
@@ -491,10 +509,7 @@ export default function TodoListPage() {
             </SheetHeader>
             <SettingsForm 
                 settings={settings} 
-                onSettingChange={handleSettingChange} 
-                onDelete={handleDelete} 
-                isNewList={isNewList} 
-                closeSheet={() => setIsSettingsSheetOpen(false)}
+                onSettingChange={handleSettingChange}
             />
         </SheetContent>
       </Sheet>
@@ -859,13 +874,12 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
     )
 }
 
-function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeSheet }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, onDelete: () => void, isNewList: boolean, closeSheet: () => void }) {
+function SettingsForm({ settings, onSettingChange }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void }) {
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editingGroupName, setEditingGroupName] = useState('');
     const [editingGroupColor, setEditingGroupColor] = useState('#ffffff');
     const [newGroupColor, setNewGroupColor] = useState(generateColor());
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const handleAddGroup = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1011,33 +1025,6 @@ function SettingsForm({ settings, onSettingChange, onDelete, isNewList, closeShe
                             </div>
                         </>
                     )}
-
-
-                    <Separator />
-
-                     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                        <AlertDialogTrigger asChild>
-                             <div className="space-y-2">
-                                <h4 className="font-semibold mb-2">Gefahrenzone</h4>
-                                <Button variant="destructive" disabled={isNewList}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Liste endgültig löschen
-                                </Button>
-                            </div>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Liste wirklich löschen?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            Diese Aktion kann nicht rückgängig gemacht werden. Bist du sicher?
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => {onDelete(); closeSheet();}} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
                 </div>
             </ScrollArea>
     )
