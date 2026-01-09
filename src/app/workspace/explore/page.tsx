@@ -2,10 +2,16 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search } from "lucide-react";
+import { ListTodo, Search, StickyNote } from "lucide-react";
 import Link from "next/link";
 
 const templates = [
+    {
+        title: "Quick Note",
+        description: "Eine schnelle Notiz mit einfacher Markdown-Formatierung.",
+        icon: <StickyNote className="w-8 h-8" />,
+        href: "/workspace/notes/new"
+    },
     {
         title: "To-Do-Liste",
         description: "Eine einfache Liste, um Aufgaben zu verfolgen.",
@@ -41,7 +47,7 @@ export default function ExplorePage() {
                         </div>
                     </Link>
                 ))}
-                 <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg col-span-full md:col-span-2 lg:col-span-2">
+                 <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg col-span-full md:col-span-2 lg:col-span-1">
                     <p>Hier werden bald weitere Vorlagen angezeigt.</p>
                 </div>
             </div>
