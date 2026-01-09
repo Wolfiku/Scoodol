@@ -205,8 +205,26 @@ export default function TodoListPage() {
     setIsEditTaskSheetOpen(true);
   }
 
+  const handleOpenNewTaskSheet = () => {
+    const tempTask: Task = {
+        id: 'new',
+        text: newTaskText,
+        done: false
+    };
+    setEditingTask(tempTask);
+    setIsEditTaskSheetOpen(true);
+  }
+
+
   const handleSaveTaskDetails = (updatedTask: Task) => {
-      setTasks(prev => prev.map(task => task.id === updatedTask.id ? updatedTask : task));
+      if(updatedTask.id === 'new') {
+          // This is a new task from the detailed edit sheet
+          setTasks(prev => [...prev, { ...updatedTask, id: Date.now().toString() }]);
+          setNewTaskText(''); // Clear input after adding
+      } else {
+          // This is an update to an existing task
+          setTasks(prev => prev.map(task => task.id === updatedTask.id ? updatedTask : task));
+      }
       setIsEditTaskSheetOpen(false);
       setEditingTask(null);
   }
@@ -288,8 +306,8 @@ export default function TodoListPage() {
         <Sheet open={isEditTaskSheetOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingTask(null); setIsEditTaskSheetOpen(isOpen);}}>
             <SheetContent>
                 <SheetHeader>
-                    <SheetTitle>Aufgabe bearbeiten</SheetTitle>
-                    <SheetDescription>{editingTask.text}</SheetDescription>
+                    <SheetTitle>{editingTask.id === 'new' ? 'Neue Aufgabe erstellen' : 'Aufgabe bearbeiten'}</SheetTitle>
+                    <SheetDescription>{editingTask.id !== 'new' && editingTask.text}</SheetDescription>
                 </SheetHeader>
                 <TaskEditForm task={editingTask} onSave={handleSaveTaskDetails} onCancel={() => setIsEditTaskSheetOpen(false)}/>
             </SheetContent>
@@ -421,6 +439,9 @@ export default function TodoListPage() {
                 />
                 <Button type="submit" size="icon">
                     <Plus className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="outline" size="icon" onClick={handleOpenNewTaskSheet}>
+                    <Pencil className="h-4 w-4" />
                 </Button>
             </div>
         </form>
