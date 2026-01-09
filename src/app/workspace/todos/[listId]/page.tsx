@@ -221,7 +221,7 @@ export default function TodoListPage() {
                     const newIndividualTasks = tasksToAdd.map(hw => ({
                         id: `hw-${hw.id}`,
                         text: `HA: ${hw.subject || ''} - ${hw.task}`,
-                        done: false,
+                        done: hw.done,
                         homeworkId: hw.id,
                     }));
                     newTasks.splice(0, newTasks.length, ...intermediateTasks, ...newIndividualTasks);
@@ -379,14 +379,18 @@ export default function TodoListPage() {
 
                     // Cascade done state to all subtasks if parent is checked
                     const updatedSubtasks = newDoneState && task.subtasks 
-                        ? task.subtasks.map(sub => {
-                            if (!sub.done && sub.homeworkId) {
-                                // We delay this so the main update can go through
-                                setTimeout(() => toggleTaskDone(taskId, sub.id), 0);
-                            }
-                            return { ...sub, done: true };
-                        })
+                        ? task.subtasks.map(sub => ({ ...sub, done: true }))
                         : task.subtasks;
+                    
+                    if (newDoneState && updatedSubtasks) {
+                         updatedSubtasks.forEach(sub => {
+                            if (!sub.done && sub.homeworkId) {
+                                const subHomeworkId = sub.homeworkId;
+                                const homeworkDocRef = doc(firestore, `users/${user!.uid}/homeworks`, subHomeworkId);
+                                updateDoc(homeworkDocRef, { done: true, completedAt: Date.now() });
+                            }
+                         });
+                    }
 
                     return { ...task, done: newDoneState, subtasks: updatedSubtasks };
                 }
@@ -510,6 +514,7 @@ export default function TodoListPage() {
             <SettingsForm 
                 settings={settings} 
                 onSettingChange={handleSettingChange}
+                isNewList={isNewList}
             />
         </SheetContent>
       </Sheet>
@@ -583,7 +588,15 @@ export default function TodoListPage() {
                             disabled={task.id === HOMEWORK_SYNC_TASK_ID && (task.subtasks || []).every(st => st.done)}
                         />
                         <div className="flex-1">
-                            <label htmlFor={`task-${task.id}`} className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
+                            <div className="flex items-center gap-2">
+                                <label htmlFor={`task-${task.id}`} className={`text-sm ${task.done ? 'line-through text-muted-foreground' : ''}`}>{task.text}</label>
+                                 {(task.id === HOMEWORK_SYNC_TASK_ID || task.homeworkId) && (
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0 font-normal">
+                                        <RefreshCw className="w-2.5 h-2.5 mr-1"/>
+                                        Synced
+                                    </Badge>
+                                )}
+                            </div>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                                {task.dueDate && (
                                    <div className="flex items-center gap-1">
@@ -874,7 +887,7 @@ function TaskEditForm({ task, onSave, onCancel, settings }: { task: Task, onSave
     )
 }
 
-function SettingsForm({ settings, onSettingChange }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void }) {
+function SettingsForm({ settings, onSettingChange, isNewList }: { settings: ListSettings, onSettingChange: (key: keyof ListSettings, value: any) => void, isNewList: boolean }) {
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
     const [editingGroupName, setEditingGroupName] = useState('');
