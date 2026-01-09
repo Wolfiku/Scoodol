@@ -142,7 +142,7 @@ export default function NotePage() {
   }, [title, content, note, isLoadingNote, handleSave, isLocked]);
 
   const handleDelete = async () => {
-      if(isNewNote || !noteDocRef || isLocked) return;
+      if(isNewNote || !noteDocRef) return;
       
       await deleteDoc(noteDocRef);
       toast({
@@ -154,7 +154,7 @@ export default function NotePage() {
 
 
   const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, type: 'created' | 'updated') => {
-    if (!timestamp) return '...';
+    if (!timestamp) return '';
     const date = new Date(timestamp.seconds * 1000);
     const yesterday = subDays(new Date(), 1);
     
@@ -217,7 +217,7 @@ export default function NotePage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
+                    <AlertDialogAction onClick={handleDelete} disabled={isLocked} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
