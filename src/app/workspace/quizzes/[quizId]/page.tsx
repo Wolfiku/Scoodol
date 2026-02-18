@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Hash } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Hash, Info, Sparkles, MessageSquareText } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
 
@@ -63,7 +66,7 @@ export default function QuizEditorPage() {
   const [title, setTitle] = useState('');
   const [creator, setCreator] = useState('');
   const [slides, setSlides] = useState<Slide[]>([
-    { id: 'welcome', type: 'welcome', content: { title: 'Willkommen zum Quiz', subtitle: '' } }
+    { id: 'welcome', type: 'welcome', content: { title: 'Willkommen zum Quiz', subtitle: '', askName: false } }
   ]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -135,6 +138,10 @@ export default function QuizEditorPage() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [title, creator, slides, quiz, isLoadingQuiz, isSetupDone, handleSave]);
 
+  const updateSlideContent = (id: string, newContent: any) => {
+    setSlides(prev => prev.map(s => s.id === id ? { ...s, content: { ...s.content, ...newContent } } : s));
+  };
+
   const addSlide = (type: SlideType) => {
     const newSlide: Slide = {
       id: Date.now().toString(),
@@ -160,8 +167,10 @@ export default function QuizEditorPage() {
     router.push('/workspace');
   };
 
+  const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer'), [slides]);
+
   if (isUserLoading || (isLoadingQuiz && !isNewQuiz)) {
-    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
 
   if (!isSetupDone) {
@@ -197,7 +206,7 @@ export default function QuizEditorPage() {
           <AlertDialogHeader><AlertDialogTitle>Quiz wirklich löschen?</AlertDialogTitle></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteQuiz} className="bg-destructive">Löschen</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteQuiz} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -211,7 +220,7 @@ export default function QuizEditorPage() {
             <Input 
               value={title} 
               onChange={e => setTitle(e.target.value)} 
-              className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0" 
+              className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent" 
             />
             <span className="text-xs text-muted-foreground flex items-center gap-1">
                 von {creator} • {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin"/> : <Check className="h-3 w-3"/>}
@@ -233,7 +242,7 @@ export default function QuizEditorPage() {
               <DropdownMenuItem onClick={() => addSlide('multiple-choice')}>Auswahlmöglichkeiten</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('short-answer')}>Wort Antwort (kurz)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('long-answer')}>Antwort (KI-gestützt)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabeln</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -242,7 +251,7 @@ export default function QuizEditorPage() {
               <Button size="icon" variant="ghost"><MoreHorizontal className="h-5 w-5" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive">
+              <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Quiz löschen
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -253,10 +262,10 @@ export default function QuizEditorPage() {
       <main className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {slides.map((slide, index) => (
-            <Card key={slide.id} className={slide.type === 'welcome' ? 'border-primary shadow-md' : ''}>
-              <CardHeader className="flex flex-row items-start justify-between pb-2">
+            <Card key={slide.id} className={slide.type === 'welcome' ? 'border-primary shadow-sm' : ''}>
+              <CardHeader className="flex flex-row items-start justify-between pb-4">
                 <div className="flex items-center gap-3">
-                  <Badge variant="secondary" className="h-6 w-6 rounded-full flex items-center justify-center p-0">
+                  <Badge variant={slide.type === 'welcome' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0">
                     {index + 1}
                   </Badge>
                   <div>
@@ -267,6 +276,7 @@ export default function QuizEditorPage() {
                          slide.type === 'long-answer' ? 'Freitext (KI)' :
                          slide.type === 'vocabulary' ? 'Vokabel-Test' : 'Info-Text'}
                     </CardTitle>
+                    {slide.type === 'welcome' && <CardDescription>Der erste Eindruck für deine Teilnehmer.</CardDescription>}
                   </div>
                 </div>
                 {slide.id !== 'welcome' && (
@@ -276,11 +286,66 @@ export default function QuizEditorPage() {
                 )}
               </CardHeader>
               <CardContent>
-                <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
+                {slide.type === 'welcome' ? (
+                  <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
+                            <div className="space-y-0.5">
+                                <Label className="text-base">Namen abfragen</Label>
+                                <p className="text-xs text-muted-foreground">Teilnehmer müssen ihren Namen angeben.</p>
+                            </div>
+                            <Switch 
+                                checked={slide.content.askName} 
+                                onCheckedChange={(val) => updateSlideContent(slide.id, { askName: val })} 
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Zusatz-Text (optional)</Label>
+                            <Textarea 
+                                placeholder="z.B. Viel Erfolg! Du hast 10 Minuten Zeit." 
+                                value={slide.content.subtitle || ''} 
+                                onChange={(e) => updateSlideContent(slide.id, { subtitle: e.target.value })}
+                                className="min-h-[100px]"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-background/50 text-center space-y-4">
+                        <div className="space-y-1">
+                            <h2 className="text-2xl font-bold">{title || 'Unbenanntes Quiz'}</h2>
+                            <p className="text-sm text-muted-foreground">Erstellt von {creator || 'Anonym'}</p>
+                        </div>
+                        
+                        <div className="flex flex-wrap justify-center gap-2">
+                            <Badge variant="outline" className="bg-background">
+                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : <Hash className="w-3 h-3 mr-1" />}
+                                {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
+                            </Badge>
+                            {usesAI && (
+                                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                                    <Sparkles className="w-3 h-3 mr-1" /> KI-gestützt
+                                </Badge>
+                            )}
+                        </div>
+
+                        {slide.content.subtitle && (
+                            <p className="text-sm italic text-muted-foreground max-w-[250px] line-clamp-3">
+                                "{slide.content.subtitle}"
+                            </p>
+                        )}
+
+                        <Button className="w-full max-w-[200px]" variant="secondary" disabled>
+                            Quiz starten
+                        </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
                     <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
                     <p className="text-xs text-muted-foreground mt-1">Hier kannst du dann Fragen und Antworten konfigurieren.</p>
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
