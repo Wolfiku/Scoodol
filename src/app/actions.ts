@@ -13,6 +13,8 @@ import { scanVocabulary } from "@/ai/flows/scan-vocabulary";
 import type { ScanVocabularyOutput } from "@/ai/flows/scan-vocabulary";
 import { checkQuizAnswer } from "@/ai/flows/check-quiz-answer";
 import type { CheckQuizAnswerOutput } from "@/ai/flows/check-quiz-answer";
+import { evaluateLongAnswer as evaluateLongAnswerFlow } from "@/ai/flows/evaluate-long-answer";
+import type { EvaluateLongAnswerOutput } from "@/ai/flows/evaluate-long-answer";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp, getApps }from "firebase/app";
@@ -102,6 +104,16 @@ export async function verifyQuizAnswer(question: string, correctAnswer: string, 
     } catch (error) {
         console.error("Error checking quiz answer:", error);
         return { isCorrect: false };
+    }
+}
+
+export async function checkLongAnswer(question: string, referenceAnswer: string, criteria: string, userAnswer: string, language: string): Promise<EvaluateLongAnswerOutput> {
+    try {
+        const result = await evaluateLongAnswerFlow({ question, referenceAnswer, criteria, userAnswer, language });
+        return result;
+    } catch (error) {
+        console.error("Error evaluating long answer:", error);
+        return { isCorrect: false, score: 1, feedback: "Fehler bei der KI-Bewertung." };
     }
 }
 

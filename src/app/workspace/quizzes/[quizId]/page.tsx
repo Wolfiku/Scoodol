@@ -8,7 +8,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { verifyQuizAnswer } from '@/app/actions';
+import { verifyQuizAnswer, checkLongAnswer } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
@@ -171,6 +171,11 @@ export default function QuizEditorPage() {
         answer: '',
         answerType: 'word', // 'word' or 'year'
         checkMode: 'helpfull', // 'strict', 'helpfull', 'ai'
+    } : type === 'long-answer' ? {
+        question: '',
+        referenceAnswer: '',
+        criteria: '',
+        enablePoints: false
     } : {};
 
     const newSlide: Slide = {
@@ -260,9 +265,12 @@ export default function QuizEditorPage() {
               onChange={e => setTitle(e.target.value)} 
               className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent" 
             />
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                von {creator} • {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin"/> : <Check className="h-3 w-3"/>}
-            </span>
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">von {creator}</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    • {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin"/> : <Check className="h-3 w-3"/>}
+                </span>
+            </div>
           </div>
         </div>
         
@@ -279,7 +287,7 @@ export default function QuizEditorPage() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => addSlide('multiple-choice')}>Mehrfachauswahl</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('short-answer')}>Wort-Antwort</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI-gestützt)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
             </DropdownMenuContent>
@@ -524,7 +532,52 @@ export default function QuizEditorPage() {
                     </div>
                 )}
 
-                {['long-answer', 'vocabulary', 'text'].includes(slide.type) && !['multiple-choice', 'short-answer'].includes(slide.type) && (
+                {slide.type === 'long-answer' && (
+                    <div className="space-y-6">
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Frage</Label>
+                                <Input 
+                                    placeholder="z.B. Erkläre den Treibhauseffekt..." 
+                                    value={slide.content.question || ''} 
+                                    onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="font-bold">Musterlösung</Label>
+                                    <Textarea 
+                                        placeholder="Wie die perfekte Antwort aussehen sollte..." 
+                                        value={slide.content.referenceAnswer || ''} 
+                                        onChange={(e) => updateSlideContent(slide.id, { referenceAnswer: e.target.value })}
+                                        className="min-h-[120px]"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="font-bold">Bewertungskriterien</Label>
+                                    <Textarea 
+                                        placeholder="Was muss unbedingt vorkommen? (z.B. Stichworte: CO2, Atmosphäre, Strahlung)" 
+                                        value={slide.content.criteria || ''} 
+                                        onChange={(e) => updateSlideContent(slide.id, { criteria: e.target.value })}
+                                        className="min-h-[120px]"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between p-4 border rounded-lg bg-primary/5">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Punkte verteilen (1-10)</Label>
+                                    <p className="text-xs text-muted-foreground">Die KI bewertet die Antwort auf einer Skala von 1 bis 10.</p>
+                                </div>
+                                <Switch 
+                                    checked={slide.content.enablePoints} 
+                                    onCheckedChange={(val) => updateSlideContent(slide.id, { enablePoints: val })} 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {['vocabulary', 'text'].includes(slide.type) && (
                   <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
                     <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
@@ -545,6 +598,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     const [userName, setUserName] = useState('');
     const [userAnswer, setUserAnswer] = useState('');
     const [answerStatus, setAnswerStatus] = useState<'none' | 'correct' | 'incorrect' | 'checking'>('none');
+    const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+    const [aiScore, setAiScore] = useState<number | null>(null);
     const [selectedMcOption, setSelectedMcOption] = useState<string | null>(null);
     const currentSlide = slides[currentIndex];
     const { aiLanguage } = useTheme();
@@ -555,6 +610,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setAnswerStatus('none');
             setUserAnswer('');
             setSelectedMcOption(null);
+            setAiFeedback(null);
+            setAiScore(null);
         }
     }, [open]);
 
@@ -564,6 +621,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setAnswerStatus('none');
             setUserAnswer('');
             setSelectedMcOption(null);
+            setAiFeedback(null);
+            setAiScore(null);
         }
     };
 
@@ -573,6 +632,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setAnswerStatus('none');
             setUserAnswer('');
             setSelectedMcOption(null);
+            setAiFeedback(null);
+            setAiScore(null);
         }
     };
 
@@ -598,11 +659,9 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             } else if (checkMode === 'helpfull') {
                 isCorrect = normalizedUser === normalizedCorrect;
             } else if (checkMode === 'ai') {
-                // First try helpfull
                 if (normalizedUser === normalizedCorrect) {
                     isCorrect = true;
                 } else {
-                    // Fallback to AI
                     const result = await verifyQuizAnswer(question, answer, userAnswer, aiLanguage);
                     isCorrect = result.isCorrect;
                 }
@@ -610,6 +669,18 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         }
 
         setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
+    }
+
+    const checkLongAnswerAction = async () => {
+        if (!userAnswer.trim()) return;
+        setAnswerStatus('checking');
+
+        const { question, referenceAnswer, criteria } = currentSlide.content;
+        const result = await checkLongAnswer(question, referenceAnswer, criteria, userAnswer, aiLanguage);
+        
+        setAiScore(result.score);
+        setAiFeedback(result.feedback);
+        setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');
     }
 
     const handleMcSelect = (optionId: string) => {
@@ -693,8 +764,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                     
                                     let btnVariant: "outline" | "default" | "destructive" = "outline";
                                     if (answerStatus !== 'none') {
-                                        if (isCorrect) btnVariant = "default"; // Highlight correct
-                                        else if (isSelected && !isCorrect) btnVariant = "destructive"; // Highlight wrong selection
+                                        if (isCorrect) btnVariant = "default";
+                                        else if (isSelected && !isCorrect) btnVariant = "destructive";
                                     }
 
                                     return (
@@ -746,7 +817,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                 </h2>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-4 min-h-[160px]">
                                 <div className="relative">
                                     <Input 
                                         type={currentSlide.content.answerType === 'year' ? 'number' : 'text'}
@@ -766,24 +837,85 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                     {answerStatus === 'incorrect' && <X className="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 h-8 w-8" />}
                                 </div>
 
-                                {answerStatus === 'none' && (
-                                    <Button className="w-full" size="lg" onClick={checkShortAnswer} disabled={!userAnswer.trim()}>
-                                        Antwort prüfen
-                                    </Button>
-                                )}
+                                <div className="min-h-[60px] flex items-center justify-center">
+                                    {answerStatus === 'none' && (
+                                        <Button className="w-full" size="lg" onClick={checkShortAnswer} disabled={!userAnswer.trim()}>
+                                            Antwort prüfen
+                                        </Button>
+                                    )}
 
-                                {answerStatus === 'correct' && (
-                                    <div className="text-center text-green-600 font-bold animate-in zoom-in">
-                                        Richtig! Gut gemacht.
-                                    </div>
-                                )}
+                                    {answerStatus === 'correct' && (
+                                        <div className="text-center text-green-600 font-bold animate-in zoom-in">
+                                            Richtig! Gut gemacht.
+                                        </div>
+                                    )}
 
-                                {answerStatus === 'incorrect' && (
-                                    <div className="p-4 bg-red-100 text-red-800 rounded-lg space-y-1 animate-in fade-in">
-                                        <p className="font-bold">Nicht ganz richtig.</p>
-                                        <p className="text-sm">Die korrekte Antwort lautet: <span className="font-mono bg-white/50 px-1 rounded">{currentSlide.content.answer}</span></p>
-                                    </div>
-                                )}
+                                    {answerStatus === 'incorrect' && (
+                                        <div className="p-4 bg-red-100 text-red-800 rounded-lg space-y-1 animate-in fade-in w-full">
+                                            <p className="font-bold">Nicht ganz richtig.</p>
+                                            <p className="text-sm">Die korrekte Antwort lautet: <span className="font-mono bg-white/50 px-1 rounded">{currentSlide.content.answer}</span></p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : currentSlide?.type === 'long-answer' ? (
+                        <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-start">
+                                    <Badge variant="secondary">Freitext {currentIndex}</Badge>
+                                    {currentSlide.content.enablePoints && aiScore !== null && (
+                                        <Badge className="text-lg py-1 px-3 bg-primary text-primary-foreground">
+                                            {aiScore} / 10 Punkte
+                                        </Badge>
+                                    )}
+                                </div>
+                                <h2 className="text-2xl md:text-3xl font-bold leading-tight">
+                                    {currentSlide.content.question || 'Keine Frage eingegeben.'}
+                                </h2>
+                            </div>
+
+                            <div className="space-y-4 min-h-[300px]">
+                                <div className="relative">
+                                    <Textarea 
+                                        placeholder="Deine ausführliche Antwort hier schreiben..." 
+                                        value={userAnswer}
+                                        onChange={(e) => setUserAnswer(e.target.value)}
+                                        disabled={answerStatus !== 'none' && answerStatus !== 'checking'}
+                                        className={cn(
+                                            "text-lg p-6 min-h-[180px] transition-all",
+                                            answerStatus === 'correct' && "border-green-500 bg-green-50",
+                                            answerStatus === 'incorrect' && "border-amber-500 bg-amber-50"
+                                        )}
+                                    />
+                                    {answerStatus === 'checking' && (
+                                        <div className="absolute inset-0 bg-background/50 flex flex-col items-center justify-center rounded-md animate-in fade-in">
+                                            <Loader2 className="animate-spin text-primary h-8 w-8 mb-2" />
+                                            <p className="text-sm font-medium">KI bewertet deine Antwort...</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="min-h-[80px]">
+                                    {answerStatus === 'none' && (
+                                        <Button className="w-full" size="lg" onClick={checkLongAnswerAction} disabled={!userAnswer.trim() || userAnswer.length < 5}>
+                                            <Sparkles className="w-4 h-4 mr-2" /> Antwort von KI prüfen lassen
+                                        </Button>
+                                    )}
+
+                                    {answerStatus !== 'none' && answerStatus !== 'checking' && aiFeedback && (
+                                        <div className={cn(
+                                            "p-4 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2",
+                                            answerStatus === 'correct' ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                                        )}>
+                                            {answerStatus === 'correct' ? <Check className="h-6 w-6 mt-1 shrink-0" /> : <AlertCircle className="h-6 w-6 mt-1 shrink-0" />}
+                                            <div className="space-y-1">
+                                                <p className="font-bold">{answerStatus === 'correct' ? 'Gut gemacht!' : 'Fast geschafft.'}</p>
+                                                <p className="text-sm leading-relaxed">{aiFeedback}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ) : (
