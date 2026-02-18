@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -33,6 +41,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
 
@@ -71,6 +81,7 @@ export default function QuizEditorPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSetupDone, setIsSetupDone] = useState(!isNewQuiz);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const quizDocRef = useMemoFirebase(() => 
     !isNewQuiz && user && typeof quizId === 'string'
@@ -143,10 +154,20 @@ export default function QuizEditorPage() {
   };
 
   const addSlide = (type: SlideType) => {
+    const baseContent = type === 'multiple-choice' ? {
+        question: '',
+        options: [
+            { id: '1', text: '', isCorrect: false },
+            { id: '2', text: '', isCorrect: false },
+            { id: '3', text: '', isCorrect: false },
+            { id: '4', text: '', isCorrect: false },
+        ]
+    } : {};
+
     const newSlide: Slide = {
       id: Date.now().toString(),
       type,
-      content: {}
+      content: baseContent
     };
     setSlides([...slides, newSlide]);
     toast({ title: 'Folie hinzugefügt', description: `Ein neues ${type} wurde erstellt.` });
@@ -211,6 +232,14 @@ export default function QuizEditorPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <QuizPreviewDialog 
+        open={isPreviewOpen} 
+        onOpenChange={setIsPreviewOpen} 
+        title={title} 
+        creator={creator} 
+        slides={slides} 
+      />
+
       <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-4 flex-1">
           <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}>
@@ -229,7 +258,7 @@ export default function QuizEditorPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
             <Play className="mr-2 h-4 w-4" /> Vorschau
           </Button>
           <DropdownMenu>
@@ -239,9 +268,9 @@ export default function QuizEditorPage() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Folie hinzufügen</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => addSlide('multiple-choice')}>Auswahlmöglichkeiten</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('short-answer')}>Wort Antwort (kurz)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('long-answer')}>Antwort (KI-gestützt)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('multiple-choice')}>Mehrfachauswahl</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('short-answer')}>Kurzantwort (1 Wort)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI-gestützt)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
             </DropdownMenuContent>
@@ -265,7 +294,7 @@ export default function QuizEditorPage() {
             <Card key={slide.id} className={slide.type === 'welcome' ? 'border-primary shadow-sm' : ''}>
               <CardHeader className="flex flex-row items-start justify-between pb-4">
                 <div className="flex items-center gap-3">
-                  <Badge variant={slide.type === 'welcome' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0">
+                  <Badge variant={slide.type === 'welcome' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0 font-bold">
                     {index + 1}
                   </Badge>
                   <div>
@@ -286,7 +315,7 @@ export default function QuizEditorPage() {
                 )}
               </CardHeader>
               <CardContent>
-                {slide.type === 'welcome' ? (
+                {slide.type === 'welcome' && (
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
@@ -339,11 +368,97 @@ export default function QuizEditorPage() {
                         </Button>
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {slide.type === 'multiple-choice' && (
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <Label className="text-base font-bold">Frage</Label>
+                            <Input 
+                                placeholder="z.B. Wie viele Planeten hat unser Sonnensystem?" 
+                                value={slide.content.question || ''} 
+                                onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                className="text-lg py-6"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <Label className="font-semibold">Antworten (Markiere die richtigen)</Label>
+                                <span className="text-xs text-muted-foreground">{slide.content.options?.length || 0} von 8</span>
+                            </div>
+                            <div className="grid gap-3">
+                                {(slide.content.options || []).map((option: any, optIndex: number) => (
+                                    <div key={option.id} className="flex items-center gap-2 group">
+                                        <div className="flex items-center justify-center h-10 w-10">
+                                            <Checkbox 
+                                                id={`opt-${slide.id}-${option.id}`}
+                                                checked={option.isCorrect} 
+                                                onCheckedChange={(val) => {
+                                                    const currentCorrect = slide.content.options.filter((o: any) => o.isCorrect).length;
+                                                    const maxCorrect = Math.floor(slide.content.options.length * 0.9);
+                                                    
+                                                    if (val === true && currentCorrect >= maxCorrect) {
+                                                        toast({
+                                                            variant: 'destructive',
+                                                            title: 'Zu viele richtige Antworten',
+                                                            description: `Bei ${slide.content.options.length} Optionen dürfen maximal ${maxCorrect} richtig sein.`,
+                                                        });
+                                                        return;
+                                                    }
+
+                                                    const newOptions = [...slide.content.options];
+                                                    newOptions[optIndex].isCorrect = !!val;
+                                                    updateSlideContent(slide.id, { options: newOptions });
+                                                }}
+                                                className="h-6 w-6"
+                                            />
+                                        </div>
+                                        <Input 
+                                            placeholder={`Antwort ${optIndex + 1}...`}
+                                            value={option.text}
+                                            onChange={(e) => {
+                                                const newOptions = [...slide.content.options];
+                                                newOptions[optIndex].text = e.target.value;
+                                                updateSlideContent(slide.id, { options: newOptions });
+                                            }}
+                                            className={cn("flex-1", option.isCorrect && "border-primary bg-primary/5")}
+                                        />
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                            disabled={slide.content.options.length <= 2}
+                                            onClick={() => {
+                                                const newOptions = slide.content.options.filter((_: any, i: number) => i !== optIndex);
+                                                updateSlideContent(slide.id, { options: newOptions });
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                            {(!slide.content.options || slide.content.options.length < 8) && (
+                                <Button 
+                                    variant="outline" 
+                                    className="w-full border-dashed"
+                                    onClick={() => {
+                                        const newOptions = [...(slide.content.options || []), { id: Date.now().toString(), text: '', isCorrect: false }];
+                                        updateSlideContent(slide.id, { options: newOptions });
+                                    }}
+                                >
+                                    <Plus className="h-4 w-4 mr-2" /> Antwort hinzufügen
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {['short-answer', 'long-answer', 'vocabulary', 'text'].includes(slide.type) && slide.type !== 'multiple-choice' && (
                   <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
                     <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Hier kannst du dann Fragen und Antworten konfigurieren.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Hier kannst du bald die Logik für diesen Typ einstellen.</p>
                   </div>
                 )}
               </CardContent>
@@ -353,4 +468,132 @@ export default function QuizEditorPage() {
       </main>
     </div>
   );
+}
+
+function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { open: boolean, onOpenChange: (open: boolean) => void, title: string, creator: string, slides: Slide[] }) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [userName, setUserName] = useState('');
+    const currentSlide = slides[currentIndex];
+
+    useEffect(() => {
+        if (open) setCurrentIndex(0);
+    }, [open]);
+
+    const handleNext = () => {
+        if (currentIndex < slides.length - 1) {
+            setCurrentIndex(currentIndex + 1);
+        }
+    };
+
+    const handleBack = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(currentIndex - 1);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 overflow-hidden">
+                <header className="p-4 border-b bg-secondary/20 flex justify-between items-center">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-bold truncate max-w-[200px]">{title}</span>
+                        <span className="text-[10px] text-muted-foreground">Vorschau-Modus</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs font-mono">{currentIndex + 1} / {slides.length}</span>
+                        <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </header>
+
+                <main className="flex-1 overflow-y-auto p-6 md:p-12 flex flex-col items-center justify-center bg-background">
+                    {currentSlide?.type === 'welcome' ? (
+                        <div className="text-center space-y-8 max-w-md w-full animate-in fade-in zoom-in duration-300">
+                            <div className="space-y-2">
+                                <h1 className="text-4xl font-extrabold tracking-tight">{title}</h1>
+                                <p className="text-muted-foreground">von {creator}</p>
+                            </div>
+                            
+                            {currentSlide.content.subtitle && (
+                                <Card className="bg-secondary/30 border-none">
+                                    <CardContent className="p-4">
+                                        <p className="text-sm italic italic text-muted-foreground leading-relaxed">
+                                            "{currentSlide.content.subtitle}"
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {currentSlide.content.askName && (
+                                <div className="space-y-2 text-left">
+                                    <Label>Wie heißt du?</Label>
+                                    <Input 
+                                        placeholder="Dein Name..." 
+                                        value={userName} 
+                                        onChange={(e) => setUserName(e.target.value)}
+                                        className="text-lg py-6"
+                                    />
+                                </div>
+                            )}
+
+                            <Button 
+                                className="w-full text-lg py-6 h-auto font-bold shadow-lg" 
+                                size="lg" 
+                                onClick={handleNext}
+                                disabled={currentSlide.content.askName && !userName.trim()}
+                            >
+                                Quiz starten
+                            </Button>
+                        </div>
+                    ) : currentSlide?.type === 'multiple-choice' ? (
+                        <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
+                            <div className="space-y-4">
+                                <Badge variant="secondary">Frage {currentIndex}</Badge>
+                                <h2 className="text-2xl md:text-3xl font-bold leading-tight">
+                                    {currentSlide.content.question || 'Keine Frage eingegeben.'}
+                                </h2>
+                            </div>
+
+                            <div className="grid gap-3">
+                                {(currentSlide.content.options || []).map((opt: any, i: number) => (
+                                    <Button 
+                                        key={opt.id} 
+                                        variant="outline" 
+                                        className="justify-start h-auto py-4 px-6 text-left text-base border-2 hover:border-primary hover:bg-primary/5 transition-all"
+                                    >
+                                        <span className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center mr-4 shrink-0 font-bold text-xs">
+                                            {String.fromCharCode(65 + i)}
+                                        </span>
+                                        <span className="flex-1">{opt.text || 'Option...'}</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center space-y-4">
+                            <BrainCircuit className="h-16 w-16 text-primary mx-auto opacity-20" />
+                            <h3 className="text-xl font-bold">Folientyp: {currentSlide?.type}</h3>
+                            <p className="text-muted-foreground">Hier folgt bald die interaktive Ansicht.</p>
+                        </div>
+                    )}
+                </main>
+
+                <footer className="p-4 border-t bg-secondary/10 flex justify-between items-center">
+                    <Button variant="ghost" onClick={handleBack} disabled={currentIndex === 0}>
+                        <ChevronLeft className="mr-2 h-4 w-4" /> Zurück
+                    </Button>
+                    <div className="h-2 flex-1 mx-8 bg-secondary rounded-full overflow-hidden max-w-[200px] hidden md:block">
+                        <div 
+                            className="h-full bg-primary transition-all duration-500" 
+                            style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }}
+                        />
+                    </div>
+                    <Button onClick={handleNext} disabled={currentIndex === slides.length - 1}>
+                        Weiter <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </footer>
+            </DialogContent>
+        </Dialog>
+    );
 }
