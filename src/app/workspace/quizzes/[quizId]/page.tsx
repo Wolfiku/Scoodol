@@ -494,18 +494,15 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 overflow-hidden">
-                <header className="p-4 border-b bg-secondary/20 flex justify-between items-center">
-                    <div className="flex flex-col">
-                        <span className="text-sm font-bold truncate max-w-[200px]">{title}</span>
-                        <span className="text-[10px] text-muted-foreground">Vorschau-Modus</span>
+                <DialogHeader className="p-4 border-b bg-secondary/20 flex flex-row justify-between items-center space-y-0">
+                    <div className="flex flex-col text-left">
+                        <DialogTitle className="text-sm font-bold truncate max-w-[200px]">{title}</DialogTitle>
+                        <DialogDescription className="text-[10px] text-muted-foreground">Vorschau-Modus</DialogDescription>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-xs font-mono">{currentIndex + 1} / {slides.length}</span>
-                        <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-                            <X className="h-4 w-4" />
-                        </Button>
                     </div>
-                </header>
+                </DialogHeader>
 
                 <main className="flex-1 overflow-y-auto p-6 md:p-12 flex flex-col items-center justify-center bg-background">
                     {currentSlide?.type === 'welcome' ? (
