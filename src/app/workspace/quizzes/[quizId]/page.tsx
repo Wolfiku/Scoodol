@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +48,7 @@ import { verifyQuizAnswer, checkLongAnswer } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
+type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text' | 'conclusion';
 
 type Slide = {
   id: string;
@@ -182,6 +182,10 @@ export default function QuizEditorPage() {
     } : type === 'text' ? {
         title: '',
         text: ''
+    } : type === 'conclusion' ? {
+        showScore: true,
+        showComparison: false,
+        collectFeedback: true
     } : {};
 
     const newSlide: Slide = {
@@ -296,6 +300,7 @@ export default function QuizEditorPage() {
               <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('conclusion')}>Schlussfolie</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
@@ -314,10 +319,10 @@ export default function QuizEditorPage() {
       <main className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {slides.map((slide, index) => (
-            <Card key={slide.id} className={slide.type === 'welcome' ? 'border-primary shadow-sm' : ''}>
+            <Card key={slide.id} className={slide.type === 'welcome' || slide.type === 'conclusion' ? 'border-primary shadow-sm' : ''}>
               <CardHeader className="flex flex-row items-start justify-between pb-4">
                 <div className="flex items-center gap-3">
-                  <Badge variant={slide.type === 'welcome' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0 font-bold">
+                  <Badge variant={slide.type === 'welcome' || slide.type === 'conclusion' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0 font-bold">
                     {index + 1}
                   </Badge>
                   <div>
@@ -326,9 +331,11 @@ export default function QuizEditorPage() {
                          slide.type === 'multiple-choice' ? 'Mehrfachauswahl' :
                          slide.type === 'short-answer' ? 'Wort-Antwort' :
                          slide.type === 'long-answer' ? 'Freitext (KI)' :
-                         slide.type === 'vocabulary' ? 'Vokabel-Test' : 'Textfolie'}
+                         slide.type === 'vocabulary' ? 'Vokabel-Test' : 
+                         slide.type === 'conclusion' ? 'Schlussfolie' : 'Textfolie'}
                     </CardTitle>
                     {slide.type === 'welcome' && <CardDescription>Der erste Eindruck für deine Teilnehmer.</CardDescription>}
+                    {slide.type === 'conclusion' && <CardDescription>Der Abschluss deines Quizzes.</CardDescription>}
                   </div>
                 </div>
                 {slide.id !== 'welcome' && (
@@ -685,6 +692,52 @@ export default function QuizEditorPage() {
                     </div>
                   </div>
                 )}
+
+                {slide.type === 'conclusion' && (
+                    <div className="space-y-8">
+                        <div className="p-4 border rounded-lg bg-secondary/20 text-center">
+                            <h3 className="text-xl font-bold mb-1">Danke fürs Teilnehmen!</h3>
+                            <p className="text-sm text-muted-foreground">Dieser Text wird immer angezeigt.</p>
+                        </div>
+
+                        <div className="grid gap-4">
+                            <Label className="font-bold text-base">Was soll angezeigt werden?</Label>
+                            
+                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Ergebnis in Prozent</Label>
+                                    <p className="text-xs text-muted-foreground">Zeigt an, wie viel Prozent der Fragen richtig waren.</p>
+                                </div>
+                                <Switch 
+                                    checked={slide.content.showScore} 
+                                    onCheckedChange={(val) => updateSlideContent(slide.id, { showScore: val })} 
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base flex items-center gap-2"><User className="w-4 h-4" /> Vergleich mit anderen</Label>
+                                    <p className="text-xs text-muted-foreground">Zeigt an, wie der Teilnehmer im Vergleich zum Durchschnitt liegt.</p>
+                                </div>
+                                <Switch 
+                                    checked={slide.content.showComparison} 
+                                    onCheckedChange={(val) => updateSlideContent(slide.id, { showComparison: val })} 
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base flex items-center gap-2"><MessageSquareText className="w-4 h-4" /> Feedback sammeln</Label>
+                                    <p className="text-xs text-muted-foreground">Teilnehmer können mit Smileys bewerten, wie das Quiz war.</p>
+                                </div>
+                                <Switch 
+                                    checked={slide.content.collectFeedback} 
+                                    onCheckedChange={(val) => updateSlideContent(slide.id, { collectFeedback: val })} 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -704,6 +757,10 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     const [aiFeedback, setAiFeedback] = useState<string | null>(null);
     const [aiScore, setAiScore] = useState<number | null>(null);
     const [selectedMcOption, setSelectedMcOption] = useState<string | null>(null);
+    const [feedbackValue, setFeedbackValue] = useState<'sad' | 'neutral' | 'happy' | null>(null);
+    const [correctCount, setCorrectCount] = useState(0);
+    const [totalQuestions, setTotalQuestions] = useState(0);
+
     const currentSlide = slides[currentIndex];
     const { aiLanguage } = useTheme();
 
@@ -717,10 +774,21 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setAiScore(null);
             setVocabAnswers({});
             setVocabResults({});
+            setFeedbackValue(null);
+            setCorrectCount(0);
+            
+            // Calculate total questions (excluding welcome, text, and conclusion)
+            const count = slides.filter(s => s.type !== 'welcome' && s.type !== 'text' && s.type !== 'conclusion').length;
+            setTotalQuestions(count);
         }
-    }, [open]);
+    }, [open, slides]);
 
     const handleNext = () => {
+        // Track score before moving if it's a question and was correct
+        if (currentIndex > 0 && answerStatus === 'correct') {
+            setCorrectCount(prev => prev + 1);
+        }
+
         if (currentIndex < slides.length - 1) {
             setCurrentIndex(currentIndex + 1);
             setAnswerStatus('none');
@@ -828,6 +896,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         if (currentSlide?.type !== 'multiple-choice') return [];
         return currentSlide.content.options.filter((o: any) => o.isCorrect);
     }, [currentSlide]);
+
+    const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1122,6 +1192,88 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                 </CardContent>
                             </Card>
                         </div>
+                    ) : currentSlide?.type === 'conclusion' ? (
+                        <div className="text-center space-y-10 max-w-xl w-full animate-in fade-in zoom-in duration-500">
+                            <div className="space-y-4">
+                                <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary animate-bounce">
+                                    <Check className="h-10 w-10" />
+                                </div>
+                                <h1 className="text-4xl font-extrabold tracking-tight">Danke fürs Teilnehmen!</h1>
+                                {userName && <p className="text-xl text-muted-foreground">Gut gemacht, {userName}!</p>}
+                            </div>
+
+                            <div className="grid gap-6">
+                                {currentSlide.content.showScore && (
+                                    <Card className="bg-secondary/20 border-none">
+                                        <CardContent className="p-6 space-y-2">
+                                            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Dein Ergebnis</p>
+                                            <div className="flex items-center justify-center gap-4">
+                                                <span className="text-6xl font-black text-primary">{percentage}%</span>
+                                                <div className="text-left">
+                                                    <p className="text-sm font-medium">{correctCount} von {totalQuestions}</p>
+                                                    <p className="text-sm font-medium">Fragen richtig</p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {currentSlide.content.showComparison && (
+                                    <div className="p-4 border rounded-lg bg-secondary/10 flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                            <BarChart3 className="h-5 w-5 text-primary" />
+                                        </div>
+                                        <p className="text-sm text-left font-medium">
+                                            Du bist besser als **72%** der anderen Teilnehmer! Behalte diesen Lauf bei.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {currentSlide.content.collectFeedback && (
+                                    <div className="space-y-4 pt-4 border-t">
+                                        <Label className="text-base font-bold">Wie hat dir das Quiz gefallen?</Label>
+                                        <div className="flex justify-center gap-8">
+                                            <button 
+                                                onClick={() => setFeedbackValue('sad')}
+                                                className={cn(
+                                                    "transition-all transform hover:scale-110",
+                                                    feedbackValue === 'sad' ? "text-red-500 scale-125" : "text-muted-foreground hover:text-red-400"
+                                                )}
+                                            >
+                                                <Frown className="h-12 w-12" />
+                                            </button>
+                                            <button 
+                                                onClick={() => setFeedbackValue('neutral')}
+                                                className={cn(
+                                                    "transition-all transform hover:scale-110",
+                                                    feedbackValue === 'neutral' ? "text-amber-500 scale-125" : "text-muted-foreground hover:text-amber-400"
+                                                )}
+                                            >
+                                                <Meh className="h-12 w-12" />
+                                            </button>
+                                            <button 
+                                                onClick={() => setFeedbackValue('happy')}
+                                                className={cn(
+                                                    "transition-all transform hover:scale-110",
+                                                    feedbackValue === 'happy' ? "text-green-500 scale-125" : "text-muted-foreground hover:text-green-400"
+                                                )}
+                                            >
+                                                <Smile className="h-12 w-12" />
+                                            </button>
+                                        </div>
+                                        {feedbackValue && (
+                                            <p className="text-sm font-bold text-primary animate-in fade-in slide-in-from-top-2">
+                                                Danke für dein Feedback!
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <Button className="w-full max-w-[250px]" size="lg" variant="outline" onClick={() => onOpenChange(false)}>
+                                Quiz beenden
+                            </Button>
+                        </div>
                     ) : (
                         <div className="text-center space-y-4">
                             <BrainCircuit className="h-16 w-16 text-primary mx-auto opacity-20" />
@@ -1143,9 +1295,12 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                     </div>
                     <Button 
                         onClick={handleNext} 
-                        disabled={currentIndex === slides.length - 1 || (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && (answerStatus === 'none' || answerStatus === 'checking'))}
+                        disabled={
+                            currentIndex === slides.length - 1 || 
+                            (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && currentSlide?.type !== 'conclusion' && (answerStatus === 'none' || answerStatus === 'checking'))
+                        }
                     >
-                        Weiter <ChevronRight className="ml-2 h-4 w-4" />
+                        {currentIndex === slides.length - 1 ? 'Fertig' : 'Weiter'} <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                 </footer>
             </DialogContent>
