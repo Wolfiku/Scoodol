@@ -1,3 +1,4 @@
+
 "use server";
 
 import { findElement } from "@/ai/flows/find-element";
@@ -10,6 +11,8 @@ import type { AnalyzeReportCardOutput } from "@/ai/flows/analyze-report-card";
 import { simplifyText } from "@/ai/flows/simplify-text";
 import { scanVocabulary } from "@/ai/flows/scan-vocabulary";
 import type { ScanVocabularyOutput } from "@/ai/flows/scan-vocabulary";
+import { checkQuizAnswer } from "@/ai/flows/check-quiz-answer";
+import type { CheckQuizAnswerOutput } from "@/ai/flows/check-quiz-answer";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp, getApps }from "firebase/app";
@@ -89,6 +92,16 @@ export async function scanVocabularyImage(photoDataUri: string, language: string
     } catch (error) {
         console.error("Error scanning vocabulary:", error);
         return { error: "Beim Scannen der Vokabeln ist ein Fehler aufgetreten." };
+    }
+}
+
+export async function verifyQuizAnswer(question: string, correctAnswer: string, userAnswer: string, language: string): Promise<CheckQuizAnswerOutput> {
+    try {
+        const result = await checkQuizAnswer({ question, correctAnswer, userAnswer, language });
+        return result;
+    } catch (error) {
+        console.error("Error checking quiz answer:", error);
+        return { isCorrect: false };
     }
 }
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -7,7 +8,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { verifyQuizAnswer } from '@/app/actions';
+import { useTheme } from '@/hooks/use-theme';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
 
@@ -162,6 +166,11 @@ export default function QuizEditorPage() {
             { id: '3', text: '', isCorrect: false },
             { id: '4', text: '', isCorrect: false },
         ]
+    } : type === 'short-answer' ? {
+        question: '',
+        answer: '',
+        answerType: 'word', // 'word' or 'year'
+        checkMode: 'helpfull', // 'strict', 'helpfull', 'ai'
     } : {};
 
     const newSlide: Slide = {
@@ -188,7 +197,7 @@ export default function QuizEditorPage() {
     router.push('/workspace');
   };
 
-  const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer'), [slides]);
+  const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer' || (s.type === 'short-answer' && s.content.checkMode === 'ai')), [slides]);
 
   if (isUserLoading || (isLoadingQuiz && !isNewQuiz)) {
     return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
@@ -269,7 +278,7 @@ export default function QuizEditorPage() {
               <DropdownMenuLabel>Folie hinzufügen</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => addSlide('multiple-choice')}>Mehrfachauswahl</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('short-answer')}>Kurzantwort (1 Wort)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => addSlide('short-answer')}>Wort-Antwort</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI-gestützt)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
@@ -301,7 +310,7 @@ export default function QuizEditorPage() {
                     <CardTitle className="text-lg">
                         {slide.type === 'welcome' ? 'Willkommens-Seite' : 
                          slide.type === 'multiple-choice' ? 'Mehrfachauswahl' :
-                         slide.type === 'short-answer' ? 'Kurzantwort' :
+                         slide.type === 'short-answer' ? 'Wort-Antwort' :
                          slide.type === 'long-answer' ? 'Freitext (KI)' :
                          slide.type === 'vocabulary' ? 'Vokabel-Test' : 'Info-Text'}
                     </CardTitle>
@@ -454,7 +463,68 @@ export default function QuizEditorPage() {
                     </div>
                 )}
 
-                {['short-answer', 'long-answer', 'vocabulary', 'text'].includes(slide.type) && slide.type !== 'multiple-choice' && (
+                {slide.type === 'short-answer' && (
+                    <div className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="font-bold">Frage</Label>
+                                    <Input 
+                                        placeholder="z.B. Wie heißt die Hauptstadt von Frankreich?" 
+                                        value={slide.content.question || ''} 
+                                        onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="font-bold">Korrekte Antwort</Label>
+                                    <Input 
+                                        placeholder="Die exakte Lösung..." 
+                                        value={slide.content.answer || ''} 
+                                        onChange={(e) => updateSlideContent(slide.id, { answer: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4 p-4 border rounded-lg bg-secondary/10">
+                                <div className="space-y-2">
+                                    <Label>Antwort-Typ</Label>
+                                    <Select value={slide.content.answerType} onValueChange={(val) => updateSlideContent(slide.id, { answerType: val })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="word">Wort</SelectItem>
+                                            <SelectItem value="year">Jahreszahl</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {slide.content.answerType === 'word' && (
+                                    <div className="space-y-2">
+                                        <Label>Prüf-Modus</Label>
+                                        <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
+                                                <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
+                                                <SelectItem value="ai">KI-Modus (Typo-Check)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            {slide.content.checkMode === 'strict' && 'Achtet auf Punkt, Komma, Groß/Kleinschreibung.'}
+                                            {slide.content.checkMode === 'helpfull' && 'Ignoriert Großschreibung und ss/ß Unterschiede.'}
+                                            {slide.content.checkMode === 'ai' && 'KI springt ein, wenn es fast richtig ist.'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {['long-answer', 'vocabulary', 'text'].includes(slide.type) && !['multiple-choice', 'short-answer'].includes(slide.type) && (
                   <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
                     <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
@@ -473,27 +543,91 @@ export default function QuizEditorPage() {
 function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { open: boolean, onOpenChange: (open: boolean) => void, title: string, creator: string, slides: Slide[] }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [userName, setUserName] = useState('');
+    const [userAnswer, setUserAnswer] = useState('');
+    const [answerStatus, setAnswerStatus] = useState<'none' | 'correct' | 'incorrect' | 'checking'>('none');
+    const [selectedMcOption, setSelectedMcOption] = useState<string | null>(null);
     const currentSlide = slides[currentIndex];
+    const { aiLanguage } = useTheme();
 
     useEffect(() => {
-        if (open) setCurrentIndex(0);
+        if (open) {
+            setCurrentIndex(0);
+            setAnswerStatus('none');
+            setUserAnswer('');
+            setSelectedMcOption(null);
+        }
     }, [open]);
 
     const handleNext = () => {
         if (currentIndex < slides.length - 1) {
             setCurrentIndex(currentIndex + 1);
+            setAnswerStatus('none');
+            setUserAnswer('');
+            setSelectedMcOption(null);
         }
     };
 
     const handleBack = () => {
         if (currentIndex > 0) {
             setCurrentIndex(currentIndex - 1);
+            setAnswerStatus('none');
+            setUserAnswer('');
+            setSelectedMcOption(null);
         }
     };
 
+    const normalizeText = (text: string) => {
+        return text.trim().toLowerCase().replace(/ss/g, 'ß').replace(/\s+/g, ' ');
+    }
+
+    const checkShortAnswer = async () => {
+        if (!userAnswer.trim()) return;
+        setAnswerStatus('checking');
+
+        const { answer, answerType, checkMode, question } = currentSlide.content;
+        const normalizedCorrect = normalizeText(answer);
+        const normalizedUser = normalizeText(userAnswer);
+
+        let isCorrect = false;
+
+        if (answerType === 'year') {
+            isCorrect = userAnswer.trim() === answer.trim();
+        } else {
+            if (checkMode === 'strict') {
+                isCorrect = userAnswer.trim() === answer.trim();
+            } else if (checkMode === 'helpfull') {
+                isCorrect = normalizedUser === normalizedCorrect;
+            } else if (checkMode === 'ai') {
+                // First try helpfull
+                if (normalizedUser === normalizedCorrect) {
+                    isCorrect = true;
+                } else {
+                    // Fallback to AI
+                    const result = await verifyQuizAnswer(question, answer, userAnswer, aiLanguage);
+                    isCorrect = result.isCorrect;
+                }
+            }
+        }
+
+        setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
+    }
+
+    const handleMcSelect = (optionId: string) => {
+        if (answerStatus !== 'none') return;
+        setSelectedMcOption(optionId);
+        
+        const option = currentSlide.content.options.find((o: any) => o.id === optionId);
+        setAnswerStatus(option.isCorrect ? 'correct' : 'incorrect');
+    }
+
+    const correctMcOptions = useMemo(() => {
+        if (currentSlide?.type !== 'multiple-choice') return [];
+        return currentSlide.content.options.filter((o: any) => o.isCorrect);
+    }, [currentSlide]);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden">
                 <DialogHeader className="p-4 border-b bg-secondary/20 flex flex-row justify-between items-center space-y-0">
                     <div className="flex flex-col text-left">
                         <DialogTitle className="text-sm font-bold truncate max-w-[200px]">{title}</DialogTitle>
@@ -515,7 +649,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             {currentSlide.content.subtitle && (
                                 <Card className="bg-secondary/30 border-none">
                                     <CardContent className="p-4">
-                                        <p className="text-sm italic italic text-muted-foreground leading-relaxed">
+                                        <p className="text-sm italic text-muted-foreground leading-relaxed">
                                             "{currentSlide.content.subtitle}"
                                         </p>
                                     </CardContent>
@@ -553,18 +687,103 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             </div>
 
                             <div className="grid gap-3">
-                                {(currentSlide.content.options || []).map((opt: any, i: number) => (
-                                    <Button 
-                                        key={opt.id} 
-                                        variant="outline" 
-                                        className="justify-start h-auto py-4 px-6 text-left text-base border-2 hover:border-primary hover:bg-primary/5 transition-all"
-                                    >
-                                        <span className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center mr-4 shrink-0 font-bold text-xs">
-                                            {String.fromCharCode(65 + i)}
-                                        </span>
-                                        <span className="flex-1">{opt.text || 'Option...'}</span>
+                                {(currentSlide.content.options || []).map((opt: any, i: number) => {
+                                    const isSelected = selectedMcOption === opt.id;
+                                    const isCorrect = opt.isCorrect;
+                                    
+                                    let btnVariant: "outline" | "default" | "destructive" = "outline";
+                                    if (answerStatus !== 'none') {
+                                        if (isCorrect) btnVariant = "default"; // Highlight correct
+                                        else if (isSelected && !isCorrect) btnVariant = "destructive"; // Highlight wrong selection
+                                    }
+
+                                    return (
+                                        <Button 
+                                            key={opt.id} 
+                                            variant={btnVariant}
+                                            disabled={answerStatus !== 'none'}
+                                            onClick={() => handleMcSelect(opt.id)}
+                                            className={cn(
+                                                "justify-start h-auto py-4 px-6 text-left text-base border-2 transition-all",
+                                                btnVariant === "outline" && "hover:border-primary hover:bg-primary/5",
+                                                btnVariant === "default" && "bg-green-600 hover:bg-green-600 text-white border-green-700",
+                                                btnVariant === "destructive" && "bg-red-600 hover:bg-red-600 text-white border-red-700"
+                                            )}
+                                        >
+                                            <span className="h-8 w-8 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center mr-4 shrink-0 font-bold text-xs">
+                                                {String.fromCharCode(65 + i)}
+                                            </span>
+                                            <span className="flex-1">{opt.text || 'Option...'}</span>
+                                            {answerStatus !== 'none' && isCorrect && <Check className="ml-2 h-5 w-5" />}
+                                            {answerStatus !== 'none' && isSelected && !isCorrect && <X className="ml-2 h-5 w-5" />}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+
+                            {answerStatus === 'correct' && (
+                                <div className="p-4 bg-green-100 text-green-800 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
+                                    <Check className="h-6 w-6" />
+                                    <p className="font-bold">Super! Das ist richtig.</p>
+                                </div>
+                            )}
+                            {answerStatus === 'incorrect' && (
+                                <div className="p-4 bg-red-100 text-red-800 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
+                                    <AlertCircle className="h-6 w-6" />
+                                    <div>
+                                        <p className="font-bold">Leider falsch.</p>
+                                        <p className="text-sm">Richtig wäre: {correctMcOptions.map((o: any) => o.text).join(", ")}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : currentSlide?.type === 'short-answer' ? (
+                        <div className="w-full max-w-xl space-y-8 animate-in slide-in-from-right duration-300">
+                            <div className="space-y-4">
+                                <Badge variant="secondary">Frage {currentIndex}</Badge>
+                                <h2 className="text-2xl md:text-3xl font-bold leading-tight">
+                                    {currentSlide.content.question || 'Keine Frage eingegeben.'}
+                                </h2>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <Input 
+                                        type={currentSlide.content.answerType === 'year' ? 'number' : 'text'}
+                                        placeholder="Deine Antwort hier tippen..." 
+                                        value={userAnswer}
+                                        onChange={(e) => setUserAnswer(e.target.value)}
+                                        disabled={answerStatus !== 'none' && answerStatus !== 'checking'}
+                                        className={cn(
+                                            "text-xl py-8 px-6",
+                                            answerStatus === 'correct' && "border-green-500 bg-green-50 focus-visible:ring-green-500",
+                                            answerStatus === 'incorrect' && "border-red-500 bg-red-50 focus-visible:ring-red-500"
+                                        )}
+                                        onKeyDown={(e) => e.key === 'Enter' && answerStatus === 'none' && checkShortAnswer()}
+                                    />
+                                    {answerStatus === 'checking' && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-primary" />}
+                                    {answerStatus === 'correct' && <Check className="absolute right-4 top-1/2 -translate-y-1/2 text-green-600 h-8 w-8" />}
+                                    {answerStatus === 'incorrect' && <X className="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 h-8 w-8" />}
+                                </div>
+
+                                {answerStatus === 'none' && (
+                                    <Button className="w-full" size="lg" onClick={checkShortAnswer} disabled={!userAnswer.trim()}>
+                                        Antwort prüfen
                                     </Button>
-                                ))}
+                                )}
+
+                                {answerStatus === 'correct' && (
+                                    <div className="text-center text-green-600 font-bold animate-in zoom-in">
+                                        Richtig! Gut gemacht.
+                                    </div>
+                                )}
+
+                                {answerStatus === 'incorrect' && (
+                                    <div className="p-4 bg-red-100 text-red-800 rounded-lg space-y-1 animate-in fade-in">
+                                        <p className="font-bold">Nicht ganz richtig.</p>
+                                        <p className="text-sm">Die korrekte Antwort lautet: <span className="font-mono bg-white/50 px-1 rounded">{currentSlide.content.answer}</span></p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -586,7 +805,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }}
                         />
                     </div>
-                    <Button onClick={handleNext} disabled={currentIndex === slides.length - 1}>
+                    <Button onClick={handleNext} disabled={currentIndex === slides.length - 1 || answerStatus === 'none' || answerStatus === 'checking'}>
                         Weiter <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                 </footer>
