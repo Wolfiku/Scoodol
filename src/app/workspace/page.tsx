@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo } from 'lucide-react';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo, BrainCircuit } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
@@ -55,6 +55,10 @@ type TodoList = DocumentBase & {
     tasks: any[];
 }
 
+type Quiz = DocumentBase & {
+    slides: any[];
+}
+
 
 export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
@@ -79,6 +83,11 @@ export default function WorkspacePage() {
       user ? query(collection(firestore, `users/${user.uid}/todoLists`), orderBy('updatedAt', 'desc'), limit(5)) : null
     , [firestore, user]);
     const { data: recentTodoLists, isLoading: isLoadingTodos } = useCollection<TodoList>(todosQuery);
+
+    const quizzesQuery = useMemoFirebase(() =>
+        user ? query(collection(firestore, `users/${user.uid}/quizzes`), orderBy('updatedAt', 'desc'), limit(5)) : null
+    , [firestore, user]);
+    const { data: recentQuizzes, isLoading: isLoadingQuizzes } = useCollection<Quiz>(quizzesQuery);
     
     useEffect(() => {
       if (isUserLoading || isProfileLoading) return;
@@ -91,13 +100,18 @@ export default function WorkspacePage() {
     const recentItems = useMemo(() => {
         const notesWithType = (recentNotes || []).map(note => ({ ...note, type: 'note' as const }));
         const todosWithType = (recentTodoLists || []).map(todo => ({ ...todo, type: 'todo' as const }));
+        const quizzesWithType = (recentQuizzes || []).map(quiz => ({ ...quiz, type: 'quiz' as const }));
 
-        const allItems = [...notesWithType, ...todosWithType];
-        allItems.sort((a, b) => b.updatedAt.seconds - a.updatedAt.seconds);
+        const allItems = [...notesWithType, ...todosWithType, ...quizzesWithType];
+        allItems.sort((a, b) => {
+            const timeA = a.updatedAt?.seconds || 0;
+            const timeB = b.updatedAt?.seconds || 0;
+            return timeB - timeA;
+        });
         
-        return allItems.slice(0, 5);
+        return allItems.slice(0, 10);
 
-    }, [recentNotes, recentTodoLists]);
+    }, [recentNotes, recentTodoLists, recentQuizzes]);
 
     
     if (isUserLoading || isProfileLoading) {
@@ -113,14 +127,19 @@ export default function WorkspacePage() {
     }
 
     const formatRelativeTime = (timestamp: DocumentBase['updatedAt']) => {
-      if (!timestamp) return '';
+      if (!timestamp) return 'Gerade eben';
       const date = new Date(timestamp.seconds * 1000);
       return formatDistanceToNow(date, { addSuffix: true, locale: de });
     }
 
-    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'todo'}) => {
+    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'todo' | 'quiz'}) => {
       if (!user) return;
-      const collectionName = item.type === 'note' ? 'quickNotes' : 'todoLists';
+      let collectionName = '';
+      switch(item.type) {
+          case 'note': collectionName = 'quickNotes'; break;
+          case 'todo': collectionName = 'todoLists'; break;
+          case 'quiz': collectionName = 'quizzes'; break;
+      }
       const docRef = doc(firestore, `users/${user.uid}/${collectionName}`, item.id);
       
       await deleteDoc(docRef);
@@ -157,6 +176,12 @@ export default function WorkspacePage() {
                             <span>Quick Note</span>
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/workspace/quizzes/new">
+                            <BrainCircuit className="mr-2 h-4 w-4" />
+                            <span>Quiz</span>
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem disabled>
                           <FileText className="mr-2 h-4 w-4" />
                           <span>Dokument</span>
@@ -175,7 +200,7 @@ export default function WorkspacePage() {
 
             <div>
                 <h2 className="text-xl font-semibold mb-4">Zuletzt geöffnet</h2>
-                {(isLoadingNotes || isLoadingTodos) ? (
+                {(isLoadingNotes || isLoadingTodos || isLoadingQuizzes) ? (
                     <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                     </div>
@@ -187,8 +212,10 @@ export default function WorkspacePage() {
                               <div className="flex justify-between items-start mb-2">
                                 <h3 className="font-semibold truncate pr-4">{item.title}</h3>
                                 <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full whitespace-nowrap flex items-center gap-1">
-                                  {item.type === 'note' ? <StickyNote className="w-3 h-3" /> : <ListTodo className="w-3 h-3" />}
-                                  {item.type === 'note' ? 'Quick Note' : 'To-Do-Liste'}
+                                  {item.type === 'note' && <StickyNote className="w-3 h-3" />}
+                                  {item.type === 'todo' && <ListTodo className="w-3 h-3" />}
+                                  {item.type === 'quiz' && <BrainCircuit className="w-3 h-3" />}
+                                  {item.type === 'note' ? 'Quick Note' : item.type === 'todo' ? 'To-Do-Liste' : 'Quiz'}
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground">
@@ -197,7 +224,7 @@ export default function WorkspacePage() {
                            </div>
                            <div className="p-2 border-t flex justify-end items-center gap-1">
                                 <Button asChild variant="ghost" size="icon">
-                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : 'todos'}/${item.id}`} >
+                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'todo' ? 'todos' : 'quizzes'}/${item.id}`} >
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>

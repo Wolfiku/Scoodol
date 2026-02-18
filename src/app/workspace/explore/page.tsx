@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -19,6 +19,12 @@ const templates = [
         description: "Eine einfache Liste, um Aufgaben zu verfolgen.",
         icon: <ListTodo className="w-8 h-8" />,
         href: "/workspace/todos/new"
+    },
+    {
+        title: "Quiz",
+        description: "Erstelle interaktive Quizzes zum Lernen und Testen.",
+        icon: <BrainCircuit className="w-8 h-8" />,
+        href: "/workspace/quizzes/new"
     }
 ]
 

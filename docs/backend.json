@@ -98,6 +98,30 @@
       },
       "required": ["title", "ownerId", "createdAt", "updatedAt"]
     },
+    "Quiz": {
+      "title": "Quiz",
+      "type": "object",
+      "description": "A quiz document consisting of multiple slides.",
+      "properties": {
+        "title": { "type": "string", "description": "The title or theme of the quiz." },
+        "creator": { "type": "string", "description": "The name of the quiz creator." },
+        "ownerId": { "type": "string", "description": "The UID of the user who owns the quiz." },
+        "createdAt": { "type": "object", "description": "Timestamp of when the quiz was created." },
+        "updatedAt": { "type": "object", "description": "Timestamp of when the quiz was last updated." },
+        "slides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["welcome", "multiple-choice", "short-answer", "long-answer", "vocabulary", "text"] },
+              "content": { "type": "object" }
+            }
+          }
+        }
+      },
+      "required": ["title", "creator", "ownerId", "createdAt", "updatedAt", "slides"]
+    },
     "TodoItem": {
         "title": "Todo Item",
         "type": "object",
@@ -163,6 +187,10 @@
       {
         "path": "/users/{userId}/quickNotes/{noteId}",
         "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Stores quick notes for a specific user." }
+      },
+      {
+        "path": "/users/{userId}/quizzes/{quizId}",
+        "definition": { "schema": { "$ref": "#/entities/Quiz" }, "description": "Stores quizzes for a specific user." }
       },
       {
         "path": "/users/{userId}/todoLists/{listId}",

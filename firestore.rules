@@ -35,6 +35,11 @@ service cloud.firestore {
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
+      match /quizzes/{quizId} {
+        // Allow a user to manage only their own quizzes.
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
       match /todoLists/{listId} {
         // Allow a user to manage only their own to-do lists.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
