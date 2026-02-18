@@ -80,7 +80,8 @@ export default function QuizEditorPage() {
   const [title, setTitle] = useState('');
   const [creator, setCreator] = useState('');
   const [slides, setSlides] = useState<Slide[]>([
-    { id: 'welcome', type: 'welcome', content: { title: 'Willkommen zum Quiz', subtitle: '', askName: false } }
+    { id: 'welcome', type: 'welcome', content: { title: 'Willkommen zum Quiz', subtitle: '', askName: false } },
+    { id: 'conclusion', type: 'conclusion', content: { showScore: true, showComparison: false, collectFeedback: true } }
   ]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -193,13 +194,24 @@ export default function QuizEditorPage() {
       type,
       content: baseContent
     };
-    setSlides([...slides, newSlide]);
+
+    // Insert new slides BEFORE the conclusion slide
+    setSlides(prev => {
+        const conclusionIndex = prev.findIndex(s => s.type === 'conclusion');
+        if (conclusionIndex !== -1) {
+            const newSlides = [...prev];
+            newSlides.splice(conclusionIndex, 0, newSlide);
+            return newSlides;
+        }
+        return [...prev, newSlide];
+    });
+
     toast({ title: 'Folie hinzugefügt', description: `Ein neues ${type} wurde erstellt.` });
   };
 
   const deleteSlide = (id: string) => {
-    if (id === 'welcome') {
-        toast({ variant: 'destructive', title: 'Aktion nicht möglich', description: 'Die Willkommens-Seite kann nicht gelöscht werden.' });
+    if (id === 'welcome' || id === 'conclusion') {
+        toast({ variant: 'destructive', title: 'Aktion nicht möglich', description: 'Diese Folie ist ein fester Bestandteil des Quizzes.' });
         return;
     }
     setSlides(slides.filter(s => s.id !== id));
@@ -300,7 +312,6 @@ export default function QuizEditorPage() {
               <DropdownMenuItem onClick={() => addSlide('long-answer')}>Freitext (KI)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('vocabulary')}>Vokabel-Test</DropdownMenuItem>
               <DropdownMenuItem onClick={() => addSlide('text')}>Textfolie</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addSlide('conclusion')}>Schlussfolie</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
@@ -338,7 +349,7 @@ export default function QuizEditorPage() {
                     {slide.type === 'conclusion' && <CardDescription>Der Abschluss deines Quizzes.</CardDescription>}
                   </div>
                 </div>
-                {slide.id !== 'welcome' && (
+                {slide.id !== 'welcome' && slide.id !== 'conclusion' && (
                   <Button variant="ghost" size="icon" onClick={() => deleteSlide(slide.id)}>
                     <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                   </Button>
