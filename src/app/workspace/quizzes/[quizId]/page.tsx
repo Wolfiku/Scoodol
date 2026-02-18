@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -47,6 +46,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { verifyQuizAnswer, checkLongAnswer } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text';
 
@@ -579,7 +579,6 @@ export default function QuizEditorPage() {
                     <div className="space-y-6">
                         <Alert className="bg-primary/5 border-primary/20">
                             <Info className="h-4 w-4" />
-                            <AlertCircle className="h-4 w-4 text-primary hidden" />
                             <AlertTitle>Wichtiger Hinweis</AlertTitle>
                             <AlertDescription>
                                 Bitte frage immer nur **ein einzelnes Wort** pro Feld ab. Vermeide mehrere Formen (z.B. go, went, gone) in einem Feld, um Fehler bei der Prüfung zu verhindern.
