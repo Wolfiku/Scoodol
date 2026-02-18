@@ -8,7 +8,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -169,13 +169,16 @@ export default function QuizEditorPage() {
     } : type === 'short-answer' ? {
         question: '',
         answer: '',
-        answerType: 'word', // 'word' or 'year'
-        checkMode: 'helpfull', // 'strict', 'helpfull', 'ai'
+        answerType: 'word',
+        checkMode: 'helpfull',
     } : type === 'long-answer' ? {
         question: '',
         referenceAnswer: '',
         criteria: '',
         enablePoints: false
+    } : type === 'vocabulary' ? {
+        checkMode: 'helpfull',
+        pairs: [{ id: '1', foreign: '', german: '' }]
     } : {};
 
     const newSlide: Slide = {
@@ -520,11 +523,6 @@ export default function QuizEditorPage() {
                                                 <SelectItem value="ai">KI-Modus (Typo-Check)</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <p className="text-[10px] text-muted-foreground mt-1">
-                                            {slide.content.checkMode === 'strict' && 'Achtet auf Punkt, Komma, Groß/Kleinschreibung.'}
-                                            {slide.content.checkMode === 'helpfull' && 'Ignoriert Großschreibung und ss/ß Unterschiede.'}
-                                            {slide.content.checkMode === 'ai' && 'KI springt ein, wenn es fast richtig ist.'}
-                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -577,7 +575,94 @@ export default function QuizEditorPage() {
                     </div>
                 )}
 
-                {['vocabulary', 'text'].includes(slide.type) && (
+                {slide.type === 'vocabulary' && (
+                    <div className="space-y-6">
+                        <Alert className="bg-primary/5 border-primary/20">
+                            <Info className="h-4 w-4" />
+                            <AlertCircle className="h-4 w-4 text-primary hidden" />
+                            <AlertTitle>Wichtiger Hinweis</AlertTitle>
+                            <AlertDescription>
+                                Bitte frage immer nur **ein einzelnes Wort** pro Feld ab. Vermeide mehrere Formen (z.B. go, went, gone) in einem Feld, um Fehler bei der Prüfung zu verhindern.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="flex items-center gap-4 p-4 border rounded-lg bg-secondary/10">
+                            <div className="flex-1">
+                                <Label>Prüf-Modus</Label>
+                                <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
+                                        <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-right">
+                                <Badge variant="secondary" className="font-mono">
+                                    {slide.content.pairs?.length || 0} / 20
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3">
+                            <div className="grid grid-cols-[1fr_1fr_40px] gap-2 px-2 text-xs font-bold text-muted-foreground">
+                                <span>Fremdsprache</span>
+                                <span>Deutsch</span>
+                                <span></span>
+                            </div>
+                            {(slide.content.pairs || []).map((pair: any, pIndex: number) => (
+                                <div key={pair.id} className="grid grid-cols-[1fr_1fr_40px] gap-2 group">
+                                    <Input 
+                                        placeholder="Foreign word..."
+                                        value={pair.foreign}
+                                        onChange={(e) => {
+                                            const newPairs = [...slide.content.pairs];
+                                            newPairs[pIndex].foreign = e.target.value;
+                                            updateSlideContent(slide.id, { pairs: newPairs });
+                                        }}
+                                    />
+                                    <Input 
+                                        placeholder="Deutsch..."
+                                        value={pair.german}
+                                        onChange={(e) => {
+                                            const newPairs = [...slide.content.pairs];
+                                            newPairs[pIndex].german = e.target.value;
+                                            updateSlideContent(slide.id, { pairs: newPairs });
+                                        }}
+                                    />
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        disabled={slide.content.pairs.length <= 1}
+                                        onClick={() => {
+                                            const newPairs = slide.content.pairs.filter((_: any, i: number) => i !== pIndex);
+                                            updateSlideContent(slide.id, { pairs: newPairs });
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {(!slide.content.pairs || slide.content.pairs.length < 20) && (
+                            <Button 
+                                variant="outline" 
+                                className="w-full border-dashed"
+                                onClick={() => {
+                                    const newPairs = [...(slide.content.pairs || []), { id: Date.now().toString(), foreign: '', german: '' }];
+                                    updateSlideContent(slide.id, { pairs: newPairs });
+                                }}
+                            >
+                                <Plus className="h-4 w-4 mr-2" /> Vokabel hinzufügen
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {slide.type === 'text' && (
                   <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
                     <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
@@ -597,6 +682,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     const [currentIndex, setCurrentIndex] = useState(0);
     const [userName, setUserName] = useState('');
     const [userAnswer, setUserAnswer] = useState('');
+    const [vocabAnswers, setVocabAnswers] = useState<Record<string, string>>({});
+    const [vocabResults, setVocabResults] = useState<Record<string, boolean>>({});
     const [answerStatus, setAnswerStatus] = useState<'none' | 'correct' | 'incorrect' | 'checking'>('none');
     const [aiFeedback, setAiFeedback] = useState<string | null>(null);
     const [aiScore, setAiScore] = useState<number | null>(null);
@@ -612,6 +699,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setSelectedMcOption(null);
             setAiFeedback(null);
             setAiScore(null);
+            setVocabAnswers({});
+            setVocabResults({});
         }
     }, [open]);
 
@@ -623,6 +712,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setSelectedMcOption(null);
             setAiFeedback(null);
             setAiScore(null);
+            setVocabAnswers({});
+            setVocabResults({});
         }
     };
 
@@ -634,6 +725,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setSelectedMcOption(null);
             setAiFeedback(null);
             setAiScore(null);
+            setVocabAnswers({});
+            setVocabResults({});
         }
     };
 
@@ -681,6 +774,30 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         setAiScore(result.score);
         setAiFeedback(result.feedback);
         setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');
+    }
+
+    const checkVocabulary = () => {
+        const { pairs, checkMode } = currentSlide.content;
+        const results: Record<string, boolean> = {};
+        let allCorrect = true;
+
+        pairs.forEach((pair: any) => {
+            const userVal = vocabAnswers[pair.id] || '';
+            const correctVal = pair.german;
+            
+            let isCorrect = false;
+            if (checkMode === 'strict') {
+                isCorrect = userVal.trim() === correctVal.trim();
+            } else {
+                isCorrect = normalizeText(userVal) === normalizeText(correctVal);
+            }
+            
+            results[pair.id] = isCorrect;
+            if (!isCorrect) allCorrect = false;
+        });
+
+        setVocabResults(results);
+        setAnswerStatus(allCorrect ? 'correct' : 'incorrect');
     }
 
     const handleMcSelect = (optionId: string) => {
@@ -916,6 +1033,60 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    ) : currentSlide?.type === 'vocabulary' ? (
+                        <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
+                            <div className="space-y-4">
+                                <Badge variant="secondary">Vokabel-Test {currentIndex}</Badge>
+                                <h2 className="text-2xl font-bold">Übersetze die folgenden Begriffe</h2>
+                            </div>
+
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                                {(currentSlide.content.pairs || []).map((pair: any) => (
+                                    <div key={pair.id} className="space-y-1">
+                                        <div className="grid grid-cols-[1fr_1fr] items-center gap-4 p-3 bg-secondary/30 rounded-lg">
+                                            <span className="font-semibold text-lg">{pair.foreign}</span>
+                                            <div className="relative">
+                                                <Input 
+                                                    placeholder="..." 
+                                                    value={vocabAnswers[pair.id] || ''}
+                                                    onChange={(e) => setVocabAnswers(prev => ({ ...prev, [pair.id]: e.target.value }))}
+                                                    disabled={answerStatus !== 'none'}
+                                                    className={cn(
+                                                        "bg-background",
+                                                        answerStatus !== 'none' && vocabResults[pair.id] === true && "border-green-500 bg-green-50",
+                                                        answerStatus !== 'none' && vocabResults[pair.id] === false && "border-red-500 bg-red-50"
+                                                    )}
+                                                />
+                                                {answerStatus !== 'none' && vocabResults[pair.id] === true && <Check className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />}
+                                                {answerStatus !== 'none' && vocabResults[pair.id] === false && <X className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-red-600" />}
+                                            </div>
+                                        </div>
+                                        {answerStatus !== 'none' && vocabResults[pair.id] === false && (
+                                            <p className="text-xs text-red-600 px-3 font-medium">Richtig wäre: {pair.german}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="pt-4">
+                                {answerStatus === 'none' ? (
+                                    <Button className="w-full" size="lg" onClick={checkVocabulary}>
+                                        Vokabeln prüfen
+                                    </Button>
+                                ) : (
+                                    <div className={cn(
+                                        "p-4 rounded-lg flex items-center justify-center gap-3 font-bold",
+                                        answerStatus === 'correct' ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                                    )}>
+                                        {answerStatus === 'correct' ? (
+                                            <><Check className="h-6 w-6" /> Alle Vokabeln korrekt!</>
+                                        ) : (
+                                            <><AlertCircle className="h-6 w-6" /> Einige Fehler gefunden.</>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
