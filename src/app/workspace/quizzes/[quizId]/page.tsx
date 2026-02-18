@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -195,7 +195,6 @@ export default function QuizEditorPage() {
       content: baseContent
     };
 
-    // Insert new slides BEFORE the conclusion slide
     setSlides(prev => {
         const conclusionIndex = prev.findIndex(s => s.type === 'conclusion');
         if (conclusionIndex !== -1) {
@@ -215,6 +214,19 @@ export default function QuizEditorPage() {
         return;
     }
     setSlides(slides.filter(s => s.id !== id));
+  };
+
+  const moveSlide = (id: string, direction: 'up' | 'down') => {
+    const index = slides.findIndex(s => s.id === id);
+    if (index <= 0 || index >= slides.length - 1) return;
+
+    const newSlides = [...slides];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex <= 0 || targetIndex >= slides.length - 1) return;
+
+    [newSlides[index], newSlides[targetIndex]] = [newSlides[targetIndex], newSlides[index]];
+    setSlides(newSlides);
   };
 
   const handleDeleteQuiz = async () => {
@@ -349,11 +361,36 @@ export default function QuizEditorPage() {
                     {slide.type === 'conclusion' && <CardDescription>Der Abschluss deines Quizzes.</CardDescription>}
                   </div>
                 </div>
-                {slide.id !== 'welcome' && slide.id !== 'conclusion' && (
-                  <Button variant="ghost" size="icon" onClick={() => deleteSlide(slide.id)}>
-                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {slide.id !== 'welcome' && slide.id !== 'conclusion' && (
+                    <>
+                      <div className="flex items-center border rounded-md mr-2 bg-secondary/30">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          disabled={index === 1}
+                          onClick={() => moveSlide(slide.id, 'up')}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Separator orientation="vertical" className="h-4" />
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          disabled={index === slides.length - 2}
+                          onClick={() => moveSlide(slide.id, 'down')}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => deleteSlide(slide.id)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {slide.type === 'welcome' && (
@@ -775,6 +812,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     const currentSlide = slides[currentIndex];
     const { aiLanguage } = useTheme();
 
+    const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer' || (s.type === 'short-answer' && s.content.checkMode === 'ai')), [slides]);
+
     useEffect(() => {
         if (open) {
             setCurrentIndex(0);
@@ -788,14 +827,12 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
             setFeedbackValue(null);
             setCorrectCount(0);
             
-            // Calculate total questions (excluding welcome, text, and conclusion)
             const count = slides.filter(s => s.type !== 'welcome' && s.type !== 'text' && s.type !== 'conclusion').length;
             setTotalQuestions(count);
         }
     }, [open, slides]);
 
     const handleNext = () => {
-        // Track score before moving if it's a question and was correct
         if (currentIndex > 0 && answerStatus === 'correct') {
             setCorrectCount(prev => prev + 1);
         }
@@ -940,6 +977,18 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                     </CardContent>
                                 </Card>
                             )}
+
+                            <div className="flex flex-wrap justify-center gap-2">
+                                <Badge variant="outline" className="bg-background">
+                                    {currentSlide.content.askName ? <User className="w-3 h-3 mr-1" /> : null}
+                                    {currentSlide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
+                                </Badge>
+                                {usesAI && (
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                                        <Sparkles className="w-3 h-3 mr-1" /> KI-gestützt
+                                    </Badge>
+                                )}
+                            </div>
 
                             {currentSlide.content.askName && (
                                 <div className="space-y-2 text-left">
@@ -1304,15 +1353,22 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }}
                         />
                     </div>
-                    <Button 
-                        onClick={handleNext} 
-                        disabled={
-                            currentIndex === slides.length - 1 || 
-                            (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && currentSlide?.type !== 'conclusion' && (answerStatus === 'none' || answerStatus === 'checking'))
-                        }
-                    >
-                        {currentIndex === slides.length - 1 ? 'Fertig' : 'Weiter'} <ChevronRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {currentIndex > 0 && currentIndex < slides.length - 1 && answerStatus === 'none' && (
+                            <Button variant="ghost" size="sm" onClick={handleNext}>
+                                Überspringen
+                            </Button>
+                        )}
+                        <Button 
+                            onClick={handleNext} 
+                            disabled={
+                                currentIndex === slides.length - 1 || 
+                                (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && currentSlide?.type !== 'conclusion' && (answerStatus === 'none' || answerStatus === 'checking'))
+                            }
+                        >
+                            {currentIndex === slides.length - 1 ? 'Fertig' : 'Weiter'} <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </div>
                 </footer>
             </DialogContent>
         </Dialog>
