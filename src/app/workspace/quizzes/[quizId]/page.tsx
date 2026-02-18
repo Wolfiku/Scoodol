@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -179,6 +179,9 @@ export default function QuizEditorPage() {
     } : type === 'vocabulary' ? {
         checkMode: 'helpfull',
         pairs: [{ id: '1', foreign: '', german: '' }]
+    } : type === 'text' ? {
+        title: '',
+        text: ''
     } : {};
 
     const newSlide: Slide = {
@@ -323,7 +326,7 @@ export default function QuizEditorPage() {
                          slide.type === 'multiple-choice' ? 'Mehrfachauswahl' :
                          slide.type === 'short-answer' ? 'Wort-Antwort' :
                          slide.type === 'long-answer' ? 'Freitext (KI)' :
-                         slide.type === 'vocabulary' ? 'Vokabel-Test' : 'Info-Text'}
+                         slide.type === 'vocabulary' ? 'Vokabel-Test' : 'Textfolie'}
                     </CardTitle>
                     {slide.type === 'welcome' && <CardDescription>Der erste Eindruck für deine Teilnehmer.</CardDescription>}
                   </div>
@@ -662,10 +665,24 @@ export default function QuizEditorPage() {
                 )}
 
                 {slide.type === 'text' && (
-                  <div className="p-12 border-2 border-dashed rounded-lg bg-secondary/10 flex flex-col items-center justify-center text-center">
-                    <BrainCircuit className="h-8 w-8 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground font-medium">Editor für Folientyp "{slide.type}" folgt bald.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Hier kannst du bald die Logik für diesen Typ einstellen.</p>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                        <Label className="font-bold">Überschrift</Label>
+                        <Input 
+                            placeholder="z.B. Einleitung oder Informationen" 
+                            value={slide.content.title || ''} 
+                            onChange={(e) => updateSlideContent(slide.id, { title: e.target.value })}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="font-bold">Text</Label>
+                        <Textarea 
+                            placeholder="Schreibe hier die Informationen für die Teilnehmer..." 
+                            value={slide.content.text || ''} 
+                            onChange={(e) => updateSlideContent(slide.id, { text: e.target.value })}
+                            className="min-h-[200px]"
+                        />
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -1088,6 +1105,23 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                 )}
                             </div>
                         </div>
+                    ) : currentSlide?.type === 'text' ? (
+                        <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
+                            <div className="space-y-4 text-center md:text-left">
+                                <Badge variant="secondary"><FileText className="w-3 h-3 mr-1" /> Info</Badge>
+                                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+                                    {currentSlide.content.title || 'Keine Überschrift'}
+                                </h2>
+                            </div>
+                            
+                            <Card className="bg-secondary/10 border-none">
+                                <CardContent className="p-6 md:p-10">
+                                    <p className="text-lg md:text-xl text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                        {currentSlide.content.text || 'Kein Text eingegeben.'}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </div>
                     ) : (
                         <div className="text-center space-y-4">
                             <BrainCircuit className="h-16 w-16 text-primary mx-auto opacity-20" />
@@ -1107,7 +1141,10 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }}
                         />
                     </div>
-                    <Button onClick={handleNext} disabled={currentIndex === slides.length - 1 || answerStatus === 'none' || answerStatus === 'checking'}>
+                    <Button 
+                        onClick={handleNext} 
+                        disabled={currentIndex === slides.length - 1 || (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && (answerStatus === 'none' || answerStatus === 'checking'))}
+                    >
                         Weiter <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                 </footer>
