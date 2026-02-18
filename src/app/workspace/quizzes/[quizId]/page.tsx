@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Hash, Info, Sparkles, MessageSquareText } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -318,7 +318,7 @@ export default function QuizEditorPage() {
                         
                         <div className="flex flex-wrap justify-center gap-2">
                             <Badge variant="outline" className="bg-background">
-                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : <Hash className="w-3 h-3 mr-1" />}
+                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : null}
                                 {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
                             </Badge>
                             {usesAI && (
