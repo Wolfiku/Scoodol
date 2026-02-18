@@ -36,6 +36,7 @@ import {
   Sunset,
   ArrowDown,
   ArrowUp,
+  Timer,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,14 @@ const parseTime = (timeStr: string) => {
   return date;
 };
 
+const formatDuration = (ms: number) => {
+  if (ms <= 0) return "00:00:00";
+  const seconds = Math.floor((ms / 1000) % 60);
+  const minutes = Math.floor((ms / (1000 * 60)) % 60);
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
 export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate }: Props) {
@@ -93,6 +102,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
     null
   );
+  const [isTimerDetailOpen, setIsTimerDetailOpen] = useState(false);
   const [editingNotes, setEditingNotes] = useState<string>("");
   const lastMinuteRef = useRef<number | null>(null);
 
@@ -292,6 +302,24 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
     return activeEntry || null;
   }, [now, processedScheduleForDay, currentDayIndex]);
+
+  const detailedCountdown = useMemo(() => {
+    if (!now || !isSchoolTime) return null;
+    
+    const schoolEnd = parseTime(schoolEndTime);
+    const msToSchoolEnd = schoolEnd.getTime() - now.getTime();
+    
+    let msToLessonEnd = null;
+    if (currentSubject) {
+      const lessonEnd = parseTime(currentSubject.ende);
+      msToLessonEnd = lessonEnd.getTime() - now.getTime();
+    }
+
+    return {
+      schoolEnd: formatDuration(msToSchoolEnd),
+      lessonEnd: msToLessonEnd !== null ? formatDuration(msToLessonEnd) : null,
+    };
+  }, [now, isSchoolTime, schoolEndTime, currentSubject]);
   
   return (
     <div className="flex flex-col gap-8">
@@ -317,7 +345,10 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
               <span>{now ? now.toLocaleTimeString("de-DE", { hour: '2-digit', minute: '2-digit', second: '2-digit'}) : "..."}</span>
             </div>
             {isSchoolTime ? (
-              <div className="flex items-center gap-2 text-accent animate-pulse">
+              <div 
+                className="flex items-center gap-2 text-accent animate-pulse cursor-pointer hover:bg-accent/10 p-1 px-2 rounded-md transition-colors"
+                onClick={() => setIsTimerDetailOpen(true)}
+              >
                 <Sun className="w-5 h-5" />
                 <span className="font-semibold">
                   {remainingTime
@@ -492,6 +523,54 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Detailed Countdown Dialog */}
+      <Dialog
+        open={isTimerDetailOpen}
+        onOpenChange={setIsTimerDetailOpen}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
+              <Timer className="w-6 h-6 text-primary" />
+              Zeit-Details
+            </DialogTitle>
+            <DialogDescription>
+              Hier siehst du die verbleibende Zeit bis zum Ende der aktuellen Stunde und des Schultages.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-6">
+            <div className="text-center p-6 bg-secondary/50 rounded-2xl border">
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-2">Schulende in</p>
+              <p className="text-5xl font-mono font-bold text-primary tracking-tighter">
+                {detailedCountdown?.schoolEnd || "00:00:00"}
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>Geplantes Ende: {schoolEndTime} Uhr</span>
+              </div>
+            </div>
+
+            {currentSubject && (
+              <div className="text-center p-6 bg-accent/5 border-accent/20 border rounded-2xl">
+                <p className="text-xs text-accent uppercase tracking-widest font-bold mb-2">Aktuelle Stunde endet in</p>
+                <p className="text-5xl font-mono font-bold text-accent tracking-tighter">
+                  {detailedCountdown?.lessonEnd || "00:00:00"}
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
+                  <Star className="w-4 h-4 text-accent" />
+                  <span className="font-medium text-foreground">{currentSubject.fach}</span>
+                  <span>•</span>
+                  <span>Ende: {currentSubject.ende} Uhr</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button className="w-full" variant="outline" onClick={() => setIsTimerDetailOpen(false)}>Schließen</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
