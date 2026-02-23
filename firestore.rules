@@ -29,8 +29,8 @@ service cloud.firestore {
       }
 
       match /quizzes/{quizId} {
-        // Anyone can read a quiz if they have the link (for participation)
-        allow read: if true;
+        // Anyone can read a quiz if it's published
+        allow read: if resource.data.isPublished == true || (request.auth != null && request.auth.uid == userId);
         allow write, delete: if request.auth != null && request.auth.uid == userId;
 
         // Responses subcollection
