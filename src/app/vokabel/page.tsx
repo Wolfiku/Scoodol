@@ -54,9 +54,14 @@ export default function VokabelPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    const savedVocabulary = localStorage.getItem("vocabulary");
-    if (savedVocabulary) {
-      setVocabulary(JSON.parse(savedVocabulary));
+    try {
+        const savedVocabulary = localStorage.getItem("vocabulary");
+        if (savedVocabulary && savedVocabulary !== "undefined") {
+          setVocabulary(JSON.parse(savedVocabulary));
+        }
+    } catch (e) {
+        console.error("Fehler beim Laden der Vokabeln:", e);
+        setVocabulary([]);
     }
   }, []);
 
@@ -318,7 +323,3 @@ export default function VokabelPage() {
     </div>
   );
 }
-
-    
-
-    

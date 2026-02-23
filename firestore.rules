@@ -29,14 +29,16 @@ service cloud.firestore {
       }
 
       match /quizzes/{quizId} {
-        // Allow anyone to read published quizzes
+        // Anyone can read quizzes to participate
         allow read: if true;
         allow write, delete: if request.auth != null && request.auth.uid == userId;
 
-        // Subcollection for participant responses
+        // Responses subcollection
         match /responses/{responseId} {
-          allow create: if true; // Participants can submit
-          allow read: if request.auth != null && request.auth.uid == userId; // Only owner reads
+          // Participants can create responses
+          allow create: if true;
+          // Only the owner can read the results
+          allow read: if request.auth != null && request.auth.uid == userId;
         }
       }
 
