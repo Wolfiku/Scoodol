@@ -8,7 +8,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon, Shield } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -462,7 +462,7 @@ export default function QuizEditorPage() {
                         
                         <div className="flex flex-wrap justify-center gap-2">
                             <Badge variant="outline" className="bg-background">
-                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : null}
+                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : <Shield className="w-3 h-3 mr-1" />}
                                 {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
                             </Badge>
                             {usesAI && (
@@ -1003,14 +1003,14 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                                 </Card>
                             )}
 
-                            <div className="flex flex-wrap justify-center gap-2">
-                                <Badge variant="outline" className="bg-background">
-                                    {currentSlide.content.askName ? <User className="w-3 h-3 mr-1" /> : null}
+                            <div className="flex flex-wrap justify-center gap-3">
+                                <Badge variant="outline" className="bg-background border-primary/20 text-primary py-1.5 px-3">
+                                    {currentSlide.content.askName ? <User className="w-3.5 h-3.5 mr-2" /> : <Shield className="w-3.5 h-3.5 mr-2" />}
                                     {currentSlide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
                                 </Badge>
                                 {usesAI && (
-                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                                        <Sparkles className="w-3 h-3 mr-1" /> KI-gestützt
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 py-1.5 px-3">
+                                        <Sparkles className="w-3.5 h-3.5 mr-2" /> KI-gestützt
                                     </Badge>
                                 )}
                             </div>
