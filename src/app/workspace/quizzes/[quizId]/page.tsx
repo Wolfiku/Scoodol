@@ -462,12 +462,12 @@ export default function QuizEditorPage() {
                         
                         <div className="flex flex-wrap justify-center gap-2">
                             <Badge variant="outline" className="bg-background">
-                                {slide.content.askName ? <User className="w-3 h-3 mr-1" /> : <Shield className="w-3 h-3 mr-1" />}
+                                {slide.content.askName ? <User className="w-3.5 h-3.5 mr-1" /> : <Shield className="w-3.5 h-3.5 mr-1" />}
                                 {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
                             </Badge>
                             {usesAI && (
                                 <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                                    <Sparkles className="w-3 h-3 mr-1" /> KI-gestützt
+                                    <Sparkles className="w-3.5 h-3.5 mr-1" /> KI-gestützt
                                 </Badge>
                             )}
                         </div>

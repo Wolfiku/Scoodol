@@ -56,8 +56,11 @@ export default function VokabelPage() {
     setIsMounted(true);
     try {
         const savedVocabulary = localStorage.getItem("vocabulary");
-        if (savedVocabulary && savedVocabulary !== "undefined") {
-          setVocabulary(JSON.parse(savedVocabulary));
+        if (savedVocabulary && savedVocabulary !== "undefined" && savedVocabulary !== "null") {
+          const parsed = JSON.parse(savedVocabulary);
+          if (Array.isArray(parsed)) {
+            setVocabulary(parsed);
+          }
         }
     } catch (e) {
         console.error("Fehler beim Laden der Vokabeln:", e);
