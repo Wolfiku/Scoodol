@@ -4,9 +4,6 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper function to check if the user has an 'admin' role in their profile.
     function isAdmin() {
-      // Use get() to read the user's own profile document from the users collection.
-      // The path() function creates the correct path to the document.
-      // request.auth.uid is the UID of the currently authenticated user.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -21,38 +18,30 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Allow a user to read and write their own document.
-      // Allow admins to read any user document.
       allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
 
       match /homeworks/{homeworkId} {
-        // Allow a user to manage only their own homework tasks.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
       match /quickNotes/{noteId} {
-        // Allow a user to manage only their own quick notes.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
       match /quizzes/{quizId} {
-        // Allow a user to manage only their own quizzes.
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        // Allow anyone to read published quizzes
+        allow read: if true;
+        allow write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
       match /todoLists/{listId} {
-        // Allow a user to manage only their own to-do lists.
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
     }
 
     match /groups/{groupId} {
-        // Any authenticated user can read group lists to find and join them.
         allow read: if request.auth != null;
-        // Any authenticated user can create a group.
         allow create: if request.auth != null;
-        // Only the group admin can update the group details or delete it.
-        // Also allow authenticated users to join a group (update the members array).
         allow update: if request.auth != null && (isGroupAdmin(groupId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']));
         allow delete: if request.auth != null && isGroupAdmin(groupId);
     }

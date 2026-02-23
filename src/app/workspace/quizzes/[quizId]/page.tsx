@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -7,7 +8,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +62,7 @@ type Quiz = {
   creator: string;
   slides: Slide[];
   ownerId: string;
+  isPublished?: boolean;
   createdAt: any;
   updatedAt: any;
 };
@@ -83,6 +85,7 @@ export default function QuizEditorPage() {
     { id: 'welcome', type: 'welcome', content: { title: 'Willkommen zum Quiz', subtitle: '', askName: false } },
     { id: 'conclusion', type: 'conclusion', content: { showScore: true, showComparison: false, collectFeedback: true } }
   ]);
+  const [isPublished, setIsPublished] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSetupDone, setIsSetupDone] = useState(!isNewQuiz);
@@ -102,6 +105,7 @@ export default function QuizEditorPage() {
       setTitle(quiz.title);
       setCreator(quiz.creator);
       setSlides(quiz.slides || []);
+      setIsPublished(!!quiz.isPublished);
       setIsSetupDone(true);
       setSaveStatus('idle');
     }
@@ -119,6 +123,7 @@ export default function QuizEditorPage() {
           creator,
           slides,
           ownerId: user.uid,
+          isPublished: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -129,6 +134,7 @@ export default function QuizEditorPage() {
           title,
           creator,
           slides,
+          isPublished,
           updatedAt: serverTimestamp(),
         }, { merge: true });
       }
@@ -136,13 +142,13 @@ export default function QuizEditorPage() {
     } catch (error) {
       setSaveStatus('dirty');
     }
-  }, [firestore, user, title, creator, slides, isNewQuiz, quizDocRef, router]);
+  }, [firestore, user, title, creator, slides, isPublished, isNewQuiz, quizDocRef, router]);
 
   useEffect(() => {
     if (isLoadingQuiz || !isSetupDone) return;
     
     const hasChanges = quiz 
-        ? (title !== quiz.title || creator !== quiz.creator || JSON.stringify(slides) !== JSON.stringify(quiz.slides))
+        ? (title !== quiz.title || creator !== quiz.creator || JSON.stringify(slides) !== JSON.stringify(quiz.slides) || isPublished !== quiz.isPublished)
         : (title.trim() !== '' && creator.trim() !== '');
 
     if (hasChanges) {
@@ -152,7 +158,7 @@ export default function QuizEditorPage() {
     }
 
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [title, creator, slides, quiz, isLoadingQuiz, isSetupDone, handleSave]);
+  }, [title, creator, slides, isPublished, quiz, isLoadingQuiz, isSetupDone, handleSave]);
 
   const updateSlideContent = (id: string, newContent: any) => {
     setSlides(prev => prev.map(s => s.id === id ? { ...s, content: { ...s.content, ...newContent } } : s));
@@ -205,14 +211,11 @@ export default function QuizEditorPage() {
         return [...prev, newSlide];
     });
 
-    toast({ title: 'Folie hinzugefügt', description: `Ein neues ${type} wurde erstellt.` });
+    toast({ title: 'Folie hinzugefügt' });
   };
 
   const deleteSlide = (id: string) => {
-    if (id === 'welcome' || id === 'conclusion') {
-        toast({ variant: 'destructive', title: 'Aktion nicht möglich', description: 'Diese Folie ist ein fester Bestandteil des Quizzes.' });
-        return;
-    }
+    if (id === 'welcome' || id === 'conclusion') return;
     setSlides(slides.filter(s => s.id !== id));
   };
 
@@ -235,6 +238,24 @@ export default function QuizEditorPage() {
     toast({ title: 'Quiz gelöscht' });
     router.push('/workspace');
   };
+
+  const togglePublish = () => {
+    setIsPublished(!isPublished);
+    toast({
+        title: !isPublished ? "Quiz veröffentlicht!" : "Quiz offline genommen",
+        description: !isPublished ? "Dein Quiz ist jetzt über den Link erreichbar." : "Der öffentliche Zugriff wurde deaktiviert."
+    });
+  }
+
+  const publicUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !user || !quizId) return '';
+    return `${window.location.origin}/public/quiz/${user.uid}/${quizId}`;
+  }, [user, quizId]);
+
+  const copyPublicLink = () => {
+    navigator.clipboard.writeText(publicUrl);
+    toast({ title: "Link kopiert!", description: "Du kannst ihn jetzt teilen." });
+  }
 
   const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer' || (s.type === 'short-answer' && s.content.checkMode === 'ai')), [slides]);
 
@@ -309,6 +330,9 @@ export default function QuizEditorPage() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button variant={isPublished ? "secondary" : "default"} size="sm" onClick={togglePublish}>
+            <Globe className="mr-2 h-4 w-4" /> {isPublished ? 'Veröffentlicht' : 'Veröffentlichen'}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
             <Play className="mr-2 h-4 w-4" /> Vorschau
           </Button>
@@ -338,6 +362,19 @@ export default function QuizEditorPage() {
           </DropdownMenu>
         </div>
       </header>
+
+      {isPublished && (
+          <div className="bg-primary/10 border-b p-3 flex flex-wrap items-center justify-center gap-4 animate-in slide-in-from-top duration-300">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                  <LinkIcon className="h-4 w-4 text-primary" />
+                  <span>Dein Quiz ist live:</span>
+                  <code className="bg-background px-2 py-1 rounded border text-xs">{publicUrl}</code>
+              </div>
+              <Button size="sm" variant="outline" onClick={copyPublicLink}>
+                  <Copy className="mr-2 h-3 w-3" /> Link kopieren
+              </Button>
+          </div>
+      )}
 
       <main className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -472,18 +509,6 @@ export default function QuizEditorPage() {
                                                 id={`opt-${slide.id}-${option.id}`}
                                                 checked={option.isCorrect} 
                                                 onCheckedChange={(val) => {
-                                                    const currentCorrect = slide.content.options.filter((o: any) => o.isCorrect).length;
-                                                    const maxCorrect = Math.floor(slide.content.options.length * 0.9);
-                                                    
-                                                    if (val === true && currentCorrect >= maxCorrect) {
-                                                        toast({
-                                                            variant: 'destructive',
-                                                            title: 'Zu viele richtige Antworten',
-                                                            description: `Bei ${slide.content.options.length} Optionen dürfen maximal ${maxCorrect} richtig sein.`,
-                                                        });
-                                                        return;
-                                                    }
-
                                                     const newOptions = [...slide.content.options];
                                                     newOptions[optIndex].isCorrect = !!val;
                                                     updateSlideContent(slide.id, { options: newOptions });
