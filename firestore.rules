@@ -29,15 +29,15 @@ service cloud.firestore {
       }
 
       match /quizzes/{quizId} {
-        // Anyone can read quizzes to participate
+        // Anyone can read a quiz if they have the link (for participation)
         allow read: if true;
         allow write, delete: if request.auth != null && request.auth.uid == userId;
 
         // Responses subcollection
         match /responses/{responseId} {
-          // Participants can create responses
+          // Public users can create responses
           allow create: if true;
-          // Only the owner can read the results
+          // Only the quiz owner can read the results
           allow read: if request.auth != null && request.auth.uid == userId;
         }
       }

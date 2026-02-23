@@ -35,6 +35,7 @@ const shuffleArray = (array: any[]) => {
 export default function VokabelPage() {
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoadingStorage, setIsLoadingStorage] = useState(true);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newForeign, setNewForeign] = useState('');
@@ -47,6 +48,7 @@ export default function VokabelPage() {
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [quizList, setQuizList] = useState<Vocabulary[]>([]);
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  const [showQuizAnswer, setShowQuizAnswer] = useState(false);
 
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
@@ -65,14 +67,16 @@ export default function VokabelPage() {
     } catch (e) {
         console.error("Fehler beim Laden der Vokabeln:", e);
         setVocabulary([]);
+    } finally {
+        setIsLoadingStorage(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isMounted) {
+    if (isMounted && !isLoadingStorage) {
       localStorage.setItem("vocabulary", JSON.stringify(vocabulary));
     }
-  }, [vocabulary, isMounted]);
+  }, [vocabulary, isMounted, isLoadingStorage]);
 
   const resetDialogForm = () => {
     setNewForeign("");
@@ -166,21 +170,33 @@ export default function VokabelPage() {
   }
 
   const startQuiz = () => {
+    if (vocabulary.length === 0) return;
     setQuizList(shuffleArray([...vocabulary]));
     setCurrentQuizIndex(0);
+    setShowQuizAnswer(false);
     setIsQuizActive(true);
+  }
+
+  const handleNextQuiz = () => {
+      if (currentQuizIndex < quizList.length - 1) {
+          setCurrentQuizIndex(prev => prev + 1);
+          setShowQuizAnswer(false);
+      } else {
+          endQuiz();
+      }
   }
 
   const endQuiz = () => {
     setIsQuizActive(false);
     setQuizList([]);
     setCurrentQuizIndex(0);
+    setShowQuizAnswer(false);
   }
 
-  if (!isMounted) {
+  if (!isMounted || isLoadingStorage) {
       return (
         <div className="container mx-auto p-4 md:p-8 flex items-center justify-center min-h-screen">
-          <Loader2 className="w-8 h-8 animate-spin" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       );
   }
@@ -192,14 +208,24 @@ export default function VokabelPage() {
               <Card className="w-full max-w-md text-center">
                   <CardHeader>
                       <CardTitle>Lern-Quiz</CardTitle>
-                      <CardDescription>Wische nach links (falsch) oder rechts (richtig).</CardDescription>
+                      <CardDescription>Vokabel {currentQuizIndex + 1} von {quizList.length}</CardDescription>
                   </CardHeader>
-                  <CardContent className="py-12">
+                  <CardContent className="py-12 space-y-6">
                       <p className="text-3xl font-bold">{currentVocab?.foreign}</p>
+                      {showQuizAnswer && (
+                          <div className="animate-in zoom-in fade-in duration-300">
+                              <p className="text-sm text-muted-foreground uppercase tracking-widest">Deutsch</p>
+                              <p className="text-2xl font-semibold text-primary">{currentVocab?.german}</p>
+                          </div>
+                      )}
                   </CardContent>
                   <CardFooter className="flex-col gap-4">
-                        <Button className="w-full">Vokabel aufdecken</Button>
-                        <Button variant="ghost" onClick={endQuiz}>Quiz beenden</Button>
+                        {!showQuizAnswer ? (
+                            <Button className="w-full" onClick={() => setShowQuizAnswer(true)}>Lösung aufdecken</Button>
+                        ) : (
+                            <Button className="w-full" onClick={handleNextQuiz}>{currentQuizIndex === quizList.length - 1 ? 'Quiz beenden' : 'Nächste Vokabel'}</Button>
+                        )}
+                        <Button variant="ghost" onClick={endQuiz}>Abbrechen</Button>
                   </CardFooter>
               </Card>
           </div>
@@ -288,7 +314,7 @@ export default function VokabelPage() {
           <CardContent className="flex flex-col gap-4">
             {vocabulary.length > 0 ? (
                 <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-4 font-semibold px-3">
+                    <div className="grid grid-cols-3 gap-4 font-semibold px-3 text-sm text-muted-foreground">
                         <span className="col-span-1">Fremdsprache</span>
                         <span className="col-span-1">Deutsch</span>
                     </div>
@@ -297,14 +323,14 @@ export default function VokabelPage() {
                         key={v.id}
                         className="grid grid-cols-3 gap-4 items-center p-3 rounded-md bg-secondary"
                     >
-                        <span className="col-span-1 break-words">{v.foreign}</span>
+                        <span className="col-span-1 break-words font-medium">{v.foreign}</span>
                         <span className="col-span-1 break-words">{v.german}</span>
                         <div className="flex justify-end">
                             <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => deleteVocabulary(v.id)}
-                            className="shrink-0"
+                            className="shrink-0 hover:text-destructive"
                             >
                             <Trash2 className="w-4 h-4" />
                             </Button>

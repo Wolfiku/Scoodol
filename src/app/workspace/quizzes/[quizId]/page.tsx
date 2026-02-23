@@ -3,12 +3,12 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon, Shield } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, Languages, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon, Shield, CheckCircle2, XCircle, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +67,15 @@ type Quiz = {
   updatedAt: any;
 };
 
+type Response = {
+    id: string;
+    userName: string;
+    answers: Record<string, any>;
+    percentage: number;
+    rating?: 'sad' | 'neutral' | 'happy';
+    completedAt: any;
+}
+
 type SaveStatus = 'idle' | 'dirty' | 'saving';
 
 export default function QuizEditorPage() {
@@ -98,6 +107,14 @@ export default function QuizEditorPage() {
   , [firestore, user, quizId, isNewQuiz]);
 
   const { data: quiz, isLoading: isLoadingQuiz } = useDoc<Quiz>(quizDocRef);
+  
+  // Fetch responses for statistics
+  const responsesRef = useMemoFirebase(() => 
+    !isNewQuiz && user ? collection(firestore, `users/${user.uid}/quizzes/${quizId}/responses`) : null
+  , [firestore, user, quizId, isNewQuiz]);
+  const responsesQuery = useMemoFirebase(() => responsesRef ? query(responsesRef, orderBy('completedAt', 'desc')) : null, [responsesRef]);
+  const { data: responses, isLoading: isLoadingResponses } = useCollection<Response>(responsesQuery);
+
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -309,7 +326,7 @@ export default function QuizEditorPage() {
         slides={slides} 
       />
 
-      <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-10">
+      <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4 flex-1">
           <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}>
             <ArrowLeft className="h-5 w-5" />
@@ -364,176 +381,518 @@ export default function QuizEditorPage() {
       </header>
 
       {isPublished && (
-          <div className="bg-primary/10 border-b p-3 flex flex-wrap items-center justify-center gap-4 animate-in slide-in-from-top duration-300">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                  <LinkIcon className="h-4 w-4 text-primary" />
-                  <span>Dein Quiz ist live:</span>
-                  <code className="bg-background px-2 py-1 rounded border text-xs">{publicUrl}</code>
+          <div className="bg-background border-b p-3 flex flex-wrap items-center justify-center gap-4 animate-in slide-in-from-top duration-300">
+              <div className="flex items-center gap-3">
+                  <div className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  </div>
+                  <span className="text-sm font-bold">Quiz ist LIVE</span>
               </div>
-              <Button size="sm" variant="outline" onClick={copyPublicLink}>
-                  <Copy className="mr-2 h-3 w-3" /> Link kopieren
+              <Separator orientation="vertical" className="h-6 hidden md:block" />
+              <div className="flex items-center gap-2 text-xs font-mono bg-secondary/50 px-3 py-1.5 rounded-md border">
+                  <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                  <span className="truncate max-w-[300px]">{publicUrl}</span>
+              </div>
+              <Button size="xs" variant="outline" className="h-8 text-xs" onClick={copyPublicLink}>
+                  <Copy className="mr-2 h-3 w-3" /> Kopieren
               </Button>
           </div>
       )}
 
       <main className="flex-1 overflow-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {slides.map((slide, index) => (
-            <Card key={slide.id} className={slide.type === 'welcome' || slide.type === 'conclusion' ? 'border-primary shadow-sm' : ''}>
-              <CardHeader className="flex flex-row items-start justify-between pb-4">
-                <div className="flex items-center gap-3">
-                  <Badge variant={slide.type === 'welcome' || slide.type === 'conclusion' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0 font-bold">
-                    {index + 1}
-                  </Badge>
-                  <div>
-                    <CardTitle className="text-lg">
-                        {slide.type === 'welcome' ? 'Willkommens-Seite' : 
-                         slide.type === 'multiple-choice' ? 'Mehrfachauswahl' :
-                         slide.type === 'short-answer' ? 'Wort-Antwort' :
-                         slide.type === 'long-answer' ? 'Freitext (KI)' :
-                         slide.type === 'vocabulary' ? 'Vokabel-Test' : 
-                         slide.type === 'conclusion' ? 'Schlussfolie' : 'Textfolie'}
-                    </CardTitle>
-                    {slide.type === 'welcome' && <CardDescription>Der erste Eindruck für deine Teilnehmer.</CardDescription>}
-                    {slide.type === 'conclusion' && <CardDescription>Der Abschluss deines Quizzes.</CardDescription>}
-                  </div>
+        {isPublished && responses && responses.length > 0 ? (
+            <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card className="bg-primary/5 border-primary/20">
+                        <CardHeader className="pb-2">
+                            <CardDescription className="uppercase tracking-wider font-bold text-[10px]">Teilnehmer</CardDescription>
+                            <CardTitle className="text-4xl flex items-baseline gap-2">
+                                {responses.length} <Users className="h-5 w-5 text-muted-foreground" />
+                            </CardTitle>
+                        </CardHeader>
+                    </Card>
+                    <Card className="bg-accent/5 border-accent/20">
+                        <CardHeader className="pb-2">
+                            <CardDescription className="uppercase tracking-wider font-bold text-[10px]">Durchschnitt</CardDescription>
+                            <CardTitle className="text-4xl">
+                                {Math.round(responses.reduce((acc, r) => acc + r.percentage, 0) / responses.length)}%
+                            </CardTitle>
+                        </CardHeader>
+                    </Card>
+                    <Card className="bg-secondary/50 border-border">
+                        <CardHeader className="pb-2">
+                            <CardDescription className="uppercase tracking-wider font-bold text-[10px]">Letzte Antwort</CardDescription>
+                            <CardTitle className="text-xl truncate">
+                                {responses[0].userName || 'Anonym'}
+                            </CardTitle>
+                        </CardHeader>
+                    </Card>
                 </div>
-                <div className="flex items-center gap-1">
-                  {slide.id !== 'welcome' && slide.id !== 'conclusion' && (
-                    <>
-                      <div className="flex items-center border rounded-md mr-2 bg-secondary/30">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          disabled={index === 1}
-                          onClick={() => moveSlide(slide.id, 'up')}
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Separator orientation="vertical" className="h-4" />
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          disabled={index === slides.length - 2}
-                          onClick={() => moveSlide(slide.id, 'down')}
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={() => deleteSlide(slide.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {slide.type === 'welcome' && (
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Namen abfragen</Label>
-                                <p className="text-xs text-muted-foreground">Teilnehmer müssen ihren Namen angeben.</p>
+
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                        <BarChart3 className="h-6 w-6 text-primary" /> Auswertung pro Frage
+                    </h2>
+                    {slides.filter(s => s.type !== 'welcome' && s.type !== 'text' && s.type !== 'conclusion').map((slide, sIdx) => {
+                        const slideResponses = responses.map(r => r.answers[slide.id]);
+                        
+                        return (
+                            <Card key={slide.id}>
+                                <CardHeader className="pb-4">
+                                    <div className="flex justify-between items-start">
+                                        <Badge variant="outline" className="mb-2">Frage {sIdx + 1} ({slide.type})</Badge>
+                                    </div>
+                                    <CardTitle className="text-lg">{slide.content.question || 'Quiz-Aufgabe'}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {slide.type === 'multiple-choice' && (
+                                        <div className="space-y-3">
+                                            {slide.content.options.map((opt: any) => {
+                                                const count = slideResponses.filter(r => r === opt.id).length;
+                                                const perc = responses.length > 0 ? Math.round((count / responses.length) * 100) : 0;
+                                                return (
+                                                    <div key={opt.id} className="space-y-1">
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className={cn("font-medium", opt.isCorrect && "text-green-600 flex items-center gap-1")}>
+                                                                {opt.isCorrect && <CheckCircle2 className="h-3 w-3"/>} {opt.text}
+                                                            </span>
+                                                            <span className="text-muted-foreground">{count} ({perc}%)</span>
+                                                        </div>
+                                                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                                                            <div className={cn("h-full transition-all duration-1000", opt.isCorrect ? "bg-green-500" : "bg-primary/40")} style={{ width: `${perc}%` }} />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {(slide.type === 'short-answer' || slide.type === 'vocabulary') && (
+                                        <div className="flex items-center gap-8 p-4 bg-secondary/30 rounded-lg">
+                                            <div className="text-center">
+                                                <p className="text-3xl font-bold text-green-600">
+                                                    {slideResponses.filter(r => r && (typeof r === 'boolean' ? r : r.isCorrect)).length}
+                                                </p>
+                                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Richtig</p>
+                                            </div>
+                                            <div className="text-center border-l pl-8">
+                                                <p className="text-3xl font-bold text-red-600">
+                                                    {slideResponses.filter(r => r === false || (r && r.isCorrect === false)).length}
+                                                </p>
+                                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Falsch</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {slide.type === 'long-answer' && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                                                <span className="text-sm font-bold">Durchschnittlicher KI-Score:</span>
+                                                <Badge className="bg-primary">
+                                                    {(slideResponses.reduce((acc, r) => acc + (r?.score || 0), 0) / responses.length).toFixed(1)} / 10
+                                                </Badge>
+                                            </div>
+                                            <ScrollArea className="h-32 bg-secondary/20 p-3 rounded-md border">
+                                                <div className="space-y-3">
+                                                    {responses.map((r, i) => (
+                                                        <div key={i} className="text-xs border-b pb-2 last:border-0">
+                                                            <p className="font-bold text-primary">{r.userName || 'Anonym'}:</p>
+                                                            <p className="italic line-clamp-2">"{r.answers[slide.id]?.text}"</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+
+                    <h2 className="text-2xl font-bold flex items-center gap-2 pt-8">
+                        <MessageSquareText className="h-6 w-6 text-primary" /> Teilnehmer-Feedback
+                    </h2>
+                    <Card>
+                        <CardContent className="p-8 flex justify-around items-center">
+                            <div className="text-center space-y-2">
+                                <Smile className="h-12 w-12 text-green-500 mx-auto" />
+                                <p className="text-2xl font-bold">{responses.filter(r => r.rating === 'happy').length}</p>
+                                <p className="text-xs text-muted-foreground font-bold">SUPER</p>
                             </div>
-                            <Switch 
-                                checked={slide.content.askName} 
-                                onCheckedChange={(val) => updateSlideContent(slide.id, { askName: val })} 
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Zusatz-Text (optional)</Label>
-                            <Textarea 
-                                placeholder="z.B. Viel Erfolg! Du hast 10 Minuten Zeit." 
-                                value={slide.content.subtitle || ''} 
-                                onChange={(e) => updateSlideContent(slide.id, { subtitle: e.target.value })}
-                                className="min-h-[100px]"
-                            />
-                        </div>
+                            <div className="text-center space-y-2 border-x px-12">
+                                <Meh className="h-12 w-12 text-amber-500 mx-auto" />
+                                <p className="text-2xl font-bold">{responses.filter(r => r.rating === 'neutral').length}</p>
+                                <p className="text-xs text-muted-foreground font-bold">OKAY</p>
+                            </div>
+                            <div className="text-center space-y-2">
+                                <Frown className="h-12 w-12 text-red-500 mx-auto" />
+                                <p className="text-2xl font-bold">{responses.filter(r => r.rating === 'sad').length}</p>
+                                <p className="text-xs text-muted-foreground font-bold">SCHLECHT</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+                
+                <div className="flex justify-center pt-8">
+                    <Button variant="outline" onClick={() => setIsPublished(false)}>
+                        Editor-Modus reaktivieren
+                    </Button>
+                </div>
+            </div>
+        ) : (
+            <div className="max-w-4xl mx-auto space-y-6">
+              {isPublished && (
+                  <Alert className="bg-primary/5 border-primary/20">
+                      <Users className="h-4 w-4" />
+                      <AlertTitle>Warte auf Teilnehmer...</AlertTitle>
+                      <AlertDescription>
+                          Sobald die ersten Personen dein Quiz beenden, erscheinen hier die Statistiken.
+                      </AlertDescription>
+                  </Alert>
+              )}
+              {slides.map((slide, index) => (
+                <Card key={slide.id} className={slide.type === 'welcome' || slide.type === 'conclusion' ? 'border-primary shadow-sm' : ''}>
+                  <CardHeader className="flex flex-row items-start justify-between pb-4">
+                    <div className="flex items-center gap-3">
+                      <Badge variant={slide.type === 'welcome' || slide.type === 'conclusion' ? 'default' : 'secondary'} className="h-6 w-6 rounded-full flex items-center justify-center p-0 font-bold">
+                        {index + 1}
+                      </Badge>
+                      <div>
+                        <CardTitle className="text-lg">
+                            {slide.type === 'welcome' ? 'Willkommens-Seite' : 
+                             slide.type === 'multiple-choice' ? 'Mehrfachauswahl' :
+                             slide.type === 'short-answer' ? 'Wort-Antwort' :
+                             slide.type === 'long-answer' ? 'Freitext (KI)' :
+                             slide.type === 'vocabulary' ? 'Vokabel-Test' : 
+                             slide.type === 'conclusion' ? 'Schlussfolie' : 'Textfolie'}
+                        </CardTitle>
+                        {slide.type === 'welcome' && <CardDescription>Der erste Eindruck für deine Teilnehmer.</CardDescription>}
+                        {slide.type === 'conclusion' && <CardDescription>Der Abschluss deines Quizzes.</CardDescription>}
+                      </div>
                     </div>
-                    
-                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-background/50 text-center space-y-4">
-                        <div className="space-y-1">
-                            <h2 className="text-2xl font-bold">{title || 'Unbenanntes Quiz'}</h2>
-                            <p className="text-sm text-muted-foreground">Erstellt von {creator || 'Anonym'}</p>
+                    <div className="flex items-center gap-1">
+                      {slide.id !== 'welcome' && slide.id !== 'conclusion' && (
+                        <>
+                          <div className="flex items-center border rounded-md mr-2 bg-secondary/30">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              disabled={index === 1}
+                              onClick={() => moveSlide(slide.id, 'up')}
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Separator orientation="vertical" className="h-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              disabled={index === slides.length - 2}
+                              onClick={() => moveSlide(slide.id, 'down')}
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => deleteSlide(slide.id)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {slide.type === 'welcome' && (
+                      <div className="grid md:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Namen abfragen</Label>
+                                    <p className="text-xs text-muted-foreground">Teilnehmer müssen ihren Namen angeben.</p>
+                                </div>
+                                <Switch 
+                                    checked={slide.content.askName} 
+                                    onCheckedChange={(val) => updateSlideContent(slide.id, { askName: val })} 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Zusatz-Text (optional)</Label>
+                                <Textarea 
+                                    placeholder="z.B. Viel Erfolg! Du hast 10 Minuten Zeit." 
+                                    value={slide.content.subtitle || ''} 
+                                    onChange={(e) => updateSlideContent(slide.id, { subtitle: e.target.value })}
+                                    className="min-h-[100px]"
+                                />
+                            </div>
                         </div>
                         
-                        <div className="flex flex-wrap justify-center gap-2">
-                            <Badge variant="outline" className="bg-background">
-                                {slide.content.askName ? <User className="w-3.5 h-3.5 mr-1" /> : <Shield className="w-3.5 h-3.5 mr-1" />}
-                                {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
-                            </Badge>
-                            {usesAI && (
-                                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                                    <Sparkles className="w-3.5 h-3.5 mr-1" /> KI-gestützt
-                                </Badge>
-                            )}
-                        </div>
-
-                        {slide.content.subtitle && (
-                            <p className="text-sm italic text-muted-foreground max-w-[250px] line-clamp-3">
-                                "{slide.content.subtitle}"
-                            </p>
-                        )}
-
-                        <Button className="w-full max-w-[200px]" variant="secondary" disabled>
-                            Quiz starten
-                        </Button>
-                    </div>
-                  </div>
-                )}
-
-                {slide.type === 'multiple-choice' && (
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <Label className="text-base font-bold">Frage</Label>
-                            <Input 
-                                placeholder="z.B. Wie viele Planeten hat unser Sonnensystem?" 
-                                value={slide.content.question || ''} 
-                                onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
-                                className="text-lg py-6"
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                                <Label className="font-semibold">Antworten (Markiere die richtigen)</Label>
-                                <span className="text-xs text-muted-foreground">{slide.content.options?.length || 0} von 8</span>
+                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-background/50 text-center space-y-4">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold">{title || 'Unbenanntes Quiz'}</h2>
+                                <p className="text-sm text-muted-foreground">Erstellt von {creator || 'Anonym'}</p>
                             </div>
-                            <div className="grid gap-3">
-                                {(slide.content.options || []).map((option: any, optIndex: number) => (
-                                    <div key={option.id} className="flex items-center gap-2 group">
-                                        <div className="flex items-center justify-center h-10 w-10">
-                                            <Checkbox 
-                                                id={`opt-${slide.id}-${option.id}`}
-                                                checked={option.isCorrect} 
-                                                onCheckedChange={(val) => {
+                            
+                            <div className="flex flex-wrap justify-center gap-2">
+                                <Badge variant="outline" className="bg-background">
+                                    {slide.content.askName ? <User className="w-3.5 h-3.5 mr-1" /> : <Shield className="w-3.5 h-3.5 mr-1" />}
+                                    {slide.content.askName ? 'Name erforderlich' : 'Anonymes Quiz'}
+                                </Badge>
+                                {usesAI && (
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                                        <Sparkles className="w-3.5 h-3.5 mr-1" /> KI-gestützt
+                                    </Badge>
+                                )}
+                            </div>
+
+                            {slide.content.subtitle && (
+                                <p className="text-sm italic text-muted-foreground max-w-[250px] line-clamp-3">
+                                    "{slide.content.subtitle}"
+                                </p>
+                            )}
+
+                            <Button className="w-full max-w-[200px]" variant="secondary" disabled>
+                                Quiz starten
+                            </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {slide.type === 'multiple-choice' && (
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-base font-bold">Frage</Label>
+                                <Input 
+                                    placeholder="z.B. Wie viele Planeten hat unser Sonnensystem?" 
+                                    value={slide.content.question || ''} 
+                                    onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                    className="text-lg py-6"
+                                />
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <Label className="font-semibold">Antworten (Markiere die richtigen)</Label>
+                                    <span className="text-xs text-muted-foreground">{slide.content.options?.length || 0} von 8</span>
+                                </div>
+                                <div className="grid gap-3">
+                                    {(slide.content.options || []).map((option: any, optIndex: number) => (
+                                        <div key={option.id} className="flex items-center gap-2 group">
+                                            <div className="flex items-center justify-center h-10 w-10">
+                                                <Checkbox 
+                                                    id={`opt-${slide.id}-${option.id}`}
+                                                    checked={option.isCorrect} 
+                                                    onCheckedChange={(val) => {
+                                                        const newOptions = [...slide.content.options];
+                                                        newOptions[optIndex].isCorrect = !!val;
+                                                        updateSlideContent(slide.id, { options: newOptions });
+                                                    }}
+                                                    className="h-6 w-6"
+                                                />
+                                            </div>
+                                            <Input 
+                                                placeholder={`Antwort ${optIndex + 1}...`}
+                                                value={option.text}
+                                                onChange={(e) => {
                                                     const newOptions = [...slide.content.options];
-                                                    newOptions[optIndex].isCorrect = !!val;
+                                                    newOptions[optIndex].text = e.target.value;
                                                     updateSlideContent(slide.id, { options: newOptions });
                                                 }}
-                                                className="h-6 w-6"
+                                                className={cn("flex-1", option.isCorrect && "border-primary bg-primary/5")}
                                             />
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                disabled={slide.content.options.length <= 2}
+                                                onClick={() => {
+                                                    const newOptions = slide.content.options.filter((_: any, i: number) => i !== optIndex);
+                                                    updateSlideContent(slide.id, { options: newOptions });
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                            </Button>
                                         </div>
+                                    ))}
+                                </div>
+                                {(!slide.content.options || slide.content.options.length < 8) && (
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full border-dashed"
+                                        onClick={() => {
+                                            const newOptions = [...(slide.content.options || []), { id: Date.now().toString(), text: '', isCorrect: false }];
+                                            updateSlideContent(slide.id, { options: newOptions });
+                                        }}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" /> Antwort hinzufügen
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {slide.type === 'short-answer' && (
+                        <div className="space-y-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label className="font-bold">Frage</Label>
                                         <Input 
-                                            placeholder={`Antwort ${optIndex + 1}...`}
-                                            value={option.text}
+                                            placeholder="z.B. Wie heißt die Hauptstadt von Frankreich?" 
+                                            value={slide.content.question || ''} 
+                                            onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="font-bold">Korrekte Antwort</Label>
+                                        <Input 
+                                            placeholder="Die exakte Lösung..." 
+                                            value={slide.content.answer || ''} 
+                                            onChange={(e) => updateSlideContent(slide.id, { answer: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-4 p-4 border rounded-lg bg-secondary/10">
+                                    <div className="space-y-2">
+                                        <Label>Antwort-Typ</Label>
+                                        <Select value={slide.content.answerType} onValueChange={(val) => updateSlideContent(slide.id, { answerType: val })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="word">Wort</SelectItem>
+                                                <SelectItem value="year">Jahreszahl</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {slide.content.answerType === 'word' && (
+                                        <div className="space-y-2">
+                                            <Label>Prüf-Modus</Label>
+                                            <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
+                                                    <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
+                                                    <SelectItem value="ai">KI-Modus (Typo-Check)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {slide.type === 'long-answer' && (
+                        <div className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Frage</Label>
+                                    <Input 
+                                        placeholder="z.B. Erkläre den Treibhauseffekt..." 
+                                        value={slide.content.question || ''} 
+                                        onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="font-bold">Musterlösung</Label>
+                                        <Textarea 
+                                            placeholder="Wie die perfekte Antwort aussehen sollte..." 
+                                            value={slide.content.referenceAnswer || ''} 
+                                            onChange={(e) => updateSlideContent(slide.id, { referenceAnswer: e.target.value })}
+                                            className="min-h-[120px]"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="font-bold">Bewertungskriterien</Label>
+                                        <Textarea 
+                                            placeholder="Was muss unbedingt vorkommen? (z.B. Stichworte: CO2, Atmosphäre, Strahlung)" 
+                                            value={slide.content.criteria || ''} 
+                                            onChange={(e) => updateSlideContent(slide.id, { criteria: e.target.value })}
+                                            className="min-h-[120px]"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between p-4 border rounded-lg bg-primary/5">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base">Punkte verteilen (1-10)</Label>
+                                        <p className="text-xs text-muted-foreground">Die KI bewertet die Antwort auf einer Skala von 1 bis 10.</p>
+                                    </div>
+                                    <Switch 
+                                        checked={slide.content.enablePoints} 
+                                        onCheckedChange={(val) => updateSlideContent(slide.id, { enablePoints: val })} 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {slide.type === 'vocabulary' && (
+                        <div className="space-y-6">
+                            <Alert className="bg-primary/5 border-primary/20">
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>Wichtiger Hinweis</AlertTitle>
+                                <AlertDescription>
+                                    Bitte frage immer nur **ein einzelnes Wort** pro Feld ab. Vermeide mehrere Formen (z.B. go, went, gone) in einem Feld, um Fehler bei der Prüfung zu verhindern.
+                                </AlertDescription>
+                            </Alert>
+
+                            <div className="flex items-center gap-4 p-4 border rounded-lg bg-secondary/10">
+                                <div className="flex-1">
+                                    <Label>Prüf-Modus</Label>
+                                    <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
+                                            <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="text-right">
+                                    <Badge variant="secondary" className="font-mono">
+                                        {slide.content.pairs?.length || 0} / 20
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3">
+                                <div className="grid grid-cols-[1fr_1fr_40px] gap-2 px-2 text-xs font-bold text-muted-foreground">
+                                    <span>Fremdsprache</span>
+                                    <span>Deutsch</span>
+                                    <span></span>
+                                </div>
+                                {(slide.content.pairs || []).map((pair: any, pIndex: number) => (
+                                    <div key={pair.id} className="grid grid-cols-[1fr_1fr_40px] gap-2 group">
+                                        <Input 
+                                            placeholder="Foreign word..."
+                                            value={pair.foreign}
                                             onChange={(e) => {
-                                                const newOptions = [...slide.content.options];
-                                                newOptions[optIndex].text = e.target.value;
-                                                updateSlideContent(slide.id, { options: newOptions });
+                                                const newPairs = [...slide.content.pairs];
+                                                newPairs[pIndex].foreign = e.target.value;
+                                                updateSlideContent(slide.id, { pairs: newPairs });
                                             }}
-                                            className={cn("flex-1", option.isCorrect && "border-primary bg-primary/5")}
+                                        />
+                                        <Input 
+                                            placeholder="Deutsch..."
+                                            value={pair.german}
+                                            onChange={(e) => {
+                                                const newPairs = [...slide.content.pairs];
+                                                newPairs[pIndex].german = e.target.value;
+                                                updateSlideContent(slide.id, { pairs: newPairs });
+                                            }}
                                         />
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                            disabled={slide.content.options.length <= 2}
+                                            disabled={slide.content.pairs.length <= 1}
                                             onClick={() => {
-                                                const newOptions = slide.content.options.filter((_: any, i: number) => i !== optIndex);
-                                                updateSlideContent(slide.id, { options: newOptions });
+                                                const newPairs = slide.content.pairs.filter((_: any, i: number) => i !== pIndex);
+                                                updateSlideContent(slide.id, { pairs: newPairs });
                                             }}
                                         >
                                             <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
@@ -541,280 +900,94 @@ export default function QuizEditorPage() {
                                     </div>
                                 ))}
                             </div>
-                            {(!slide.content.options || slide.content.options.length < 8) && (
+
+                            {(!slide.content.pairs || slide.content.pairs.length < 20) && (
                                 <Button 
                                     variant="outline" 
                                     className="w-full border-dashed"
                                     onClick={() => {
-                                        const newOptions = [...(slide.content.options || []), { id: Date.now().toString(), text: '', isCorrect: false }];
-                                        updateSlideContent(slide.id, { options: newOptions });
+                                        const newPairs = [...(slide.content.pairs || []), { id: Date.now().toString(), foreign: '', german: '' }];
+                                        updateSlideContent(slide.id, { pairs: newPairs });
                                     }}
                                 >
-                                    <Plus className="h-4 w-4 mr-2" /> Antwort hinzufügen
+                                    <Plus className="h-4 w-4 mr-2" /> Vokabel hinzufügen
                                 </Button>
                             )}
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {slide.type === 'short-answer' && (
-                    <div className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="font-bold">Frage</Label>
-                                    <Input 
-                                        placeholder="z.B. Wie heißt die Hauptstadt von Frankreich?" 
-                                        value={slide.content.question || ''} 
-                                        onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-bold">Korrekte Antwort</Label>
-                                    <Input 
-                                        placeholder="Die exakte Lösung..." 
-                                        value={slide.content.answer || ''} 
-                                        onChange={(e) => updateSlideContent(slide.id, { answer: e.target.value })}
-                                    />
-                                </div>
+                    {slide.type === 'text' && (
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                            <Label className="font-bold">Überschrift</Label>
+                            <Input 
+                                placeholder="z.B. Einleitung oder Informationen" 
+                                value={slide.content.title || ''} 
+                                onChange={(e) => updateSlideContent(slide.id, { title: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="font-bold">Text</Label>
+                            <Textarea 
+                                placeholder="Schreibe hier die Informationen für die Teilnehmer..." 
+                                value={slide.content.text || ''} 
+                                onChange={(e) => updateSlideContent(slide.id, { text: e.target.value })}
+                                className="min-h-[200px]"
+                            />
+                        </div>
+                      </div>
+                    )}
+
+                    {slide.type === 'conclusion' && (
+                        <div className="space-y-8">
+                            <div className="p-4 border rounded-lg bg-secondary/20 text-center">
+                                <h3 className="text-xl font-bold mb-1">Danke fürs Teilnehmen!</h3>
+                                <p className="text-sm text-muted-foreground">Dieser Text wird immer angezeigt.</p>
                             </div>
-                            
-                            <div className="space-y-4 p-4 border rounded-lg bg-secondary/10">
-                                <div className="space-y-2">
-                                    <Label>Antwort-Typ</Label>
-                                    <Select value={slide.content.answerType} onValueChange={(val) => updateSlideContent(slide.id, { answerType: val })}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="word">Wort</SelectItem>
-                                            <SelectItem value="year">Jahreszahl</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
 
-                                {slide.content.answerType === 'word' && (
-                                    <div className="space-y-2">
-                                        <Label>Prüf-Modus</Label>
-                                        <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
-                                                <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
-                                                <SelectItem value="ai">KI-Modus (Typo-Check)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                            <div className="grid gap-4">
+                                <Label className="font-bold text-base">Was soll angezeigt werden?</Label>
+                                
+                                <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Ergebnis in Prozent</Label>
+                                        <p className="text-xs text-muted-foreground">Zeigt an, wie viel Prozent der Fragen richtig waren.</p>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {slide.type === 'long-answer' && (
-                    <div className="space-y-6">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Frage</Label>
-                                <Input 
-                                    placeholder="z.B. Erkläre den Treibhauseffekt..." 
-                                    value={slide.content.question || ''} 
-                                    onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="font-bold">Musterlösung</Label>
-                                    <Textarea 
-                                        placeholder="Wie die perfekte Antwort aussehen sollte..." 
-                                        value={slide.content.referenceAnswer || ''} 
-                                        onChange={(e) => updateSlideContent(slide.id, { referenceAnswer: e.target.value })}
-                                        className="min-h-[120px]"
+                                    <Switch 
+                                        checked={slide.content.showScore} 
+                                        onCheckedChange={(val) => updateSlideContent(slide.id, { showScore: val })} 
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="font-bold">Bewertungskriterien</Label>
-                                    <Textarea 
-                                        placeholder="Was muss unbedingt vorkommen? (z.B. Stichworte: CO2, Atmosphäre, Strahlung)" 
-                                        value={slide.content.criteria || ''} 
-                                        onChange={(e) => updateSlideContent(slide.id, { criteria: e.target.value })}
-                                        className="min-h-[120px]"
+
+                                <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base flex items-center gap-2"><User className="w-4 h-4" /> Vergleich mit anderen</Label>
+                                        <p className="text-xs text-muted-foreground">Zeigt an, wie der Teilnehmer im Vergleich zum Durchschnitt liegt.</p>
+                                    </div>
+                                    <Switch 
+                                        checked={slide.content.showComparison} 
+                                        onCheckedChange={(val) => updateSlideContent(slide.id, { showComparison: val })} 
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-base flex items-center gap-2"><MessageSquareText className="w-4 h-4" /> Feedback sammeln</Label>
+                                        <p className="text-xs text-muted-foreground">Teilnehmer können mit Smileys bewerten, wie das Quiz war.</p>
+                                    </div>
+                                    <Switch 
+                                        checked={slide.content.collectFeedback} 
+                                        onCheckedChange={(val) => updateSlideContent(slide.id, { collectFeedback: val })} 
                                     />
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between p-4 border rounded-lg bg-primary/5">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Punkte verteilen (1-10)</Label>
-                                    <p className="text-xs text-muted-foreground">Die KI bewertet die Antwort auf einer Skala von 1 bis 10.</p>
-                                </div>
-                                <Switch 
-                                    checked={slide.content.enablePoints} 
-                                    onCheckedChange={(val) => updateSlideContent(slide.id, { enablePoints: val })} 
-                                />
-                            </div>
                         </div>
-                    </div>
-                )}
-
-                {slide.type === 'vocabulary' && (
-                    <div className="space-y-6">
-                        <Alert className="bg-primary/5 border-primary/20">
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Wichtiger Hinweis</AlertTitle>
-                            <AlertDescription>
-                                Bitte frage immer nur **ein einzelnes Wort** pro Feld ab. Vermeide mehrere Formen (z.B. go, went, gone) in einem Feld, um Fehler bei der Prüfung zu verhindern.
-                            </AlertDescription>
-                        </Alert>
-
-                        <div className="flex items-center gap-4 p-4 border rounded-lg bg-secondary/10">
-                            <div className="flex-1">
-                                <Label>Prüf-Modus</Label>
-                                <Select value={slide.content.checkMode} onValueChange={(val) => updateSlideContent(slide.id, { checkMode: val })}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="strict">Rechtschreib-sensitiv (Exakt)</SelectItem>
-                                        <SelectItem value="helpfull">Tolerant (Klein/Groß egal)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="text-right">
-                                <Badge variant="secondary" className="font-mono">
-                                    {slide.content.pairs?.length || 0} / 20
-                                </Badge>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-3">
-                            <div className="grid grid-cols-[1fr_1fr_40px] gap-2 px-2 text-xs font-bold text-muted-foreground">
-                                <span>Fremdsprache</span>
-                                <span>Deutsch</span>
-                                <span></span>
-                            </div>
-                            {(slide.content.pairs || []).map((pair: any, pIndex: number) => (
-                                <div key={pair.id} className="grid grid-cols-[1fr_1fr_40px] gap-2 group">
-                                    <Input 
-                                        placeholder="Foreign word..."
-                                        value={pair.foreign}
-                                        onChange={(e) => {
-                                            const newPairs = [...slide.content.pairs];
-                                            newPairs[pIndex].foreign = e.target.value;
-                                            updateSlideContent(slide.id, { pairs: newPairs });
-                                        }}
-                                    />
-                                    <Input 
-                                        placeholder="Deutsch..."
-                                        value={pair.german}
-                                        onChange={(e) => {
-                                            const newPairs = [...slide.content.pairs];
-                                            newPairs[pIndex].german = e.target.value;
-                                            updateSlideContent(slide.id, { pairs: newPairs });
-                                        }}
-                                    />
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        disabled={slide.content.pairs.length <= 1}
-                                        onClick={() => {
-                                            const newPairs = slide.content.pairs.filter((_: any, i: number) => i !== pIndex);
-                                            updateSlideContent(slide.id, { pairs: newPairs });
-                                        }}
-                                    >
-                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {(!slide.content.pairs || slide.content.pairs.length < 20) && (
-                            <Button 
-                                variant="outline" 
-                                className="w-full border-dashed"
-                                onClick={() => {
-                                    const newPairs = [...(slide.content.pairs || []), { id: Date.now().toString(), foreign: '', german: '' }];
-                                    updateSlideContent(slide.id, { pairs: newPairs });
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-2" /> Vokabel hinzufügen
-                            </Button>
-                        )}
-                    </div>
-                )}
-
-                {slide.type === 'text' && (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                        <Label className="font-bold">Überschrift</Label>
-                        <Input 
-                            placeholder="z.B. Einleitung oder Informationen" 
-                            value={slide.content.title || ''} 
-                            onChange={(e) => updateSlideContent(slide.id, { title: e.target.value })}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="font-bold">Text</Label>
-                        <Textarea 
-                            placeholder="Schreibe hier die Informationen für die Teilnehmer..." 
-                            value={slide.content.text || ''} 
-                            onChange={(e) => updateSlideContent(slide.id, { text: e.target.value })}
-                            className="min-h-[200px]"
-                        />
-                    </div>
-                  </div>
-                )}
-
-                {slide.type === 'conclusion' && (
-                    <div className="space-y-8">
-                        <div className="p-4 border rounded-lg bg-secondary/20 text-center">
-                            <h3 className="text-xl font-bold mb-1">Danke fürs Teilnehmen!</h3>
-                            <p className="text-sm text-muted-foreground">Dieser Text wird immer angezeigt.</p>
-                        </div>
-
-                        <div className="grid gap-4">
-                            <Label className="font-bold text-base">Was soll angezeigt werden?</Label>
-                            
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Ergebnis in Prozent</Label>
-                                    <p className="text-xs text-muted-foreground">Zeigt an, wie viel Prozent der Fragen richtig waren.</p>
-                                </div>
-                                <Switch 
-                                    checked={slide.content.showScore} 
-                                    onCheckedChange={(val) => updateSlideContent(slide.id, { showScore: val })} 
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base flex items-center gap-2"><User className="w-4 h-4" /> Vergleich mit anderen</Label>
-                                    <p className="text-xs text-muted-foreground">Zeigt an, wie der Teilnehmer im Vergleich zum Durchschnitt liegt.</p>
-                                </div>
-                                <Switch 
-                                    checked={slide.content.showComparison} 
-                                    onCheckedChange={(val) => updateSlideContent(slide.id, { showComparison: val })} 
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/10 transition-colors">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base flex items-center gap-2"><MessageSquareText className="w-4 h-4" /> Feedback sammeln</Label>
-                                    <p className="text-xs text-muted-foreground">Teilnehmer können mit Smileys bewerten, wie das Quiz war.</p>
-                                </div>
-                                <Switch 
-                                    checked={slide.content.collectFeedback} 
-                                    onCheckedChange={(val) => updateSlideContent(slide.id, { collectFeedback: val })} 
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+        )}
       </main>
     </div>
   );
@@ -1356,7 +1529,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             </div>
 
                             <Button className="w-full max-w-[250px]" size="lg" variant="outline" onClick={() => onOpenChange(false)}>
-                                Quiz beenden
+                                Vorschau beenden
                             </Button>
                         </div>
                     ) : (
@@ -1368,23 +1541,24 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                     )}
                 </main>
 
-                <footer className="p-4 border-t bg-secondary/10 flex justify-between items-center">
-                    <Button variant="ghost" onClick={handleBack} disabled={currentIndex === 0}>
-                        <ChevronLeft className="mr-2 h-4 w-4" /> Zurück
-                    </Button>
-                    <div className="h-2 flex-1 mx-8 bg-secondary rounded-full overflow-hidden max-w-[200px] hidden md:block">
+                <footer className="p-4 border-t bg-secondary/10 flex flex-col gap-2">
+                    <div className="flex justify-between items-end mb-1">
+                        <Button variant="ghost" size="sm" onClick={handleBack} disabled={currentIndex === 0}>
+                            <ChevronLeft className="mr-2 h-4 w-4" /> Zurück
+                        </Button>
+                        <div className="text-[10px] font-mono font-bold text-muted-foreground">
+                            {currentIndex + 1} / {slides.length}
+                        </div>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-primary transition-all duration-500" 
                             style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }}
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        {currentIndex > 0 && currentIndex < slides.length - 1 && answerStatus === 'none' && (
-                            <Button variant="ghost" size="sm" onClick={handleNext}>
-                                Überspringen
-                            </Button>
-                        )}
+                    <div className="flex justify-end mt-2">
                         <Button 
+                            size="sm"
                             onClick={handleNext} 
                             disabled={
                                 currentIndex === slides.length - 1 || 
