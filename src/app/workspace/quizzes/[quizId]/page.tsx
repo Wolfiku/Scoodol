@@ -947,21 +947,67 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             </div>
                         </div>
                     ) : currentSlide?.type === 'conclusion' ? (
-                        <div className="text-center space-y-10">
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center justify-center opacity-10">
-                                    <Star className="w-64 h-64 text-primary animate-pulse" />
-                                </div>
-                                <h1 className="text-5xl font-extrabold tracking-tight relative z-10">Vielen Dank!</h1>
+                        <div className="text-center space-y-10 w-full max-w-md">
+                            <div className="space-y-4">
+                                <h1 className="text-5xl font-extrabold tracking-tight">Vielen Dank!</h1>
+                                <p className="text-xl text-muted-foreground font-medium">
+                                    Du bist mit dem Quiz fertig! Du kannst diese Seite nun schließen.
+                                </p>
                             </div>
+
                             {currentSlide.content.showScore && (
-                                <div className="space-y-2">
+                                <div className="p-8 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2">
                                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Dein Ergebnis</p>
-                                    <p className="text-6xl font-black text-primary">{Math.round((correctCount / totalQuestions) * 100)}%</p>
+                                    <p className="text-7xl font-black text-primary">{totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%</p>
                                     <p className="text-sm text-muted-foreground">{correctCount} von {totalQuestions} richtig</p>
                                 </div>
                             )}
-                            <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>Quiz beenden</Button>
+
+                            {currentSlide.content.collectFeedback && (
+                                <div className="space-y-6">
+                                    <p className="font-bold text-lg">Wie fandest du das Quiz?</p>
+                                    <div className="flex justify-center gap-8">
+                                        <button 
+                                            onClick={() => setFeedbackValue('sad')}
+                                            className={cn(
+                                                "p-2 rounded-full transition-colors",
+                                                feedbackValue === 'sad' ? "bg-red-100 text-red-600" : "text-muted-foreground hover:text-red-400"
+                                            )}
+                                        >
+                                            <Frown className="w-16 h-16" />
+                                        </button>
+                                        <button 
+                                            onClick={() => setFeedbackValue('neutral')}
+                                            className={cn(
+                                                "p-2 rounded-full transition-colors",
+                                                feedbackValue === 'neutral' ? "bg-amber-100 text-amber-600" : "text-muted-foreground hover:text-amber-400"
+                                            )}
+                                        >
+                                            <Meh className="w-16 h-16" />
+                                        </button>
+                                        <button 
+                                            onClick={() => setFeedbackValue('happy')}
+                                            className={cn(
+                                                "p-2 rounded-full transition-colors",
+                                                feedbackValue === 'happy' ? "bg-green-100 text-green-600" : "text-muted-foreground hover:text-green-400"
+                                            )}
+                                        >
+                                            <Smile className="w-16 h-16" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-3">
+                                <Button className="w-full h-14 text-lg font-bold" onClick={() => onOpenChange(false)} disabled={currentSlide.content.collectFeedback && !feedbackValue}>
+                                    Quiz beenden
+                                </Button>
+                                {currentSlide.content.collectFeedback && (
+                                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                                        Ohne Bewertung beenden
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center">Kein Inhalt für diesen Folientyp.</div>
