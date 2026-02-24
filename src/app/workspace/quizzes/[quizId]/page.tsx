@@ -7,7 +7,7 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, ord
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon, Shield, CheckCircle2, Star } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, MoreHorizontal, Trash2, BrainCircuit, Play, Save, Check, User, Info, Sparkles, MessageSquareText, ChevronRight, ChevronLeft, X, AlertCircle, HelpCircle, FileText, BarChart3, Frown, Meh, Smile, ArrowUp, ArrowDown, Globe, Copy, Link as LinkIcon, Shield, CheckCircle2, Star, QrCode, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { verifyQuizAnswer, checkLongAnswer } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import QRCode from 'qrcode';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text' | 'conclusion';
 
@@ -98,6 +98,10 @@ export default function QuizEditorPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSetupDone, setIsSetupDone] = useState(!isNewQuiz);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  
+  // QR Code State
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
   const quizDocRef = useMemoFirebase(() => 
     !isNewQuiz && user && typeof quizId === 'string'
@@ -271,6 +275,34 @@ export default function QuizEditorPage() {
     navigator.clipboard.writeText(publicUrl);
     toast({ title: "Link kopiert!", description: "Du kannst ihn jetzt teilen." });
   }
+  
+  const handleShowQr = async () => {
+    try {
+        const url = await QRCode.toDataURL(publicUrl, {
+            width: 400,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#ffffff',
+            },
+        });
+        setQrCodeUrl(url);
+        setIsQrDialogOpen(true);
+    } catch (err) {
+        console.error(err);
+        toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
+    }
+  };
+
+  const downloadQr = () => {
+    if (!qrCodeUrl) return;
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `quiz-qr-${title.replace(/\s+/g, '-').toLowerCase()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer' || (s.type === 'short-answer' && s.content.checkMode === 'ai')), [slides]);
 
@@ -323,6 +355,27 @@ export default function QuizEditorPage() {
         creator={creator} 
         slides={slides} 
       />
+      
+      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>QR-Code für dein Quiz</DialogTitle>
+                <DialogDescription>
+                    Teile diesen Code, damit andere dein Quiz scannen und starten können.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center p-6 gap-4">
+                {qrCodeUrl && (
+                    <div className="bg-white p-4 rounded-lg shadow-sm border">
+                        <img src={qrCodeUrl} alt="Quiz QR Code" className="w-64 h-64" />
+                    </div>
+                )}
+                <Button onClick={downloadQr} className="w-full">
+                    <Download className="mr-2 h-4 w-4" /> Herunterladen (.png)
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
 
       <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4 flex-1">
@@ -392,9 +445,14 @@ export default function QuizEditorPage() {
                   <LinkIcon className="h-3 w-3 text-muted-foreground" />
                   <span className="truncate max-w-[300px]">{publicUrl}</span>
               </div>
-              <Button variant="outline" className="h-8 text-xs" onClick={copyPublicLink}>
-                  <Copy className="mr-2 h-3 w-3" /> Kopieren
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="h-8 text-xs" onClick={copyPublicLink}>
+                    <Copy className="mr-2 h-3 w-3" /> Kopieren
+                </Button>
+                <Button variant="outline" className="h-8 text-xs" onClick={handleShowQr}>
+                    <QrCode className="mr-2 h-3 w-3" /> QR-Code
+                </Button>
+              </div>
           </div>
       )}
 
@@ -999,7 +1057,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             )}
 
                             <div className="flex flex-col gap-3">
-                                <Button className="w-full h-14 text-lg font-bold" onClick={() => onOpenChange(false)} disabled={currentSlide.content.collectFeedback && !feedbackValue}>
+                                <Button className="w-full h-14 text-lg font-bold" onClick={() => onOpenChange(false)}>
                                     Quiz beenden
                                 </Button>
                                 {currentSlide.content.collectFeedback && (
