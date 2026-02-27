@@ -62,6 +62,8 @@ interface LinkItem {
     url: string;
 }
 
+const PROTOCOL_HEADER_REGEX = /^# Protokoll: (.*) vom (.*)\n\*\*Thema:\*\* (.*)\n\n/;
+
 function NoteEditor() {
   const router = useRouter();
   const params = useParams();
@@ -84,20 +86,20 @@ function NoteEditor() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [dateDisplayType, setDateDisplayType] = useState<'updated' | 'created'>('updated');
 
-  // Smart Templates States
+  // Link Smart Template State
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [linkNotes, setLinkNotes] = useState('');
 
-  // Protocol Smart States
+  // Protocol Smart Template State
   const [protoSubject, setProtoSubject] = useState('');
   const [protoDate, setProtoDate] = useState(new Date().toISOString().split('T')[0]);
   const [protoTopic, setProtoTopic] = useState('');
   const [newHwTask, setNewHwTask] = useState('');
   const [newHwDue, setNewHwDue] = useState('');
 
-  // Study Smart States (Tutor)
+  // Study Smart Template State
   const [tutorQuestion, setTutorQuestion] = useState('');
   const [tutorReplies, setTutorReplies] = useState<{q: string, a: string}[]>([]);
   const [isTutorLoading, setIsTutorLoading] = useState(false);
@@ -119,6 +121,7 @@ function NoteEditor() {
             setContent('### 💡 Kernkonzepte\n- [ ] Konzept 1...\n\n### 📝 Zusammenfassung\n...\n\n### 🔢 Wichtige Fakten & Formeln\n- a² + b² = c²\n\n### ❓ Mögliche Prüfungsfragen\n1. ?');
         } else if (templateType === 'protocol') {
             setTitle(`Protokoll: ${new Date().toLocaleDateString('de-DE')}`);
+            setProtoDate(new Date().toISOString().split('T')[0]);
             setContent(`### 📓 Mitschrift\n- \n\n### 🎯 Wichtige Erkenntnisse\n...`);
         } else if (templateType === 'links') {
             setTitle('Recherche: Link-Sammlung');
@@ -127,15 +130,14 @@ function NoteEditor() {
     }
   }, [isNewNote, templateType, content]);
 
-  // Load content into states
+  // Load content and split into states
   useEffect(() => {
       if (note) {
           setTitle(note.title);
-          setContent(note.content);
           if (note.isLocked) setIsEditing(false);
           setSaveStatus('idle');
 
-          // Parse Smart Templates content
+          // Link Template Parsing
           if (templateType === 'links' || note.title.toLowerCase().includes('link')) {
               const linksMatch = note.content.match(/## 🔗 Links\n([\s\S]*?)\n\n## 📝 Notizen/);
               if (linksMatch) {
@@ -147,15 +149,20 @@ function NoteEditor() {
               }
               const notesMatch = note.content.match(/## 📝 Notizen\n([\s\S]*)$/);
               if (notesMatch) setLinkNotes(notesMatch[1].trim());
-          }
-
-          if (templateType === 'protocol') {
-              const headMatch = note.content.match(/# Protokoll: (.*) vom (.*)\n\*\*Thema:\*\* (.*)\n\n/);
+              setContent('');
+          } else if (templateType === 'protocol') {
+              // Protocol Template Parsing (Strip header from body)
+              const headMatch = note.content.match(PROTOCOL_HEADER_REGEX);
               if (headMatch) {
                   setProtoSubject(headMatch[1]);
                   setProtoDate(headMatch[2]);
                   setProtoTopic(headMatch[3]);
+                  setContent(note.content.replace(PROTOCOL_HEADER_REGEX, ''));
+              } else {
+                  setContent(note.content);
               }
+          } else {
+              setContent(note.content);
           }
       }
   }, [note, templateType]);
@@ -375,36 +382,61 @@ function NoteEditor() {
                             ))}
                         </div>
                     </div>
-                    <Textarea placeholder="Notizen zur Recherche..." className="min-h-[200px]" value={linkNotes} onChange={e => setLinkNotes(e.target.value)} readOnly={!showEditor} />
+                    <Textarea 
+                        placeholder="Zusätzliche Gedanken zu deiner Recherche..." 
+                        className={cn("min-h-[200px] text-base leading-relaxed", !showEditor && "border-0 shadow-none focus-visible:ring-0 p-0 resize-none")}
+                        value={linkNotes} 
+                        onChange={e => setLinkNotes(e.target.value)} 
+                        readOnly={!showEditor} 
+                    />
                 </div>
             ) : templateType === 'protocol' ? (
                 <div className="space-y-8 animate-in fade-in duration-500">
-                    <Card className="bg-accent/5 border-2">
-                        <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><FileText className="w-4 h-4" /> Protokoll-Daten</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-1"><Label>Fach</Label><Input value={protoSubject} onChange={e => setProtoSubject(e.target.value)} placeholder="Mathe..." readOnly={!showEditor} /></div>
-                            <div className="space-y-1"><Label>Datum</Label><Input type="date" value={protoDate} onChange={e => setProtoDate(e.target.value)} readOnly={!showEditor} /></div>
-                            <div className="space-y-1"><Label>Thema</Label><Input value={protoTopic} onChange={e => setProtoTopic(e.target.value)} placeholder="Analysis..." readOnly={!showEditor} /></div>
-                        </CardContent>
-                    </Card>
+                    {showEditor ? (
+                        <>
+                            <Card className="bg-accent/5 border-2">
+                                <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><FileText className="w-4 h-4" /> Protokoll-Daten</CardTitle></CardHeader>
+                                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-1"><Label>Fach</Label><Input value={protoSubject} onChange={e => setProtoSubject(e.target.value)} placeholder="Mathe..." /></div>
+                                    <div className="space-y-1"><Label>Datum</Label><Input type="date" value={protoDate} onChange={e => setProtoDate(e.target.value)} /></div>
+                                    <div className="space-y-1"><Label>Thema</Label><Input value={protoTopic} onChange={e => setProtoTopic(e.target.value)} placeholder="Analysis..." /></div>
+                                </CardContent>
+                            </Card>
 
-                    <Card className="border-dashed border-2 bg-primary/5">
-                        <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2 text-primary"><BookmarkPlus className="w-4 h-4" /> Hausaufgabe hinzufügen</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3">
-                            <Input placeholder="Aufgabe..." value={newHwTask} onChange={e => setNewHwTask(e.target.value)} />
-                            <Input type="date" value={newHwDue} onChange={e => setNewHwDue(e.target.value)} />
-                            <Button onClick={handleAddHw} disabled={!newHwTask.trim()}><Plus className="w-4 h-4" /></Button>
-                        </CardContent>
-                    </Card>
+                            <Card className="border-dashed border-2 bg-primary/5">
+                                <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2 text-primary"><BookmarkPlus className="w-4 h-4" /> Hausaufgabe hinzufügen</CardTitle></CardHeader>
+                                <CardContent className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3">
+                                    <Input placeholder="Aufgabe..." value={newHwTask} onChange={e => setNewHwTask(e.target.value)} />
+                                    <Input type="date" value={newHwDue} onChange={e => setNewHwDue(e.target.value)} />
+                                    <Button onClick={handleAddHw} disabled={!newHwTask.trim()}><Plus className="w-4 h-4" /></Button>
+                                </CardContent>
+                            </Card>
+                        </>
+                    ) : (
+                        <div className="bg-secondary/30 p-6 rounded-2xl border flex flex-wrap gap-x-8 gap-y-2 items-baseline">
+                            <div><span className="text-[10px] uppercase font-black text-muted-foreground block">Fach</span><span className="text-xl font-bold">{protoSubject || 'N/A'}</span></div>
+                            <div><span className="text-[10px] uppercase font-black text-muted-foreground block">Datum</span><span className="text-lg font-medium">{protoDate ? new Date(protoDate).toLocaleDateString('de-DE') : 'N/A'}</span></div>
+                            <div className="flex-1 min-w-[200px]"><span className="text-[10px] uppercase font-black text-muted-foreground block">Thema</span><span className="text-lg italic">"{protoTopic || 'Unbekannt'}"</span></div>
+                        </div>
+                    )}
 
                     <div className="pt-4">
-                        {showEditor ? <Textarea placeholder="Mitschrift..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
+                        {showEditor ? (
+                            <Textarea 
+                                placeholder="Mitschrift..." 
+                                className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none p-0 resize-none leading-relaxed bg-transparent" 
+                                value={content} 
+                                onChange={e => setContent(e.target.value)} 
+                            />
+                        ) : (
+                            <CustomMarkdownRenderer content={content} />
+                        )}
                     </div>
                 </div>
             ) : templateType === 'study' ? (
                 <div className="flex flex-col h-full space-y-8 animate-in fade-in duration-500">
                     <div className="flex-1">
-                        {showEditor ? <Textarea placeholder="Lernzettel..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
+                        {showEditor ? <Textarea placeholder="Lernzettel..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none p-0 resize-none leading-relaxed bg-transparent" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
                     </div>
                     
                     <div className="border-t pt-8 space-y-4">

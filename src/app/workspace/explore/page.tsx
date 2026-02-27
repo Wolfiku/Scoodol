@@ -76,7 +76,6 @@ export default function ExplorePage() {
 
     const types = filteredItems.filter(i => i.kind === 'type');
     const smartTemplates = filteredItems.filter(i => i.kind === 'smart');
-    const templates = filteredItems.filter(i => i.kind === 'template');
 
     const renderGrid = (items: ExploreItem[], sectionTitle: string) => {
         if (items.length === 0) return null;
@@ -105,7 +104,7 @@ export default function ExplorePage() {
                                     <div className="flex justify-between items-start">
                                         <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{item.category}</span>
                                         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 uppercase font-black">
-                                            {item.kind === 'type' ? 'System' : item.kind === 'smart' ? 'Smart Vorlage' : 'Vorlage'}
+                                            {item.kind === 'type' ? 'System' : 'Smart Vorlage'}
                                         </Badge>
                                     </div>
                                     <h3 className="font-bold text-lg">{item.title}</h3>
@@ -143,7 +142,6 @@ export default function ExplorePage() {
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {renderGrid(types, "Dokumententypen")}
                 {renderGrid(smartTemplates, "Smart Vorlagen")}
-                {renderGrid(templates, "Struktur-Vorlagen")}
 
                 {filteredItems.length === 0 && (
                     <div className="p-20 text-center text-muted-foreground bg-secondary/30 rounded-3xl border-2 border-dashed">
