@@ -103,11 +103,21 @@ export default function TextDocumentPage() {
     }
   }, [documentData]);
 
-  // Table detection logic
   useEffect(() => {
     const handleSelectionChange = () => {
-      const table = getTableUnderCursor();
-      setIsInTable(!!table);
+      const selection = window.getSelection();
+      if (!selection?.rangeCount) return;
+      
+      let node = selection.getRangeAt(0).startContainer;
+      let tableFound = false;
+      while (node && node !== editorRef.current) {
+        if (node.nodeName === 'TABLE') {
+          tableFound = true;
+          break;
+        }
+        node = node.parentNode as Node;
+      }
+      setIsInTable(tableFound);
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
@@ -153,63 +163,30 @@ export default function TextDocumentPage() {
 
   const execCommand = (command: string, value: string = '') => {
     editorRef.current?.focus();
-    // Modern browsers support styleWithCSS to use <span> with styles instead of <font> tags
     document.execCommand('styleWithCSS', false, 'true');
     document.execCommand(command, false, value);
     triggerAutoSave();
   };
 
-  const applyCustomFontSize = (size: string) => {
-    const numericSize = parseInt(size);
-    if (isNaN(numericSize) || numericSize < 1 || numericSize > 100) return;
-    
-    setFontSize(size);
+  const applyStyle = (styleKey: 'fontSize' | 'fontFamily', value: string) => {
     editorRef.current?.focus();
-    
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
-    
-    if (range.collapsed) {
-        const span = document.createElement('span');
-        span.style.fontSize = `${numericSize}px`;
-        span.innerHTML = '&#8203;'; 
-        range.insertNode(span);
-        
-        const newRange = document.createRange();
-        newRange.setStart(span.firstChild!, 1);
-        newRange.setEnd(span.firstChild!, 1);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-    } else {
-        document.execCommand('styleWithCSS', false, 'true');
-        // document.execCommand('fontSize') doesn't support pixels, so we wrap manually
-        const span = document.createElement('span');
-        span.style.fontSize = `${numericSize}px`;
-        try {
-            range.surroundContents(span);
-        } catch (e) {
-            // Fallback for complex selections
-            document.execCommand('fontSize', false, '1'); // temp
-        }
-    }
-    
-    triggerAutoSave();
-  };
-
-  const applyFontFamily = (family: string) => {
-    editorRef.current?.focus();
     document.execCommand('styleWithCSS', false, 'true');
-    
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
 
-    const range = selection.getRangeAt(0);
-    
     if (range.collapsed) {
+        // Create an anchor span for the next text to be typed
         const span = document.createElement('span');
-        span.style.fontFamily = family;
+        if (styleKey === 'fontSize') {
+            span.style.fontSize = `${value}px`;
+            setFontSize(value);
+        } else {
+            span.style.fontFamily = value;
+        }
+        
+        // Zero-width space keeps the cursor inside the span
         span.innerHTML = '&#8203;';
         range.insertNode(span);
         
@@ -219,10 +196,23 @@ export default function TextDocumentPage() {
         selection.removeAllRanges();
         selection.addRange(newRange);
     } else {
-        document.execCommand('fontName', false, family);
+        if (styleKey === 'fontFamily') {
+            document.execCommand('fontName', false, value);
+        } else if (styleKey === 'fontSize') {
+            // Using document.execCommand with a temp tag then replacing it for complex selections
+            document.execCommand('fontSize', false, '7'); 
+            const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
+            fonts?.forEach(f => {
+                const s = document.createElement('span');
+                s.style.fontSize = `${value}px`;
+                s.innerHTML = f.innerHTML;
+                f.parentNode?.replaceChild(s, f);
+            });
+            setFontSize(value);
+        }
     }
     triggerAutoSave();
-  }
+  };
 
   const insertTable = () => {
     const tableHtml = `
@@ -399,7 +389,7 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-3 flex-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
                 <Input 
-                    placeholder="Titel des Dokuments..." 
+                    placeholder="Titel..." 
                     className="text-lg font-black border-0 shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent flex-1"
                     value={title}
                     onChange={e => { setTitle(e.target.value); triggerAutoSave(); }}
@@ -408,12 +398,12 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-2">
                 <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
                     {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-                    {saveStatus === 'saving' ? 'Wird gespeichert' : 'Gespeichert'}
+                    {saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}
                 </span>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Jetzt speichern</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                     </DropdownMenuContent>
@@ -421,37 +411,34 @@ export default function TextDocumentPage() {
             </div>
         </div>
 
-        {/* Compact Single-Line Toolbar */}
         <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
-            {/* Font Selection */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
+                    <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-60 overflow-y-auto">
                         {FONTS.map(font => (
-                            <DropdownMenuItem key={font.name} onClick={() => applyFontFamily(font.family)} style={{ fontFamily: font.family }}>
+                            <DropdownMenuItem key={font.name} onClick={() => applyStyle('fontFamily', font.family)} style={{ fontFamily: font.family }}>
                                 {font.name}
                             </DropdownMenuItem>
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 
-                <div className="flex items-center gap-1 ml-1" onMouseDown={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1 ml-1">
                     <span className="text-[10px] font-bold opacity-50">PX</span>
                     <Input 
                         type="number" 
                         min="1" 
                         max="100" 
                         value={fontSize}
-                        onChange={e => applyCustomFontSize(e.target.value)}
+                        onChange={e => applyStyle('fontSize', e.target.value)}
                         className="h-7 w-12 text-[11px] p-1 text-center bg-background border-none focus-visible:ring-1"
                     />
                 </div>
             </div>
 
-            {/* Formatting */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
@@ -459,10 +446,9 @@ export default function TextDocumentPage() {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
             </div>
 
-            {/* Colors */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
+                    <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe"><Palette className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
@@ -472,7 +458,7 @@ export default function TextDocumentPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
+                    <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Marker"><Highlighter className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
@@ -483,7 +469,6 @@ export default function TextDocumentPage() {
                 </DropdownMenu>
             </div>
 
-            {/* Lists & Indent */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
@@ -492,14 +477,12 @@ export default function TextDocumentPage() {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5" /></Button>
             </div>
 
-            {/* Alignment */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5" /></Button>
             </div>
 
-            {/* Media & Table */}
             <div className="flex items-center gap-0.5 shrink-0 pl-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'link', open: true})}><LinkIcon className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'image', open: true})}><ImageIcon className="h-3.5 w-3.5" /></Button>
@@ -509,7 +492,6 @@ export default function TextDocumentPage() {
             </div>
         </div>
 
-        {/* Dynamic Contextual Table Toolbar */}
         {isInTable && (
             <div className="flex items-center gap-2 p-1 px-4 bg-primary/10 border-t animate-in slide-in-from-top-1 duration-200">
                 <span className="text-[10px] font-black uppercase text-primary/70 mr-2 flex items-center gap-1"><TableIcon className="h-3 w-3" /> Tabelle</span>
@@ -577,9 +559,10 @@ export default function TextDocumentPage() {
         ::selection {
             background-color: hsla(var(--primary), 0.3);
         }
-        /* Ensure font styles applied via span win over prose defaults */
-        .prose span[style*="font-family"] {
-            font-family: inherit; /* will be overridden by the inline style */
+        /* Ensure styles are always active inside spans */
+        .prose span {
+            font-size: inherit;
+            font-family: inherit;
         }
       `}</style>
     </div>
