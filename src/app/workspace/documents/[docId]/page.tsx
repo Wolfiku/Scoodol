@@ -166,7 +166,10 @@ export default function TextDocumentPage() {
     editorRef.current?.focus();
     
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+    if (!selection || selection.rangeCount === 0) {
+        execCommand('fontSize', '1'); // Placeholder to apply some style
+        return;
+    };
 
     const range = selection.getRangeAt(0);
     const span = document.createElement('span');
@@ -177,10 +180,12 @@ export default function TextDocumentPage() {
         span.innerHTML = '&#8203;'; 
         range.insertNode(span);
         // Move cursor inside the span after the ZWSP
-        range.setStart(span.firstChild!, 1);
-        range.setEnd(span.firstChild!, 1);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        if (span.firstChild) {
+            range.setStart(span.firstChild, 1);
+            range.setEnd(span.firstChild, 1);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     } else {
         range.surroundContents(span);
     }
@@ -202,10 +207,12 @@ export default function TextDocumentPage() {
         span.style.fontFamily = family;
         span.innerHTML = '&#8203;';
         range.insertNode(span);
-        range.setStart(span.firstChild!, 1);
-        range.setEnd(span.firstChild!, 1);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        if (span.firstChild) {
+            range.setStart(span.firstChild, 1);
+            range.setEnd(span.firstChild, 1);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     } else {
         execCommand('fontName', family);
     }
@@ -402,9 +409,9 @@ export default function TextDocumentPage() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onMouseDown={preventDefault} onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onMouseDown={preventDefault} onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -420,14 +427,14 @@ export default function TextDocumentPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-60 overflow-y-auto">
                         {FONTS.map(font => (
-                            <DropdownMenuItem key={font.name} onMouseDown={preventDefault} onClick={() => applyFontFamily(font.family)} style={{ fontFamily: font.family }}>
+                            <DropdownMenuItem key={font.name} onClick={() => applyFontFamily(font.family)} style={{ fontFamily: font.family }}>
                                 {font.name}
                             </DropdownMenuItem>
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 
-                <div className="flex items-center gap-1 ml-1">
+                <div className="flex items-center gap-1 ml-1" onMouseDown={e => e.stopPropagation()}>
                     <span className="text-[10px] font-bold opacity-50">PX</span>
                     <Input 
                         type="number" 
@@ -435,7 +442,6 @@ export default function TextDocumentPage() {
                         max="100" 
                         value={fontSize}
                         onChange={e => applyCustomFontSize(e.target.value)}
-                        onMouseDown={preventDefault}
                         className="h-7 w-12 text-[11px] p-1 text-center bg-background border-none focus-visible:ring-1"
                     />
                 </div>
@@ -457,7 +463,7 @@ export default function TextDocumentPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (
-                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onMouseDown={preventDefault} onClick={() => execCommand('foreColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -467,7 +473,7 @@ export default function TextDocumentPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (
-                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onMouseDown={preventDefault} onClick={() => execCommand('hiliteColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
