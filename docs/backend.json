@@ -106,6 +106,7 @@
         "title": { "type": "string", "description": "The title of the document." },
         "content": { "type": "string", "description": "The HTML content of the document." },
         "ownerId": { "type": "string", "description": "The UID of the user who owns the document." },
+        "isPublished": { "type": "boolean", "description": "Whether the document is publicly accessible." },
         "createdAt": { "type": "object", "description": "Timestamp of when the document was created." },
         "updatedAt": { "type": "object", "description": "Timestamp of when the document was last updated." }
       },

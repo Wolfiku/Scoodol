@@ -29,7 +29,8 @@ service cloud.firestore {
       }
 
       match /documents/{docId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read: if resource.data.isPublished == true || (request.auth != null && request.auth.uid == userId);
+        allow write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
       match /quizzes/{quizId} {

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
@@ -12,7 +13,7 @@ import {
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info
+    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -46,12 +47,14 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import QRCode from 'qrcode';
 
 type TextDocument = {
   title: string;
   content: string;
   ownerId: string;
   isLocked?: boolean;
+  isPublished?: boolean;
   createdAt: any;
   updatedAt: any;
 };
@@ -87,8 +90,8 @@ export default function TextDocumentPage() {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
   
-  // Define states in correct order to avoid "access before initialization" error
   const [isLocked, setIsLocked] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   const [isEditing, setIsEditing] = useState(true); 
   const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -96,6 +99,10 @@ export default function TextDocumentPage() {
   const [mediaUrl, setMediaUrl] = useState('');
   const [isInTable, setIsInTable] = useState(false);
   const [fontSize, setFontSize] = useState('18');
+  
+  // QR Code State
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
   const docRef = useMemoFirebase(() => 
     !isNewDoc && user && typeof docId === 'string'
@@ -110,6 +117,7 @@ export default function TextDocumentPage() {
     if (documentData) {
       setTitle(documentData.title);
       setIsLocked(!!documentData.isLocked);
+      setIsPublished(!!documentData.isPublished);
       if (documentData.isLocked) {
           setIsEditing(false);
       }
@@ -161,6 +169,7 @@ export default function TextDocumentPage() {
           content,
           ownerId: user.uid,
           isLocked: false,
+          isPublished: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -211,14 +220,13 @@ export default function TextDocumentPage() {
     document.execCommand('styleWithCSS', false, 'true');
 
     if (range.collapsed) {
-        // Insert style anchor for next input
         const span = document.createElement('span');
         if (styleKey === 'fontFamily') span.style.fontFamily = value;
         if (styleKey === 'fontSize') {
             span.style.fontSize = `${value}px`;
             setFontSize(value);
         }
-        span.appendChild(document.createTextNode('\u200B')); // Zero-width space
+        span.appendChild(document.createTextNode('\u200B'));
         range.insertNode(span);
         range.setStart(span.firstChild!, 1);
         range.setEnd(span.firstChild!, 1);
@@ -227,7 +235,6 @@ export default function TextDocumentPage() {
     } else {
         if (styleKey === 'fontFamily') {
             document.execCommand('fontName', false, value);
-            // Browser might insert <font face="...">, normalize to span style if possible
             const fonts = editorRef.current?.querySelectorAll('font[face]');
             fonts?.forEach(f => {
                 const s = document.createElement('span');
@@ -344,7 +351,6 @@ export default function TextDocumentPage() {
     const selection = window.getSelection();
     if (!selection) return;
     
-    // Restore selection from memory
     if (savedRange.current) {
         selection.removeAllRanges();
         selection.addRange(savedRange.current);
@@ -398,6 +404,52 @@ export default function TextDocumentPage() {
       toast({ title: newLockState ? 'Dokument gesperrt' : 'Dokument entsperrt' });
   };
 
+  const togglePublish = async () => {
+      if (isNewDoc || !docRef) return;
+      const newPublishState = !isPublished;
+      setIsPublished(newPublishState);
+      await setDoc(docRef, { isPublished: newPublishState }, { merge: true });
+      toast({ 
+          title: newPublishState ? 'Dokument veröffentlicht!' : 'Dokument privat geschaltet',
+          description: newPublishState ? 'Dein Dokument ist nun über den öffentlichen Link erreichbar.' : 'Der öffentliche Zugriff wurde deaktiviert.'
+      });
+  };
+
+  const publicUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !user || !docId) return '';
+    return `${window.location.origin}/public/document/${user.uid}/${docId}`;
+  }, [user, docId]);
+
+  const copyPublicLink = () => {
+    navigator.clipboard.writeText(publicUrl);
+    toast({ title: "Link kopiert!", description: "Du kannst ihn jetzt teilen." });
+  }
+
+  const handleShowQr = async () => {
+    try {
+        const url = await QRCode.toDataURL(publicUrl, {
+            width: 400,
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' },
+        });
+        setQrCodeUrl(url);
+        setIsQrDialogOpen(true);
+    } catch (err) {
+        console.error(err);
+        toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
+    }
+  };
+
+  const downloadQr = () => {
+    if (!qrCodeUrl) return;
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `doc-qr-${title.replace(/\s+/g, '-').toLowerCase()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const exportAsPDF = () => {
       const content = editorRef.current?.innerHTML || '';
       const printWindow = window.open('', '_blank');
@@ -412,7 +464,7 @@ export default function TextDocumentPage() {
                           table { border-collapse: collapse; width: 100%; margin: 20px 0; }
                           td, th { border: 1px solid #ddd; padding: 12px; text-align: left; }
                           img { max-width: 100%; height: auto; border-radius: 8px; }
-                          .video-wrapper { display: none; } /* PDFs can't play video */
+                          .video-wrapper { display: none; }
                       </style>
                   </head>
                   <body>
@@ -483,11 +535,18 @@ export default function TextDocumentPage() {
                       <div className="text-muted-foreground">Autor</div><div className="font-bold">{user?.displayName || user?.email || 'System'}</div>
                       <div className="text-muted-foreground">Erstellt am</div><div className="font-bold">{documentData?.createdAt ? format(new Date(documentData.createdAt.seconds * 1000), 'PPP p', { locale: de }) : 'Gerade eben'}</div>
                       <div className="text-muted-foreground">Letzte Änderung</div><div className="font-bold">{documentData?.updatedAt ? format(new Date(documentData.updatedAt.seconds * 1000), 'PPP p', { locale: de }) : 'Unbekannt'}</div>
-                      <div className="text-muted-foreground">Status</div><div><Badge variant={isLocked ? 'destructive' : 'secondary'}>{isLocked ? 'Gesperrt' : 'Offen'}</Badge></div>
+                      <div className="text-muted-foreground">Status</div><div className="flex gap-2"><Badge variant={isLocked ? 'destructive' : 'secondary'}>{isLocked ? 'Gesperrt' : 'Offen'}</Badge>{isPublished && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Öffentlich</Badge>}</div>
                   </div>
               </div>
               <DialogFooter><Button onClick={() => setIsManifestOpen(false)}>Schließen</Button></DialogFooter>
           </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>QR-Code für dein Dokument</DialogTitle><DialogDescription>Teile diesen Code, damit andere dein Dokument scannen und lesen können.</DialogDescription></DialogHeader>
+            <div className="flex flex-col items-center justify-center p-6 gap-4">{qrCodeUrl && (<div className="bg-white p-4 rounded-lg shadow-sm border"><img src={qrCodeUrl} alt="Doc QR Code" className="w-64 h-64" /></div>)}<Button onClick={downloadQr} className="w-full"><Download className="mr-2 h-4 w-4" /> Herunterladen (.png)</Button></div>
+        </DialogContent>
       </Dialog>
 
       <Dialog open={isMediaDialogOpen.open} onOpenChange={(open) => setIsMediaDialogOpen({...isMediaDialogOpen, open})}>
@@ -514,6 +573,12 @@ export default function TextDocumentPage() {
                 />
             </div>
             <div className="flex items-center gap-2">
+                {isPublished && (
+                    <span className="text-[9px] uppercase font-black text-green-600 flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded animate-pulse cursor-pointer" onClick={handleShowQr}>
+                        <Globe className="h-2.5 w-2.5" />
+                        Live
+                    </span>
+                )}
                 <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
                     {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
                     {saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}
@@ -525,6 +590,11 @@ export default function TextDocumentPage() {
                         <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={isLocked}>
                             {isEditing ? <><BookOpen className="mr-2 h-4 w-4" /> Lesemodus</> : <><Edit className="mr-2 h-4 w-4" /> Bearbeiten</>}
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={togglePublish} disabled={isNewDoc}>
+                            {isPublished ? <><Globe className="mr-2 h-4 w-4" /> Privat schalten</> : <><Globe className="mr-2 h-4 w-4" /> Veröffentlichen</>}
+                        </DropdownMenuItem>
+                        {isPublished && <DropdownMenuItem onClick={handleShowQr}><QrCode className="mr-2 h-4 w-4" /> QR-Code anzeigen</DropdownMenuItem>}
+                        {isPublished && <DropdownMenuItem onClick={copyPublicLink}><Copy className="mr-2 h-4 w-4" /> Link kopieren</DropdownMenuItem>}
                         <DropdownMenuItem onClick={toggleLock} disabled={isNewDoc}>
                             {isLocked ? <><Unlock className="mr-2 h-4 w-4" /> Entsperren</> : <><Lock className="mr-2 h-4 w-4" /> Sperren</>}
                         </DropdownMenuItem>
