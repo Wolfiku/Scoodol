@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo, BrainCircuit } from 'lucide-react';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo, BrainCircuit, Type } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
@@ -51,6 +51,10 @@ type QuickNote = DocumentBase & {
   content: string;
 }
 
+type TextDocument = DocumentBase & {
+    content: string;
+}
+
 type TodoList = DocumentBase & {
     tasks: any[];
 }
@@ -79,6 +83,11 @@ export default function WorkspacePage() {
     , [firestore, user]);
     const { data: recentNotes, isLoading: isLoadingNotes } = useCollection<QuickNote>(notesQuery);
 
+    const docsQuery = useMemoFirebase(() =>
+        user ? query(collection(firestore, `users/${user.uid}/documents`), orderBy('updatedAt', 'desc'), limit(5)) : null
+    , [firestore, user]);
+    const { data: recentDocs, isLoading: isLoadingDocs } = useCollection<TextDocument>(docsQuery);
+
     const todosQuery = useMemoFirebase(() =>
       user ? query(collection(firestore, `users/${user.uid}/todoLists`), orderBy('updatedAt', 'desc'), limit(5)) : null
     , [firestore, user]);
@@ -99,10 +108,11 @@ export default function WorkspacePage() {
 
     const recentItems = useMemo(() => {
         const notesWithType = (recentNotes || []).map(note => ({ ...note, type: 'note' as const }));
+        const docsWithType = (recentDocs || []).map(doc => ({ ...doc, type: 'document' as const }));
         const todosWithType = (recentTodoLists || []).map(todo => ({ ...todo, type: 'todo' as const }));
         const quizzesWithType = (recentQuizzes || []).map(quiz => ({ ...quiz, type: 'quiz' as const }));
 
-        const allItems = [...notesWithType, ...todosWithType, ...quizzesWithType];
+        const allItems = [...notesWithType, ...docsWithType, ...todosWithType, ...quizzesWithType];
         allItems.sort((a, b) => {
             const timeA = a.updatedAt?.seconds || 0;
             const timeB = b.updatedAt?.seconds || 0;
@@ -111,7 +121,7 @@ export default function WorkspacePage() {
         
         return allItems.slice(0, 10);
 
-    }, [recentNotes, recentTodoLists, recentQuizzes]);
+    }, [recentNotes, recentDocs, recentTodoLists, recentQuizzes]);
 
     
     if (isUserLoading || isProfileLoading) {
@@ -132,11 +142,12 @@ export default function WorkspacePage() {
       return formatDistanceToNow(date, { addSuffix: true, locale: de });
     }
 
-    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'todo' | 'quiz'}) => {
+    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'document' | 'todo' | 'quiz'}) => {
       if (!user) return;
       let collectionName = '';
       switch(item.type) {
           case 'note': collectionName = 'quickNotes'; break;
+          case 'document': collectionName = 'documents'; break;
           case 'todo': collectionName = 'todoLists'; break;
           case 'quiz': collectionName = 'quizzes'; break;
       }
@@ -171,6 +182,12 @@ export default function WorkspacePage() {
                         <DropdownMenuLabel>Erstellen</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
+                          <Link href="/workspace/documents/new">
+                            <Type className="mr-2 h-4 w-4" />
+                            <span>Text-Dokument</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
                           <Link href="/workspace/notes/new">
                             <StickyNote className="mr-2 h-4 w-4" />
                             <span>Quick Note</span>
@@ -182,9 +199,11 @@ export default function WorkspacePage() {
                             <span>Quiz</span>
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled>
-                          <FileText className="mr-2 h-4 w-4" />
-                          <span>Dokument</span>
+                        <DropdownMenuItem asChild>
+                          <Link href="/workspace/todos/new">
+                            <ListTodo className="mr-2 h-4 w-4" />
+                            <span>To-Do-Liste</span>
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
@@ -200,7 +219,7 @@ export default function WorkspacePage() {
 
             <div>
                 <h2 className="text-xl font-semibold mb-4">Zuletzt geöffnet</h2>
-                {(isLoadingNotes || isLoadingTodos || isLoadingQuizzes) ? (
+                {(isLoadingNotes || isLoadingDocs || isLoadingTodos || isLoadingQuizzes) ? (
                     <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                     </div>
@@ -213,9 +232,10 @@ export default function WorkspacePage() {
                                 <h3 className="font-semibold truncate pr-4">{item.title}</h3>
                                 <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full whitespace-nowrap flex items-center gap-1">
                                   {item.type === 'note' && <StickyNote className="w-3 h-3" />}
+                                  {item.type === 'document' && <Type className="w-3 h-3" />}
                                   {item.type === 'todo' && <ListTodo className="w-3 h-3" />}
                                   {item.type === 'quiz' && <BrainCircuit className="w-3 h-3" />}
-                                  {item.type === 'note' ? 'Quick Note' : item.type === 'todo' ? 'To-Do-Liste' : 'Quiz'}
+                                  {item.type === 'note' ? 'Quick Note' : item.type === 'document' ? 'Dokument' : item.type === 'todo' ? 'To-Do-Liste' : 'Quiz'}
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground">
@@ -224,7 +244,7 @@ export default function WorkspacePage() {
                            </div>
                            <div className="p-2 border-t flex justify-end items-center gap-1">
                                 <Button asChild variant="ghost" size="icon">
-                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'todo' ? 'todos' : 'quizzes'}/${item.id}`} >
+                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'document' ? 'documents' : item.type === 'todo' ? 'todos' : 'quizzes'}/${item.id}`} >
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>

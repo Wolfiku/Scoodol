@@ -28,6 +28,10 @@ service cloud.firestore {
         allow read, write, delete: if request.auth != null && request.auth.uid == userId;
       }
 
+      match /documents/{docId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
       match /quizzes/{quizId} {
         // Anyone can read a quiz if it's published
         allow read: if resource.data.isPublished == true || (request.auth != null && request.auth.uid == userId);

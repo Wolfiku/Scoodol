@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2 } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Type } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,6 +22,14 @@ interface ExploreItem {
 }
 
 const items: ExploreItem[] = [
+    {
+        title: "Text-Dokument",
+        description: "Ein funktionsreiches Dokument mit Tabellen, Bildern und Text-Formatierung.",
+        icon: <Type className="w-8 h-8" />,
+        href: "/workspace/documents/new",
+        category: "Basic",
+        kind: "type"
+    },
     {
         title: "Quick Note",
         description: "Eine schnelle Notiz mit einfacher Markdown-Formatierung.",
