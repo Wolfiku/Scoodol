@@ -152,8 +152,9 @@ export default function TextDocumentPage() {
   };
 
   const execCommand = (command: string, value: string = '') => {
-    document.execCommand(command, false, value);
+    // Re-focus the editor before executing to ensure the command applies to the correct context
     editorRef.current?.focus();
+    document.execCommand(command, false, value);
     triggerAutoSave();
   };
 
@@ -162,22 +163,20 @@ export default function TextDocumentPage() {
     if (isNaN(numericSize) || numericSize < 1 || numericSize > 100) return;
     
     setFontSize(size);
-    // document.execCommand('fontSize') uses 1-7. We need CSS for 1-100px.
-    // We use a temporary command to wrap selection in a span, then modify it.
+    editorRef.current?.focus();
+    
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
-    // Use span with style for precise control
+    const range = selection.getRangeAt(0);
     const span = document.createElement('span');
     span.style.fontSize = `${numericSize}px`;
     
-    const range = selection.getRangeAt(0);
     if (range.collapsed) {
-        // If nothing selected, just apply to next typing
-        // This is tricky with pure contentEditable + JS. 
-        // We'll insert an empty span and put cursor inside.
-        span.innerHTML = '&#8203;'; // Zero-width space
+        // If nothing is selected, we insert a zero-width space so the style is "anchored"
+        span.innerHTML = '&#8203;'; 
         range.insertNode(span);
+        // Move cursor inside the span after the ZWSP
         range.setStart(span.firstChild!, 1);
         range.setEnd(span.firstChild!, 1);
         selection.removeAllRanges();
@@ -186,9 +185,32 @@ export default function TextDocumentPage() {
         range.surroundContents(span);
     }
     
-    editorRef.current?.focus();
     triggerAutoSave();
   };
+
+  const applyFontFamily = (family: string) => {
+    editorRef.current?.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        execCommand('fontName', family);
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) {
+        const span = document.createElement('span');
+        span.style.fontFamily = family;
+        span.innerHTML = '&#8203;';
+        range.insertNode(span);
+        range.setStart(span.firstChild!, 1);
+        range.setEnd(span.firstChild!, 1);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        execCommand('fontName', family);
+    }
+    triggerAutoSave();
+  }
 
   const insertTable = () => {
     const tableHtml = `
@@ -258,7 +280,6 @@ export default function TextDocumentPage() {
     const table = getTableUnderCursor();
     if (!table) return;
     
-    // Find the container to remove it completely
     let container = table.parentElement;
     while (container && container !== editorRef.current && !container.classList.contains('table-container')) {
         container = container.parentElement;
@@ -320,6 +341,9 @@ export default function TextDocumentPage() {
     router.push('/workspace');
   };
 
+  // Helper to prevent focus loss on toolbar clicks (Crucial for mobile)
+  const preventDefault = (e: React.MouseEvent) => e.preventDefault();
+
   if (isUserLoading || (isLoadingDoc && !isNewDoc)) {
     return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
@@ -378,9 +402,9 @@ export default function TextDocumentPage() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
+                        <DropdownMenuItem onMouseDown={preventDefault} onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                        <DropdownMenuItem onMouseDown={preventDefault} onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -391,19 +415,18 @@ export default function TextDocumentPage() {
             {/* Font Selection */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
                         <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-60 overflow-y-auto">
                         {FONTS.map(font => (
-                            <DropdownMenuItem key={font.name} onClick={() => execCommand('fontName', font.family)} style={{ fontFamily: font.family }}>
+                            <DropdownMenuItem key={font.name} onMouseDown={preventDefault} onClick={() => applyFontFamily(font.family)} style={{ fontFamily: font.family }}>
                                 {font.name}
                             </DropdownMenuItem>
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 
-                {/* Individual Font Size Input */}
                 <div className="flex items-center gap-1 ml-1">
                     <span className="text-[10px] font-bold opacity-50">PX</span>
                     <Input 
@@ -412,6 +435,7 @@ export default function TextDocumentPage() {
                         max="100" 
                         value={fontSize}
                         onChange={e => applyCustomFontSize(e.target.value)}
+                        onMouseDown={preventDefault}
                         className="h-7 w-12 text-[11px] p-1 text-center bg-background border-none focus-visible:ring-1"
                     />
                 </div>
@@ -419,31 +443,31 @@ export default function TextDocumentPage() {
 
             {/* Formatting */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
             </div>
 
             {/* Colors */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe"><Palette className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (
-                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onMouseDown={preventDefault} onClick={() => execCommand('foreColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger asChild onMouseDown={preventDefault}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Marker"><Highlighter className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (
-                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onMouseDown={preventDefault} onClick={() => execCommand('hiliteColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -451,27 +475,27 @@ export default function TextDocumentPage() {
 
             {/* Lists & Indent */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5" /></Button>
             </div>
 
             {/* Alignment */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5" /></Button>
             </div>
 
             {/* Media & Table */}
             <div className="flex items-center gap-0.5 shrink-0 pl-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'link', open: true})}><LinkIcon className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'image', open: true})}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'video', open: true})}><Video className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'link', open: true})}><LinkIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'image', open: true})}><ImageIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'video', open: true})}><Video className="h-3.5 w-3.5" /></Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
             </div>
         </div>
 
@@ -479,11 +503,11 @@ export default function TextDocumentPage() {
         {isInTable && (
             <div className="flex items-center gap-2 p-1 px-4 bg-primary/10 border-t animate-in slide-in-from-top-1 duration-200">
                 <span className="text-[10px] font-black uppercase text-primary/70 mr-2 flex items-center gap-1"><TableIcon className="h-3 w-3" /> Tabelle</span>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={addRow}><PlusSquare className="h-3 w-3" /> Zeile unten</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={addColumn}><PlusSquare className="h-3 w-3" /> Spalte rechts</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onMouseDown={preventDefault} onClick={addRow}><PlusSquare className="h-3 w-3" /> Zeile unten</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onMouseDown={preventDefault} onClick={addColumn}><PlusSquare className="h-3 w-3" /> Spalte rechts</Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive hover:text-destructive" onClick={deleteRow}><MinusSquare className="h-3 w-3" /> Zeile löschen</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive font-black hover:text-destructive" onClick={deleteCurrentTable}><Trash2 className="h-3 w-3" /> Tabelle löschen</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive hover:text-destructive" onMouseDown={preventDefault} onClick={deleteRow}><MinusSquare className="h-3 w-3" /> Zeile löschen</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive font-black hover:text-destructive" onMouseDown={preventDefault} onClick={deleteCurrentTable}><Trash2 className="h-3 w-3" /> Tabelle löschen</Button>
             </div>
         )}
       </header>
@@ -540,7 +564,6 @@ export default function TextDocumentPage() {
         .prose img:hover {
             transform: scale(1.01);
         }
-        /* Selection handling */
         ::selection {
             background-color: hsla(var(--primary), 0.3);
         }
