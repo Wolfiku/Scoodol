@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -42,6 +41,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 type TextDocument = {
@@ -302,7 +302,7 @@ export default function TextDocumentPage() {
             </div>
             <div className="flex items-center gap-2 ml-4">
                 <span className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded">
-                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin"/> : <Check className="h-3 w-3"/>}
+                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                     {saveStatus === 'saving' ? 'Wird gespeichert' : 'Gespeichert'}
                 </span>
                 <DropdownMenu>
