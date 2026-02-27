@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Presentation, Sparkles, LayoutGrid } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -48,27 +48,19 @@ const items: ExploreItem[] = [
     },
     {
         title: "Lernzettel",
-        description: "Strukturiert für deine Prüfungsvorbereitung mit Kernkonzepten.",
+        description: "Prüfungsvorbereitung mit integriertem KI-Tutor für Rückfragen.",
         icon: <BookOpen className="w-8 h-8" />,
         href: "/workspace/notes/new?template=study",
         category: "Lernen",
-        kind: "template"
+        kind: "smart"
     },
     {
         title: "Stunden-Protokoll",
-        description: "Halte Mitschriften und Hausaufgaben einer Stunde fest.",
+        description: "Halte Mitschriften fest und erstelle Hausaufgaben direkt aus dem Protokoll.",
         icon: <FileText className="w-8 h-8" />,
         href: "/workspace/notes/new?template=protocol",
         category: "Unterricht",
-        kind: "template"
-    },
-    {
-        title: "Referat-Planer",
-        description: "Plane deinen Vortrag mit Meilensteinen und Gliederung.",
-        icon: <Presentation className="w-8 h-8" />,
-        href: "/workspace/notes/new?template=presentation",
-        category: "Projekte",
-        kind: "template"
+        kind: "smart"
     }
 ]
 
@@ -135,7 +127,7 @@ export default function ExplorePage() {
             </Button>
             <header className="mb-10">
                 <h1 className="text-4xl font-black tracking-tight mb-2">Entdecken</h1>
-                <p className="text-lg text-muted-foreground">Erstelle neue Dokumente oder nutze spezialisierte Vorlagen.</p>
+                <p className="text-lg text-muted-foreground">Erstelle neue Dokumente oder nutze spezialisierte Smart Vorlagen.</p>
             </header>
 
             <div className="relative mb-12">

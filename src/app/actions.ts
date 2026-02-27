@@ -15,13 +15,12 @@ import { checkQuizAnswer } from "@/ai/flows/check-quiz-answer";
 import type { CheckQuizAnswerOutput } from "@/ai/flows/check-quiz-answer";
 import { evaluateLongAnswer as evaluateLongAnswerFlow } from "@/ai/flows/evaluate-long-answer";
 import type { EvaluateLongAnswerOutput } from "@/ai/flows/evaluate-long-answer";
+import { tutorChat as tutorChatFlow } from "@/ai/flows/tutor-chat";
+import type { TutorChatOutput } from "@/ai/flows/tutor-chat";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp, getApps }from "firebase/app";
 
-// Temporary admin action. This is not secure for production.
-// We are initializing a temporary app here to get an auth instance.
-// This is not ideal but necessary without a proper backend.
 if (!getApps().some(app => app.name === 'admin-action-app')) {
     initializeApp(firebaseConfig, 'admin-action-app');
 }
@@ -117,12 +116,18 @@ export async function checkLongAnswer(question: string, referenceAnswer: string,
     }
 }
 
+export async function getTutorReply(content: string, question: string, language: string): Promise<TutorChatOutput | { error: string }> {
+    try {
+        const result = await tutorChatFlow({ content, question, language });
+        return result;
+    } catch (error) {
+        console.error("Error in tutor chat:", error);
+        return { error: "Fehler bei der KI-Antwort." };
+    }
+}
+
 export async function sendPasswordResetEmailForUser(email: string): Promise<{success: boolean, error?: string}> {
     try {
-        // This uses the client-side SDK. Anyone can call this for any email,
-        // but it's safe because the user has to prove ownership of the email account
-        // to actually reset the password.
-        // We'll gate this on the frontend to be admin-only.
         const auth = getAuth();
         await sendPasswordResetEmail(auth, email);
         return { success: true };

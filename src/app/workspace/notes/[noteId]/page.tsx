@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock, Trash2, Edit, BookOpen, Link2, Plus, X, Globe } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Check, MoreHorizontal, Info, Share2, Lock, Unlock, Trash2, Edit, BookOpen, Link2, Plus, X, Globe, Sparkles, Send, Calendar as CalendarIcon, FileText, BookmarkPlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,13 +28,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { format, formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ShareNoteDialog from '@/app/components/share-note-dialog';
 import CustomMarkdownRenderer from '@/app/components/custom-markdown-renderer';
+import { getTutorReply } from '@/app/actions';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useTheme } from '@/hooks/use-theme';
 
 type QuickNote = {
   title: string;
@@ -70,6 +73,7 @@ function NoteEditor() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { aiLanguage } = useTheme();
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   
   const [title, setTitle] = useState('');
@@ -80,11 +84,23 @@ function NoteEditor() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [dateDisplayType, setDateDisplayType] = useState<'updated' | 'created'>('updated');
 
-  // Smart Link-Sammlung State
+  // Smart Templates States
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [linkNotes, setLinkNotes] = useState('');
+
+  // Protocol Smart States
+  const [protoSubject, setProtoSubject] = useState('');
+  const [protoDate, setProtoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [protoTopic, setProtoTopic] = useState('');
+  const [newHwTask, setNewHwTask] = useState('');
+  const [newHwDue, setNewHwDue] = useState('');
+
+  // Study Smart States (Tutor)
+  const [tutorQuestion, setTutorQuestion] = useState('');
+  const [tutorReplies, setTutorReplies] = useState<{q: string, a: string}[]>([]);
+  const [isTutorLoading, setIsTutorLoading] = useState(false);
 
   const noteDocRef = useMemoFirebase(() => 
     !isNewNote && user && typeof noteId === 'string'
@@ -99,18 +115,14 @@ function NoteEditor() {
   useEffect(() => {
     if (isNewNote && templateType && content === '') {
         if (templateType === 'study') {
-            setTitle('Neuer Lernzettel');
-            setContent('# Lernzettel: [Thema]\n\n### 💡 Kernkonzepte\n- [ ] Konzept 1...\n- [ ] Konzept 2...\n\n### 📝 Zusammenfassung\nZusammenfassung der wichtigsten Inhalte in eigenen Worten.\n\n### 🔢 Wichtige Fakten & Formeln\n- **Fakt 1**: Erklärung\n- **Formel**: a² + b² = c²\n\n### ❓ Mögliche Prüfungsfragen\n1. Frage?\n   - Antwort...');
+            setTitle('Lernzettel: [Thema]');
+            setContent('### 💡 Kernkonzepte\n- [ ] Konzept 1...\n\n### 📝 Zusammenfassung\n...\n\n### 🔢 Wichtige Fakten & Formeln\n- a² + b² = c²\n\n### ❓ Mögliche Prüfungsfragen\n1. ?');
         } else if (templateType === 'protocol') {
-            const today = new Date().toLocaleDateString('de-DE');
-            setTitle(`Protokoll: ${today}`);
-            setContent(`# Stunden-Protokoll: [Fach]\n**Datum:** ${today}\n**Thema:** \n\n### 📓 Mitschrift\n- Punkt 1\n- Punkt 2\n\n### 🎯 Wichtige Erkenntnisse\nWas ich mir unbedingt merken muss...\n\n### 🏠 Hausaufgaben & To-Dos\n- [ ] Aufgabe bis zum [Datum]`);
-        } else if (templateType === 'presentation') {
-            setTitle('Referats-Planung');
-            setContent(`# Referat: [Titel]\n\n### 📅 Meilensteine\n- [ ] Thema eingegrenzt\n- [ ] Recherche abgeschlossen\n- [ ] Gliederung erstellt\n- [ ] Handout vorbereitet\n- [ ] Präsentation geübt\n\n### 📂 Gliederung\n1. **Einleitung**: Interesse wecken.\n2. **Hauptteil**: Details A, Details B.\n3. **Schluss**: Fazit und Quellen.\n\n### 💡 Ideen & Entwürfe\nZusätzliche Notizen...`);
+            setTitle(`Protokoll: ${new Date().toLocaleDateString('de-DE')}`);
+            setContent(`### 📓 Mitschrift\n- \n\n### 🎯 Wichtige Erkenntnisse\n...`);
         } else if (templateType === 'links') {
             setTitle('Recherche: Link-Sammlung');
-            setContent('Link-Sammlung initialisiert.');
+            setContent('');
         }
     }
   }, [isNewNote, templateType, content]);
@@ -120,25 +132,30 @@ function NoteEditor() {
       if (note) {
           setTitle(note.title);
           setContent(note.content);
-          if (note.isLocked) {
-            setIsEditing(false);
-          }
+          if (note.isLocked) setIsEditing(false);
           setSaveStatus('idle');
 
-          // Attempt to parse links if it's a link collection
+          // Parse Smart Templates content
           if (templateType === 'links' || note.title.toLowerCase().includes('link')) {
-              // Basic parsing of our custom format
               const linksMatch = note.content.match(/## 🔗 Links\n([\s\S]*?)\n\n## 📝 Notizen/);
               if (linksMatch) {
-                  const linksLines = linksMatch[1].split('\n').filter(l => l.startsWith('- '));
-                  const parsedLinks = linksLines.map(line => {
+                  const parsed = linksMatch[1].split('\n').filter(l => l.startsWith('- ')).map(line => {
                       const m = line.match(/- \[(.*?)\]\((.*?)\)/);
                       return m ? { id: Math.random().toString(), title: m[1], url: m[2] } : null;
                   }).filter(l => l !== null) as LinkItem[];
-                  setLinks(parsedLinks);
+                  setLinks(parsed);
               }
               const notesMatch = note.content.match(/## 📝 Notizen\n([\s\S]*)$/);
               if (notesMatch) setLinkNotes(notesMatch[1].trim());
+          }
+
+          if (templateType === 'protocol') {
+              const headMatch = note.content.match(/# Protokoll: (.*) vom (.*)\n\*\*Thema:\*\* (.*)\n\n/);
+              if (headMatch) {
+                  setProtoSubject(headMatch[1]);
+                  setProtoDate(headMatch[2]);
+                  setProtoTopic(headMatch[3]);
+              }
           }
       }
   }, [note, templateType]);
@@ -150,6 +167,8 @@ function NoteEditor() {
     let finalContent = content;
     if (templateType === 'links') {
         finalContent = `# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`;
+    } else if (templateType === 'protocol') {
+        finalContent = `# Protokoll: ${protoSubject} vom ${protoDate}\n**Thema:** ${protoTopic}\n\n${content}`;
     }
 
     try {
@@ -176,15 +195,14 @@ function NoteEditor() {
     } catch (error) {
         setSaveStatus('dirty');
     }
-  }, [firestore, user, title, content, links, linkNotes, isNewNote, noteDocRef, router, note?.isLocked, templateType]);
+  }, [firestore, user, title, content, links, linkNotes, isNewNote, noteDocRef, router, note?.isLocked, templateType, protoSubject, protoDate, protoTopic]);
 
   useEffect(() => {
     if (isLoadingNote) return;
     
-    // Check if anything changed
-    const currentFinalContent = templateType === 'links' 
-        ? `# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`
-        : content;
+    let currentFinalContent = content;
+    if (templateType === 'links') currentFinalContent = `# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`;
+    if (templateType === 'protocol') currentFinalContent = `# Protokoll: ${protoSubject} vom ${protoDate}\n**Thema:** ${protoTopic}\n\n${content}`;
 
     if (note && title === note.title && currentFinalContent === note.content) return;
 
@@ -195,7 +213,7 @@ function NoteEditor() {
     }
 
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [title, content, links, linkNotes, note, isLoadingNote, handleSave, templateType]);
+  }, [title, content, links, linkNotes, protoSubject, protoDate, protoTopic, note, isLoadingNote, handleSave, templateType]);
 
   const handleDelete = async () => {
       if(isNewNote || !noteDocRef) return;
@@ -216,15 +234,38 @@ function NoteEditor() {
       if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
       let url = newLinkUrl.trim();
       if (!url.startsWith('http')) url = 'https://' + url;
-      
       setLinks([...links, { id: Date.now().toString(), title: newLinkTitle, url }]);
-      setNewLinkTitle('');
-      setNewLinkUrl('');
-      toast({ title: "Link hinzugefügt" });
+      setNewLinkTitle(''); setNewLinkUrl('');
   }
 
-  const removeLink = (id: string) => {
-      setLinks(links.filter(l => l.id !== id));
+  const handleAddHw = async () => {
+      if (!newHwTask.trim() || !user) return;
+      const homeworksRef = collection(firestore, `users/${user.uid}/homeworks`);
+      await addDocumentNonBlocking(homeworksRef, {
+          subject: protoSubject,
+          task: newHwTask,
+          dueDate: newHwDue,
+          done: false,
+          source: 'protocol'
+      });
+      toast({ title: "Hausaufgabe hinzugefügt!", description: `In Fach ${protoSubject} gespeichert.` });
+      setNewHwTask(''); setNewHwDue('');
+  }
+
+  const handleAskTutor = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!tutorQuestion.trim() || isTutorLoading) return;
+      setIsTutorLoading(true);
+      const q = tutorQuestion;
+      setTutorQuestion('');
+      
+      const result = await getTutorReply(content, q, aiLanguage);
+      if ('reply' in result) {
+          setTutorReplies(prev => [...prev, { q, a: result.reply }]);
+      } else {
+          toast({ variant: 'destructive', title: "Tutor-Fehler", description: result.error });
+      }
+      setIsTutorLoading(false);
   }
 
   const getFormattedDate = (timestamp: QuickNote['createdAt'] | undefined, type: 'created' | 'updated') => {
@@ -234,34 +275,19 @@ function NoteEditor() {
     return isBefore(date, dayAgo) ? format(date, "d. MMM. yyyy", { locale: de }) : formatDistanceToNow(date, { addSuffix: true, locale: de });
   };
 
-  const renderSaveStatus = () => {
-      switch(saveStatus) {
-          case 'saving': return <Loader2 className="h-4 w-4 animate-spin" />;
-          case 'idle': return isEditing ? <Check className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />;
-          case 'dirty': default: return <Save className="h-4 w-4" />;
-      }
-  }
-
   const showEditor = (isEditing && !note?.isLocked) || (isNewNote);
   const isLoading = isUserLoading || isLoadingNote;
 
-  if (isLoading && !isNewNote) {
-    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
-  }
-  
-  if (!isUserLoading && (!user || user.isAnonymous)) {
-    router.push('/login');
-    return null;
-  }
+  if (isLoading && !isNewNote) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
+  if (!isUserLoading && (!user || user.isAnonymous)) { router.push('/login'); return null; }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
        <AlertDialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Notiz-Informationen</AlertDialogTitle></AlertDialogHeader>
             <div className="text-sm space-y-2">
                 <p><strong>Titel:</strong> {note?.title || 'Kein Titel'}</p>
-                <p><strong>Typ:</strong> {templateType === 'links' ? 'Smart Link-Sammlung' : 'Quick Note'}</p>
                 <p><strong>Erstellt:</strong> {note?.createdAt ? format(new Date(note.createdAt.seconds * 1000), "d. MMMM yyyy, HH:mm", { locale: de }) : '...'}</p>
                 <p><strong>Zuletzt geändert:</strong> {note?.updatedAt ? format(new Date(note.updatedAt.seconds * 1000), "d. MMMM yyyy, HH:mm", { locale: de }) : '...'}</p>
             </div>
@@ -284,34 +310,31 @@ function NoteEditor() {
 
         {note && <ShareNoteDialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen} note={note} />}
 
-      <main className="relative flex-1 flex flex-col min-h-0 p-4 md:p-8 max-w-5xl mx-auto w-full">
-            <div className="flex items-center gap-4 mb-8">
-                <Input 
-                    placeholder="Titel..."
-                    className="text-3xl md:text-4xl font-black border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1 bg-transparent"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    readOnly={!showEditor}
-                />
-                 {note?.isLocked && <Lock className="h-5 w-5 text-green-500" />}
-                <div className="flex items-center justify-center h-6 gap-2 text-sm text-muted-foreground">
+      <header className="p-4 md:p-6 bg-background border-b z-20 flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
+            <Input 
+                placeholder="Titel..."
+                className="text-2xl font-black border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1 bg-transparent"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                readOnly={!showEditor}
+            />
+            <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mr-2">
                     <span className="cursor-pointer hover:text-foreground hidden sm:inline" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
                       {note ? getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType) : ''}
                     </span>
-                    {renderSaveStatus()}
+                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => router.back()}><ArrowLeft className="mr-2 h-4 w-4" /><span>Zurück</span></DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={note?.isLocked}>
                             {isEditing ? <><BookOpen className="mr-2 h-4 w-4" /><span>Lesemodus</span></> : <><Edit className="mr-2 h-4 w-4" /><span>Bearbeiten</span></>}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || note?.isLocked}><Save className="mr-2 h-4 w-4" /><span>Jetzt speichern</span></DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setIsInfoDialogOpen(true)} disabled={!note}><Info className="mr-2 h-4 w-4" /><span>Info</span></DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)} disabled={!note}><Share2 className="mr-2 h-4 w-4" /><span>Teilen</span></DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={toggleLock} disabled={isNewNote}>
                             {note?.isLocked ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}<span>{note?.isLocked ? 'Entsperren' : 'Sperren'}</span>
                         </DropdownMenuItem>
@@ -320,22 +343,23 @@ function NoteEditor() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
+      </header>
 
+      <main className="flex-1 overflow-y-auto relative p-4 md:p-8 max-w-5xl mx-auto w-full">
             {templateType === 'links' ? (
-                <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="space-y-8 animate-in fade-in duration-500">
                     {showEditor && (
                         <Card className="bg-primary/5 border-dashed border-2">
                             <CardContent className="p-6 space-y-4">
-                                <Label className="font-bold flex items-center gap-2"><Plus className="w-4 h-4"/> Neuen Link hinzufügen</Label>
+                                <Label className="font-bold flex items-center gap-2"><Plus className="w-4 h-4"/> Link hinzufügen</Label>
                                 <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3">
-                                    <Input placeholder="Titel (z.B. Wikipedia)" value={newLinkTitle} onChange={e => setNewLinkTitle(e.target.value)} />
-                                    <Input placeholder="URL (z.B. en.wikipedia.org/...)" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} />
+                                    <Input placeholder="Titel" value={newLinkTitle} onChange={e => setNewLinkTitle(e.target.value)} />
+                                    <Input placeholder="URL" value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} />
                                     <Button onClick={addLink} disabled={!newLinkTitle.trim() || !newLinkUrl.trim()}><Plus className="w-4 h-4" /></Button>
                                 </div>
                             </CardContent>
                         </Card>
                     )}
-
                     <div className="space-y-4">
                         <h2 className="text-xl font-bold flex items-center gap-2"><Link2 className="text-primary w-5 h-5"/> Gesammelte Links</h2>
                         <div className="grid gap-3">
@@ -346,38 +370,70 @@ function NoteEditor() {
                                         <p className="font-bold truncate">{link.title}</p>
                                         <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">{link.url}</a>
                                     </div>
-                                    {showEditor && (
-                                        <Button variant="ghost" size="icon" onClick={() => removeLink(link.id)} className="opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></Button>
-                                    )}
+                                    {showEditor && <Button variant="ghost" size="icon" onClick={() => setLinks(links.filter(l => l.id !== link.id))}><X className="w-4 h-4" /></Button>}
                                 </div>
                             ))}
-                            {links.length === 0 && <p className="text-center text-muted-foreground py-10 bg-secondary/20 rounded-xl border-2 border-dashed italic">Noch keine Links hinzugefügt.</p>}
                         </div>
                     </div>
+                    <Textarea placeholder="Notizen zur Recherche..." className="min-h-[200px]" value={linkNotes} onChange={e => setLinkNotes(e.target.value)} readOnly={!showEditor} />
+                </div>
+            ) : templateType === 'protocol' ? (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    <Card className="bg-accent/5 border-2">
+                        <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><FileText className="w-4 h-4" /> Protokoll-Daten</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-1"><Label>Fach</Label><Input value={protoSubject} onChange={e => setProtoSubject(e.target.value)} placeholder="Mathe..." readOnly={!showEditor} /></div>
+                            <div className="space-y-1"><Label>Datum</Label><Input type="date" value={protoDate} onChange={e => setProtoDate(e.target.value)} readOnly={!showEditor} /></div>
+                            <div className="space-y-1"><Label>Thema</Label><Input value={protoTopic} onChange={e => setProtoTopic(e.target.value)} placeholder="Analysis..." readOnly={!showEditor} /></div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="space-y-2">
-                        <Label className="font-bold flex items-center gap-2"><Edit className="w-4 h-4"/> Recherche-Notizen</Label>
-                        <Textarea 
-                            placeholder="Zusätzliche Gedanken zu deiner Recherche..."
-                            className={cn("min-h-[200px] text-base leading-relaxed", !showEditor && "border-0 shadow-none focus-visible:ring-0 p-0 resize-none")}
-                            value={linkNotes}
-                            onChange={e => setLinkNotes(e.target.value)}
-                            readOnly={!showEditor}
-                        />
+                    <Card className="border-dashed border-2 bg-primary/5">
+                        <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2 text-primary"><BookmarkPlus className="w-4 h-4" /> Hausaufgabe hinzufügen</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-3">
+                            <Input placeholder="Aufgabe..." value={newHwTask} onChange={e => setNewHwTask(e.target.value)} />
+                            <Input type="date" value={newHwDue} onChange={e => setNewHwDue(e.target.value)} />
+                            <Button onClick={handleAddHw} disabled={!newHwTask.trim()}><Plus className="w-4 h-4" /></Button>
+                        </CardContent>
+                    </Card>
+
+                    <div className="pt-4">
+                        {showEditor ? <Textarea placeholder="Mitschrift..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
+                    </div>
+                </div>
+            ) : templateType === 'study' ? (
+                <div className="flex flex-col h-full space-y-8 animate-in fade-in duration-500">
+                    <div className="flex-1">
+                        {showEditor ? <Textarea placeholder="Lernzettel..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
+                    </div>
+                    
+                    <div className="border-t pt-8 space-y-4">
+                        <div className="flex items-center gap-2 text-primary"><Sparkles className="w-5 h-5" /><h3 className="font-bold">Lern-Assistent (KI)</h3></div>
+                        <div className="space-y-4">
+                            {tutorReplies.map((r, i) => (
+                                <div key={i} className="space-y-2 animate-in slide-in-from-left-2">
+                                    <div className="flex justify-end"><div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm">{r.q}</div></div>
+                                    <div className="flex justify-start"><div className="bg-secondary p-3 rounded-2xl rounded-tl-none max-w-[80%] text-sm">{r.a}</div></div>
+                                </div>
+                            ))}
+                            {isTutorLoading && <div className="flex justify-start"><div className="bg-secondary p-3 rounded-2xl rounded-tl-none flex items-center gap-2 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Denke nach...</div></div>}
+                        </div>
+                        <form onSubmit={handleAskTutor} className="flex gap-2 bg-background border rounded-full p-1 pl-4 shadow-sm focus-within:ring-2 ring-primary transition-all">
+                            <input 
+                                className="flex-1 bg-transparent border-0 outline-none text-sm" 
+                                placeholder="Stelle eine Frage zu deinem Lernzettel..." 
+                                value={tutorQuestion}
+                                onChange={e => setTutorQuestion(e.target.value)}
+                                disabled={isTutorLoading}
+                            />
+                            <Button type="submit" size="icon" className="rounded-full" disabled={!tutorQuestion.trim() || isTutorLoading}><Send className="w-4 h-4" /></Button>
+                        </form>
                     </div>
                 </div>
             ) : showEditor ? (
-                <Textarea 
-                    placeholder="Schreib hier deine Gedanken auf... Du kannst Markdown verwenden!"
-                    className="w-full h-full flex-1 border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-lg leading-relaxed bg-transparent"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    autoFocus
-                />
+                <Textarea placeholder="Schreib hier deine Gedanken auf..." className="w-full h-full border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-lg leading-relaxed bg-transparent" value={content} onChange={(e) => setContent(e.target.value)} autoFocus />
             ) : (
-                <div className="w-full h-full flex-1" onClick={() => { if (!note?.isLocked) setIsEditing(true); }}>
-                    <CustomMarkdownRenderer content={content} />
-                </div>
+                <div className="w-full h-full flex-1" onClick={() => { if (!note?.isLocked) setIsEditing(true); }}><CustomMarkdownRenderer content={content} /></div>
             )}
       </main>
     </div>
