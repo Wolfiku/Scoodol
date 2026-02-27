@@ -12,7 +12,7 @@ import {
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, Type, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent
+    Indent, Outdent, Type as FontIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -20,7 +20,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -54,6 +53,18 @@ type TextDocument = {
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
 
+const FONTS = [
+    { name: 'Arial', family: 'Arial, sans-serif' },
+    { name: 'Georgia', family: 'Georgia, serif' },
+    { name: 'Courier New', family: '"Courier New", monospace' },
+    { name: 'Roboto', family: '"Roboto", sans-serif' },
+    { name: 'Open Sans', family: '"Open Sans", sans-serif' },
+    { name: 'Montserrat', family: '"Montserrat", sans-serif' },
+    { name: 'Playfair Display', family: '"Playfair Display", serif' },
+    { name: 'Lora', family: '"Lora", serif' },
+    { name: 'Fira Code', family: '"Fira Code", monospace' },
+];
+
 export default function TextDocumentPage() {
   const router = useRouter();
   const params = useParams();
@@ -71,6 +82,7 @@ export default function TextDocumentPage() {
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
   const [isInTable, setIsInTable] = useState(false);
+  const [fontSize, setFontSize] = useState('16');
 
   const docRef = useMemoFirebase(() => 
     !isNewDoc && user && typeof docId === 'string'
@@ -145,6 +157,39 @@ export default function TextDocumentPage() {
     triggerAutoSave();
   };
 
+  const applyCustomFontSize = (size: string) => {
+    const numericSize = parseInt(size);
+    if (isNaN(numericSize) || numericSize < 1 || numericSize > 100) return;
+    
+    setFontSize(size);
+    // document.execCommand('fontSize') uses 1-7. We need CSS for 1-100px.
+    // We use a temporary command to wrap selection in a span, then modify it.
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    // Use span with style for precise control
+    const span = document.createElement('span');
+    span.style.fontSize = `${numericSize}px`;
+    
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) {
+        // If nothing selected, just apply to next typing
+        // This is tricky with pure contentEditable + JS. 
+        // We'll insert an empty span and put cursor inside.
+        span.innerHTML = '&#8203;'; // Zero-width space
+        range.insertNode(span);
+        range.setStart(span.firstChild!, 1);
+        range.setEnd(span.firstChild!, 1);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        range.surroundContents(span);
+    }
+    
+    editorRef.current?.focus();
+    triggerAutoSave();
+  };
+
   const insertTable = () => {
     const tableHtml = `
       <div class="table-container" style="margin: 1.5em 0; overflow-x: auto;">
@@ -212,7 +257,19 @@ export default function TextDocumentPage() {
   const deleteCurrentTable = () => {
     const table = getTableUnderCursor();
     if (!table) return;
-    table.remove();
+    
+    // Find the container to remove it completely
+    let container = table.parentElement;
+    while (container && container !== editorRef.current && !container.classList.contains('table-container')) {
+        container = container.parentElement;
+    }
+    
+    if (container && container.classList.contains('table-container')) {
+        container.remove();
+    } else {
+        table.remove();
+    }
+    
     setIsInTable(false);
     triggerAutoSave();
   };
@@ -331,29 +388,33 @@ export default function TextDocumentPage() {
 
         {/* Compact Single-Line Toolbar */}
         <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
-            {/* Font & Size combined */}
+            {/* Font Selection */}
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><Type className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Arial')}>Sans (Standard)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Georgia')}>Serif (Klassisch)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Courier New')}>Mono (Code)</DropdownMenuItem>
+                    <DropdownMenuContent className="max-h-60 overflow-y-auto">
+                        {FONTS.map(font => (
+                            <DropdownMenuItem key={font.name} onClick={() => execCommand('fontName', font.family)} style={{ fontFamily: font.family }}>
+                                {font.name}
+                            </DropdownMenuItem>
+                        ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-black">A <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => execCommand('fontSize', '2')}>Klein</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontSize', '3')}>Normal</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontSize', '5')}>Groß</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontSize', '7')}>Sehr Groß</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                
+                {/* Individual Font Size Input */}
+                <div className="flex items-center gap-1 ml-1">
+                    <span className="text-[10px] font-bold opacity-50">PX</span>
+                    <Input 
+                        type="number" 
+                        min="1" 
+                        max="100" 
+                        value={fontSize}
+                        onChange={e => applyCustomFontSize(e.target.value)}
+                        className="h-7 w-12 text-[11px] p-1 text-center bg-background border-none focus-visible:ring-1"
+                    />
+                </div>
             </div>
 
             {/* Formatting */}
@@ -441,6 +502,8 @@ export default function TextDocumentPage() {
       </main>
 
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Roboto:wght@400;700&display=swap');
+
         [contenteditable]:empty:before {
           content: 'Beginne hier mit deinem Text...';
           color: #a1a1aa;
