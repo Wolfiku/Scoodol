@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { 
     Loader2, ArrowLeft, Bold, Italic, Underline, Link as LinkIcon, 
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
-    List, ListOrdered, Save, Check, Type, MoreHorizontal, Trash2, ChevronDown,
+    List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
     Indent, Outdent, Type as FontIcon
 } from 'lucide-react';
@@ -152,8 +152,9 @@ export default function TextDocumentPage() {
   };
 
   const execCommand = (command: string, value: string = '') => {
-    // Re-focus the editor before executing to ensure the command applies to the correct context
     editorRef.current?.focus();
+    // Modern browsers support styleWithCSS to use <span> with styles instead of <font> tags
+    document.execCommand('styleWithCSS', false, 'true');
     document.execCommand(command, false, value);
     triggerAutoSave();
   };
@@ -166,28 +167,32 @@ export default function TextDocumentPage() {
     editorRef.current?.focus();
     
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-        execCommand('fontSize', '1'); // Placeholder to apply some style
-        return;
-    };
+    if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
-    const span = document.createElement('span');
-    span.style.fontSize = `${numericSize}px`;
     
     if (range.collapsed) {
-        // If nothing is selected, we insert a zero-width space so the style is "anchored"
+        const span = document.createElement('span');
+        span.style.fontSize = `${numericSize}px`;
         span.innerHTML = '&#8203;'; 
         range.insertNode(span);
-        // Move cursor inside the span after the ZWSP
-        if (span.firstChild) {
-            range.setStart(span.firstChild, 1);
-            range.setEnd(span.firstChild, 1);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
+        
+        const newRange = document.createRange();
+        newRange.setStart(span.firstChild!, 1);
+        newRange.setEnd(span.firstChild!, 1);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
     } else {
-        range.surroundContents(span);
+        document.execCommand('styleWithCSS', false, 'true');
+        // document.execCommand('fontSize') doesn't support pixels, so we wrap manually
+        const span = document.createElement('span');
+        span.style.fontSize = `${numericSize}px`;
+        try {
+            range.surroundContents(span);
+        } catch (e) {
+            // Fallback for complex selections
+            document.execCommand('fontSize', false, '1'); // temp
+        }
     }
     
     triggerAutoSave();
@@ -195,26 +200,26 @@ export default function TextDocumentPage() {
 
   const applyFontFamily = (family: string) => {
     editorRef.current?.focus();
+    document.execCommand('styleWithCSS', false, 'true');
+    
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-        execCommand('fontName', family);
-        return;
-    }
+    if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
+    
     if (range.collapsed) {
         const span = document.createElement('span');
         span.style.fontFamily = family;
         span.innerHTML = '&#8203;';
         range.insertNode(span);
-        if (span.firstChild) {
-            range.setStart(span.firstChild, 1);
-            range.setEnd(span.firstChild, 1);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
+        
+        const newRange = document.createRange();
+        newRange.setStart(span.firstChild!, 1);
+        newRange.setEnd(span.firstChild!, 1);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
     } else {
-        execCommand('fontName', family);
+        document.execCommand('fontName', false, family);
     }
     triggerAutoSave();
   }
@@ -348,7 +353,6 @@ export default function TextDocumentPage() {
     router.push('/workspace');
   };
 
-  // Helper to prevent focus loss on toolbar clicks (Crucial for mobile)
   const preventDefault = (e: React.MouseEvent) => e.preventDefault();
 
   if (isUserLoading || (isLoadingDoc && !isNewDoc)) {
@@ -572,6 +576,10 @@ export default function TextDocumentPage() {
         }
         ::selection {
             background-color: hsla(var(--primary), 0.3);
+        }
+        /* Ensure font styles applied via span win over prose defaults */
+        .prose span[style*="font-family"] {
+            font-family: inherit; /* will be overridden by the inline style */
         }
       `}</style>
     </div>
