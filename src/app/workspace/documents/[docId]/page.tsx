@@ -54,6 +54,7 @@ type TextDocument = {
 type SaveStatus = 'idle' | 'dirty' | 'saving';
 
 const FONTS = [
+    { name: 'Standard (Sans)', family: 'var(--font-pt-sans), sans-serif' },
     { name: 'Arial', family: 'Arial, sans-serif' },
     { name: 'Georgia', family: 'Georgia, serif' },
     { name: 'Courier New', family: '"Courier New", monospace' },
@@ -78,6 +79,7 @@ export default function TextDocumentPage() {
   
   const [title, setTitle] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
+  const savedRange = useRef<Range | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
@@ -108,7 +110,13 @@ export default function TextDocumentPage() {
       const selection = window.getSelection();
       if (!selection?.rangeCount) return;
       
-      let node = selection.getRangeAt(0).startContainer;
+      const range = selection.getRangeAt(0);
+      // Only save range if it's within the editor
+      if (editorRef.current?.contains(range.commonAncestorContainer)) {
+          savedRange.current = range.cloneRange();
+      }
+
+      let node = range.startContainer;
       let tableFound = false;
       while (node && node !== editorRef.current) {
         if (node.nodeName === 'TABLE') {
@@ -171,50 +179,39 @@ export default function TextDocumentPage() {
   const applyStyle = (styleKey: 'fontSize' | 'fontFamily', value: string) => {
     editorRef.current?.focus();
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+    if (!selection) return;
 
-    const range = selection.getRangeAt(0);
+    // Restore saved range if lost
+    if (savedRange.current && !editorRef.current?.contains(selection.anchorNode)) {
+        selection.removeAllRanges();
+        selection.addRange(savedRange.current);
+    }
+
     document.execCommand('styleWithCSS', false, 'true');
 
-    if (range.collapsed) {
-        const span = document.createElement('span');
-        if (styleKey === 'fontSize') {
-            span.style.fontSize = `${value}px`;
-            setFontSize(value);
-        } else {
-            span.style.fontFamily = value;
-        }
-        
-        span.innerHTML = '&#8203;';
-        range.insertNode(span);
-        
-        const newRange = document.createRange();
-        newRange.setStart(span.firstChild!, 1);
-        newRange.setEnd(span.firstChild!, 1);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-    } else {
-        if (styleKey === 'fontFamily') {
-            document.execCommand('fontName', false, 'temp-font');
-            const fonts = editorRef.current?.querySelectorAll('font[face="temp-font"]');
-            fonts?.forEach(f => {
-                const s = document.createElement('span');
-                s.style.fontFamily = value;
-                s.innerHTML = f.innerHTML;
-                f.parentNode?.replaceChild(s, f);
-            });
-        } else if (styleKey === 'fontSize') {
-            document.execCommand('fontSize', false, '7'); 
-            const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
-            fonts?.forEach(f => {
-                const s = document.createElement('span');
-                s.style.fontSize = `${value}px`;
-                s.innerHTML = f.innerHTML;
-                f.parentNode?.replaceChild(s, f);
-            });
-            setFontSize(value);
-        }
+    if (styleKey === 'fontFamily') {
+        // Use fontName for selection, it's the most reliable way to wrap selection
+        document.execCommand('fontName', false, value);
+        // Browser might insert <font face="...">, so we clean it up to spans if needed
+        const fonts = editorRef.current?.querySelectorAll('font[face]');
+        fonts?.forEach(f => {
+            const s = document.createElement('span');
+            s.style.fontFamily = (f as HTMLFontElement).face;
+            s.innerHTML = f.innerHTML;
+            f.parentNode?.replaceChild(s, f);
+        });
+    } else if (styleKey === 'fontSize') {
+        document.execCommand('fontSize', false, '7'); 
+        const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
+        fonts?.forEach(f => {
+            const s = document.createElement('span');
+            s.style.fontSize = `${value}px`;
+            s.innerHTML = f.innerHTML;
+            f.parentNode?.replaceChild(s, f);
+        });
+        setFontSize(value);
     }
+    
     triggerAutoSave();
   };
 
@@ -314,13 +311,25 @@ export default function TextDocumentPage() {
 
   const handleMediaInsert = () => {
     if (!mediaUrl.trim()) return;
+    
+    // 1. Focus editor
     editorRef.current?.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    // 2. Restore range
+    if (savedRange.current) {
+        selection.removeAllRanges();
+        selection.addRange(savedRange.current);
+    }
+
+    const range = selection.getRangeAt(0);
+    let htmlToInsert = '';
 
     if (isMediaDialogOpen.type === 'link') {
-        execCommand('createLink', mediaUrl);
+        document.execCommand('createLink', false, mediaUrl);
     } else if (isMediaDialogOpen.type === 'image') {
-        const imgHtml = `<img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 1.5em 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" alt="Eingefügtes Bild" />`;
-        execCommand('insertHTML', imgHtml);
+        htmlToInsert = `<div style="text-align: center; margin: 1.5em 0;"><img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="Bild" /></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'video') {
         let embedUrl = mediaUrl;
         if (mediaUrl.includes('youtube.com/watch?v=')) {
@@ -328,18 +337,34 @@ export default function TextDocumentPage() {
         } else if (mediaUrl.includes('youtu.be/')) {
             embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         }
-        const videoHtml = `
-            <div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        htmlToInsert = `
+            <div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
                 <iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe>
             </div>
             <p><br></p>
         `;
-        execCommand('insertHTML', videoHtml);
+    }
+
+    if (htmlToInsert) {
+        const fragment = range.createContextualFragment(htmlToInsert);
+        range.insertNode(fragment);
+        // Move cursor after the inserted element
+        range.collapse(false);
     }
 
     setMediaUrl('');
     setIsMediaDialogOpen({ ...isMediaDialogOpen, open: false });
+    triggerAutoSave();
   };
+
+  const openMediaDialog = (type: 'image' | 'video' | 'link') => {
+      // Save range before focus is lost to the dialog
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+          savedRange.current = selection.getRangeAt(0).cloneRange();
+      }
+      setIsMediaDialogOpen({ type, open: true });
+  }
 
   const handleDelete = async () => {
     if (isNewDoc || !docRef) return;
@@ -348,7 +373,10 @@ export default function TextDocumentPage() {
     router.push('/workspace');
   };
 
-  const preventDefault = (e: React.MouseEvent) => e.preventDefault();
+  const preventDefault = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+  };
 
   if (isUserLoading || (isLoadingDoc && !isNewDoc)) {
     return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
@@ -356,6 +384,54 @@ export default function TextDocumentPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Roboto:wght@400;700&display=swap');
+
+        [contenteditable]:empty:before {
+          content: 'Beginne hier mit deinem Text...';
+          color: #a1a1aa;
+          cursor: text;
+          font-style: italic;
+        }
+        table {
+            transition: all 0.2s;
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+        table td, table th {
+            min-width: 50px;
+            border: 1px solid #ddd;
+            padding: 12px;
+            position: relative;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .prose img {
+            transition: transform 0.3s;
+        }
+        .prose img:hover {
+            transform: scale(1.01);
+        }
+        ::selection {
+            background-color: hsla(var(--primary), 0.3);
+        }
+        .prose span {
+            font-size: inherit;
+            font-family: inherit;
+        }
+      `}</style>
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Dokument wirklich löschen?</AlertDialogTitle></AlertDialogHeader>
@@ -489,9 +565,9 @@ export default function TextDocumentPage() {
             </div>
 
             <div className="flex items-center gap-0.5 shrink-0 pl-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'link', open: true})}><LinkIcon className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'image', open: true})}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => setIsMediaDialogOpen({type: 'video', open: true})}><Video className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('link')}><LinkIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('image')}><ImageIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('video')}><Video className="h-3.5 w-3.5" /></Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
             </div>
@@ -521,54 +597,6 @@ export default function TextDocumentPage() {
             />
         </div>
       </main>
-
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Roboto:wght@400;700&display=swap');
-
-        [contenteditable]:empty:before {
-          content: 'Beginne hier mit deinem Text...';
-          color: #a1a1aa;
-          cursor: text;
-          font-style: italic;
-        }
-        table {
-            transition: all 0.2s;
-            border-collapse: collapse;
-            width: 100%;
-            margin: 1em 0;
-        }
-        table td, table th {
-            min-width: 50px;
-            border: 1px solid #ddd;
-            padding: 12px;
-            position: relative;
-        }
-        .table-container {
-            overflow-x: auto;
-            border-radius: 8px;
-            border: 1px solid #eee;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .prose img {
-            transition: transform 0.3s;
-        }
-        .prose img:hover {
-            transform: scale(1.01);
-        }
-        ::selection {
-            background-color: hsla(var(--primary), 0.3);
-        }
-        .prose span {
-            font-size: inherit;
-            font-family: inherit;
-        }
-      `}</style>
     </div>
   );
 }
