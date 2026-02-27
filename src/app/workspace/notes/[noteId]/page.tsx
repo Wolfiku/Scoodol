@@ -1,7 +1,8 @@
+
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -50,11 +51,13 @@ type QuickNote = {
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
 
-export default function NotePage() {
+function NoteEditor() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { noteId } = params;
   const isNewNote = noteId === 'new';
+  const templateType = searchParams.get('template');
 
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -78,6 +81,26 @@ export default function NotePage() {
 
   const { data: note, isLoading: isLoadingNote } = useDoc<QuickNote>(noteDocRef);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Apply templates for new notes
+  useEffect(() => {
+    if (isNewNote && templateType && content === '') {
+        if (templateType === 'study') {
+            setTitle('Neuer Lernzettel');
+            setContent('# Lernzettel: [Thema]\n\n## 💡 Zusammenfassung\n\n## 📝 Wichtige Fakten & Formeln\n\n## ❓ Mögliche Prüfungsfragen\n\n## 📖 Quellen & Notizen');
+        } else if (templateType === 'protocol') {
+            const today = new Date().toLocaleDateString('de-DE');
+            setTitle(`Protokoll: ${today}`);
+            setContent(`## Fach: \n**Datum:** ${today}\n**Thema:** \n\n### 📝 Mitschrift\n\n### 🏠 Hausaufgabe / To-Do`);
+        } else if (templateType === 'presentation') {
+            setTitle('Referats-Planung');
+            setContent('# Referat: [Titel]\n\n## 🎯 Kernbotschaft\nWas sollen die anderen lernen?\n\n## 📅 Zeitplan\n- [ ] Recherche abgeschlossen\n- [ ] Gliederung erstellt\n- [ ] Handout entworfen\n- [ ] Präsentation fertig\n\n## 📂 Gliederung\n1. Einleitung\n2. Hauptteil\n3. Schluss');
+        } else if (templateType === 'links') {
+            setTitle('Recherche: Link-Sammlung');
+            setContent('## Projekt / Thema\n\n- [Titel der Website](https://...)\n- [Quelle 2](https://...)\n\n### 💡 Ideen & Inspiration');
+        }
+    }
+  }, [isNewNote, templateType, content]);
 
   
   useEffect(() => {
@@ -334,4 +357,12 @@ export default function NotePage() {
       </main>
     </div>
   );
+}
+
+export default function NotePage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>}>
+            <NoteEditor />
+        </Suspense>
+    );
 }
