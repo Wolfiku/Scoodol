@@ -268,7 +268,7 @@ export default function TextDocumentPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Dokument wirklich löschen?</AlertDialogTitle></AlertDialogHeader>
@@ -427,12 +427,12 @@ export default function TextDocumentPage() {
         )}
       </header>
 
-      <main className="flex-1 overflow-auto p-4 md:p-12 flex justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="w-full max-w-4xl bg-background shadow-2xl rounded-2xl min-h-[1100px] p-8 md:p-20 border transition-all mb-20">
+      <main className="flex-1 overflow-auto bg-background selection:bg-primary/30">
+        <div className="w-full h-full p-6 md:p-12 max-w-5xl mx-auto">
             <div 
                 ref={editorRef}
                 contentEditable
-                className="w-full h-full outline-none prose dark:prose-invert max-w-none text-lg leading-relaxed focus:ring-0 selection:bg-primary/20"
+                className="w-full min-h-[calc(100vh-200px)] outline-none prose dark:prose-invert max-w-none text-lg leading-relaxed focus:ring-0"
                 onInput={triggerAutoSave}
                 spellCheck="false"
                 style={{ fontFamily: 'inherit' }}
@@ -476,6 +476,10 @@ export default function TextDocumentPage() {
         }
         .prose img:hover {
             transform: scale(1.01);
+        }
+        /* Selection handling */
+        ::selection {
+            background-color: hsla(var(--primary), 0.3);
         }
       `}</style>
     </div>
