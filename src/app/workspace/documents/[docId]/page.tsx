@@ -55,15 +55,16 @@ type SaveStatus = 'idle' | 'dirty' | 'saving';
 
 const FONTS = [
     { name: 'Standard (Sans)', family: 'var(--font-pt-sans), sans-serif' },
-    { name: 'Arial', family: 'Arial, sans-serif' },
+    { name: 'Inter', family: 'Inter, sans-serif' },
+    { name: 'Roboto', family: 'Roboto, sans-serif' },
+    { name: 'Open Sans', family: 'Open Sans, sans-serif' },
+    { name: 'Montserrat', family: 'Montserrat, sans-serif' },
+    { name: 'Ubuntu', family: 'Ubuntu, sans-serif' },
     { name: 'Georgia', family: 'Georgia, serif' },
-    { name: 'Courier New', family: '"Courier New", monospace' },
-    { name: 'Roboto', family: '"Roboto", sans-serif' },
-    { name: 'Open Sans', family: '"Open Sans", sans-serif' },
-    { name: 'Montserrat', family: '"Montserrat", sans-serif' },
-    { name: 'Playfair Display', family: '"Playfair Display", serif' },
-    { name: 'Lora', family: '"Lora", serif' },
-    { name: 'Fira Code', family: '"Fira Code", monospace' },
+    { name: 'Playfair Display', family: 'Playfair Display, serif' },
+    { name: 'Lora', family: 'Lora, serif' },
+    { name: 'Fira Code', family: 'Fira Code, monospace' },
+    { name: 'Courier New', family: 'Courier New, monospace' },
 ];
 
 export default function TextDocumentPage() {
@@ -84,7 +85,7 @@ export default function TextDocumentPage() {
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
   const [isInTable, setIsInTable] = useState(false);
-  const [fontSize, setFontSize] = useState('16');
+  const [fontSize, setFontSize] = useState('18');
 
   const docRef = useMemoFirebase(() => 
     !isNewDoc && user && typeof docId === 'string'
@@ -105,13 +106,13 @@ export default function TextDocumentPage() {
     }
   }, [documentData]);
 
+  // Capture selection changes to keep the context updated
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
       if (!selection?.rangeCount) return;
       
       const range = selection.getRangeAt(0);
-      // Only save range if it's within the editor
       if (editorRef.current?.contains(range.commonAncestorContainer)) {
           savedRange.current = range.cloneRange();
       }
@@ -187,29 +188,45 @@ export default function TextDocumentPage() {
         selection.addRange(savedRange.current);
     }
 
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
     document.execCommand('styleWithCSS', false, 'true');
 
-    if (styleKey === 'fontFamily') {
-        // Use fontName for selection, it's the most reliable way to wrap selection
-        document.execCommand('fontName', false, value);
-        // Browser might insert <font face="...">, so we clean it up to spans if needed
-        const fonts = editorRef.current?.querySelectorAll('font[face]');
-        fonts?.forEach(f => {
-            const s = document.createElement('span');
-            s.style.fontFamily = (f as HTMLFontElement).face;
-            s.innerHTML = f.innerHTML;
-            f.parentNode?.replaceChild(s, f);
-        });
-    } else if (styleKey === 'fontSize') {
-        document.execCommand('fontSize', false, '7'); 
-        const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
-        fonts?.forEach(f => {
-            const s = document.createElement('span');
-            s.style.fontSize = `${value}px`;
-            s.innerHTML = f.innerHTML;
-            f.parentNode?.replaceChild(s, f);
-        });
-        setFontSize(value);
+    if (range.collapsed) {
+        // No selection: Insert a zero-width space span to "lock in" the style for typing
+        const span = document.createElement('span');
+        if (styleKey === 'fontFamily') span.style.fontFamily = value;
+        if (styleKey === 'fontSize') {
+            span.style.fontSize = `${value}px`;
+            setFontSize(value);
+        }
+        
+        // Zero-width space ensures the span exists and the cursor can sit in it
+        span.appendChild(document.createTextNode('\u200B'));
+        
+        range.insertNode(span);
+        range.setStart(span.firstChild!, 1);
+        range.setEnd(span.firstChild!, 1);
+        
+        selection.removeAllRanges();
+        selection.addRange(range);
+    } else {
+        // Selection exists: Apply style
+        if (styleKey === 'fontFamily') {
+            document.execCommand('fontName', false, value);
+        } else if (styleKey === 'fontSize') {
+            // Using fontSize '7' hack to then replace with exact PX
+            document.execCommand('fontSize', false, '7'); 
+            const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
+            fonts?.forEach(f => {
+                const s = document.createElement('span');
+                s.style.fontSize = `${value}px`;
+                s.innerHTML = f.innerHTML;
+                f.parentNode?.replaceChild(s, f);
+            });
+            setFontSize(value);
+        }
     }
     
     triggerAutoSave();
@@ -312,17 +329,17 @@ export default function TextDocumentPage() {
   const handleMediaInsert = () => {
     if (!mediaUrl.trim()) return;
     
-    // 1. Focus editor
     editorRef.current?.focus();
     const selection = window.getSelection();
     if (!selection) return;
 
-    // 2. Restore range
+    // Restore the exact range we saved before the dialog opened
     if (savedRange.current) {
         selection.removeAllRanges();
         selection.addRange(savedRange.current);
     }
 
+    if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     let htmlToInsert = '';
 
@@ -348,7 +365,6 @@ export default function TextDocumentPage() {
     if (htmlToInsert) {
         const fragment = range.createContextualFragment(htmlToInsert);
         range.insertNode(fragment);
-        // Move cursor after the inserted element
         range.collapse(false);
     }
 
@@ -358,7 +374,7 @@ export default function TextDocumentPage() {
   };
 
   const openMediaDialog = (type: 'image' | 'video' | 'link') => {
-      // Save range before focus is lost to the dialog
+      // Very important: capture current selection immediately
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
           savedRange.current = selection.getRangeAt(0).cloneRange();
@@ -385,7 +401,7 @@ export default function TextDocumentPage() {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Roboto:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Roboto:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Ubuntu:wght@400;700&display=swap');
 
         [contenteditable]:empty:before {
           content: 'Beginne hier mit deinem Text...';
@@ -409,19 +425,6 @@ export default function TextDocumentPage() {
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid #eee;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .prose img {
-            transition: transform 0.3s;
-        }
-        .prose img:hover {
-            transform: scale(1.01);
         }
         ::selection {
             background-color: hsla(var(--primary), 0.3);
@@ -448,9 +451,7 @@ export default function TextDocumentPage() {
                 <DialogTitle>
                     {isMediaDialogOpen.type === 'link' ? 'Link einfügen' : isMediaDialogOpen.type === 'image' ? 'Bild-URL einfügen' : 'Video-URL einfügen'}
                 </DialogTitle>
-                <DialogDescription>
-                    Gib die URL für dein Medium ein.
-                </DialogDescription>
+                <DialogDescription>Gib die URL für dein Medium ein.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="space-y-2">
