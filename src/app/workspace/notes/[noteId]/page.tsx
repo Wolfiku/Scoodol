@@ -32,6 +32,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { format, formatDistanceToNow, isBefore, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import ShareNoteDialog from '@/app/components/share-note-dialog';
 import CustomMarkdownRenderer from '@/app/components/custom-markdown-renderer';
 
@@ -62,7 +63,7 @@ function NoteEditor() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { noteId } = params;
+  const noteId = params?.noteId as string;
   const isNewNote = noteId === 'new';
   const templateType = searchParams.get('template');
 

@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Presentation, Sparkles } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Presentation, Sparkles, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,14 +27,6 @@ const items: ExploreItem[] = [
         description: "Eine schnelle Notiz mit einfacher Markdown-Formatierung.",
         icon: <StickyNote className="w-8 h-8" />,
         href: "/workspace/notes/new",
-        category: "Basic",
-        kind: "type"
-    },
-    {
-        title: "To-Do-Liste",
-        description: "Eine einfache Liste, um Aufgaben zu verfolgen.",
-        icon: <ListTodo className="w-8 h-8" />,
-        href: "/workspace/todos/new",
         category: "Basic",
         kind: "type"
     },

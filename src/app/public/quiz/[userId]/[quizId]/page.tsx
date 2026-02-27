@@ -1,20 +1,20 @@
+
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams } from 'next/navigation';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { initializeFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, collection, serverTimestamp, addDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Loader2, Sparkles, ChevronRight, CheckCircle2, XCircle, Frown, Meh, Smile, QrCode, ArrowLeft, Globe, Star } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Loader2, Sparkles, ChevronRight, CheckCircle2, Star, Frown, Meh, Smile, User, Shield } from 'lucide-react';
 import { verifyQuizAnswer, checkLongAnswer } from '@/app/actions';
-import { useTheme } from '@/hooks/use-theme';
 
 type SlideType = 'welcome' | 'multiple-choice' | 'short-answer' | 'long-answer' | 'vocabulary' | 'text' | 'conclusion';
 
@@ -28,31 +28,31 @@ type Quiz = {
   title: string;
   creator: string;
   slides: Slide[];
+  ownerId: string;
   isPublished?: boolean;
 };
 
 export default function PublicQuizPage() {
+  const router = useRouter();
   const params = useParams();
   const userId = params?.userId as string;
   const quizId = params?.quizId as string;
 
-  const firestore = useFirestore();
-  const { aiLanguage } = useTheme();
+  const { toast } = useToast();
+  const { firestore } = useMemo(() => initializeFirebase(), []);
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userName, setUserName] = useState('');
-  const [userAnswer, setUserAnswer] = useState('');
-  const [vocabAnswers, setVocabAnswers] = useState<Record<string, string>>({});
-  const [vocabResults, setVocabResults] = useState<Record<string, boolean>>({});
+  const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
+  const [currentAnswer, setCurrentAnswer] = useState('');
   const [answerStatus, setAnswerStatus] = useState<'none' | 'correct' | 'incorrect' | 'checking'>('none');
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [selectedMcOption, setSelectedMcOption] = useState<string | null>(null);
   const [feedbackValue, setFeedbackValue] = useState<'sad' | 'neutral' | 'happy' | null>(null);
-  
   const [correctCount, setCorrectCount] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const hasSaved = useRef(false);
+  const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const quizDocRef = useMemoFirebase(() => 
     userId && quizId ? doc(firestore, `users/${userId}/quizzes`, quizId) : null
@@ -63,275 +63,277 @@ export default function PublicQuizPage() {
   const currentSlide = quiz?.slides[currentIndex];
   const totalQuestions = useMemo(() => quiz?.slides.filter(s => s.type !== 'welcome' && s.type !== 'text' && s.type !== 'conclusion').length || 0, [quiz]);
 
-  const handleNext = async () => {
-    if (!quiz) return;
-    
-    if (currentIndex < quiz.slides.length - 1) {
+  // Handle Scroll for Footer
+  useEffect(() => {
+    const handleScroll = () => {
+        const scrolled = window.scrollY > 20;
+        setIsFooterVisible(scrolled || answerStatus !== 'none' || (currentSlide?.type === 'welcome' || currentSlide?.type === 'text' || currentSlide?.type === 'conclusion'));
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [answerStatus, currentSlide]);
+
+  const handleNext = () => {
+    if (quiz && currentIndex < quiz.slides.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setAnswerStatus('none');
-        setUserAnswer('');
+        setCurrentAnswer('');
         setSelectedMcOption(null);
         setAiFeedback(null);
         setAiScore(null);
-        setVocabAnswers({});
-        setVocabResults({});
+        window.scrollTo(0, 0);
     }
   };
 
   const checkShortAnswer = async () => {
-    if (!userAnswer.trim() || !currentSlide) return;
+    if (!currentAnswer.trim() || !currentSlide) return;
     setAnswerStatus('checking');
     const { answer, checkMode, question } = currentSlide.content;
-    let isCorrect = false;
     
-    // First check without AI (case-insensitive)
-    if (userAnswer.trim().toLowerCase() === answer.trim().toLowerCase()) {
-        isCorrect = true;
-    } else if (checkMode === 'ai') {
-        const result = await verifyQuizAnswer(question, answer, userAnswer, aiLanguage);
-        isCorrect = result.isCorrect;
+    // Zuerst lokale Prüfung
+    if (currentAnswer.trim().toLowerCase() === answer.trim().toLowerCase()) {
+        setCorrectCount(prev => prev + 1);
+        setAnswerStatus('correct');
+        setUserAnswers(prev => ({ ...prev, [currentSlide.id]: true }));
+        setIsFooterVisible(true);
+        return;
     }
-    
-    if (isCorrect) setCorrectCount(prev => prev + 1);
-    setAnswers(prev => ({ ...prev, [currentSlide.id]: isCorrect }));
-    setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
+
+    if (checkMode === 'ai') {
+        const result = await verifyQuizAnswer(question, answer, currentAnswer, 'German');
+        if (result.isCorrect) setCorrectCount(prev => prev + 1);
+        setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');
+        setUserAnswers(prev => ({ ...prev, [currentSlide.id]: result.isCorrect }));
+    } else {
+        setAnswerStatus('incorrect');
+        setUserAnswers(prev => ({ ...prev, [currentSlide.id]: false }));
+    }
+    setIsFooterVisible(true);
   }
 
   const checkLongAnswerAction = async () => {
-    if (!userAnswer.trim() || !currentSlide) return;
+    if (!currentAnswer.trim() || !currentSlide) return;
     setAnswerStatus('checking');
     const { question, referenceAnswer, criteria } = currentSlide.content;
-    const result = await checkLongAnswer(question, referenceAnswer, criteria, userAnswer, aiLanguage);
+    const result = await checkLongAnswer(question, referenceAnswer, criteria, currentAnswer, 'German');
     setAiScore(result.score);
     setAiFeedback(result.feedback);
     if (result.isCorrect) setCorrectCount(prev => prev + 1);
-    setAnswers(prev => ({ ...prev, [currentSlide.id]: { text: userAnswer, score: result.score, isCorrect: result.isCorrect } }));
     setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');
+    setUserAnswers(prev => ({ ...prev, [currentSlide.id]: { isCorrect: result.isCorrect, score: result.score, text: currentAnswer } }));
+    setIsFooterVisible(true);
   }
 
   const handleMcSelect = (optionId: string) => {
     if (answerStatus !== 'none' || !currentSlide) return;
     setSelectedMcOption(optionId);
     const option = currentSlide.content.options.find((o: any) => o.id === optionId);
-    const isCorrect = !!option?.isCorrect;
-    if (isCorrect) setCorrectCount(prev => prev + 1);
-    setAnswers(prev => ({ ...prev, [currentSlide.id]: optionId }));
-    setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
+    if (option.isCorrect) setCorrectCount(prev => prev + 1);
+    setAnswerStatus(option.isCorrect ? 'correct' : 'incorrect');
+    setUserAnswers(prev => ({ ...prev, [currentSlide.id]: optionId }));
+    setIsFooterVisible(true);
   }
 
-  const checkVocab = () => {
-    if (!currentSlide) return;
-    const pairs = currentSlide.content.pairs;
-    const results: Record<string, boolean> = {};
-    let allCorrect = true;
-    pairs.forEach((p: any) => {
-        const isCorrect = (vocabAnswers[p.id] || '').trim().toLowerCase() === p.german.trim().toLowerCase();
-        results[p.id] = isCorrect;
-        if (!isCorrect) allCorrect = false;
-    });
-    setVocabResults(results);
-    if (allCorrect) setCorrectCount(prev => prev + 1);
-    setAnswers(prev => ({ ...prev, [currentSlide.id]: allCorrect }));
-    setAnswerStatus(allCorrect ? 'correct' : 'incorrect');
-  }
-
-  const saveResponse = async (rating?: 'sad' | 'neutral' | 'happy') => {
-    if (hasSaved.current || !userId || !quizId) return;
-    hasSaved.current = true;
-    
+  const submitQuiz = async (rating?: 'sad' | 'neutral' | 'happy') => {
+    if (isSubmitting || !quiz) return;
+    setIsSubmitting(true);
     try {
+        const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
         const responsesCol = collection(firestore, `users/${userId}/quizzes/${quizId}/responses`);
         await addDoc(responsesCol, {
             userName: userName || 'Anonym',
-            answers: answers,
-            percentage: Math.round((correctCount / (totalQuestions || 1)) * 100),
+            answers: userAnswers,
+            percentage,
             rating: rating || null,
-            completedAt: serverTimestamp(),
+            completedAt: serverTimestamp()
         });
+        toast({ title: "Abgeschlossen", description: "Deine Ergebnisse wurden gespeichert." });
+        window.close();
     } catch (e) {
-        console.error("Error saving response", e);
+        toast({ variant: 'destructive', title: "Fehler beim Speichern" });
     }
+    setIsSubmitting(false);
   }
 
   if (isLoadingQuiz) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
-  if (!quiz || !quiz.isPublished) return <div className="flex items-center justify-center h-screen">Dieses Quiz ist nicht verfügbar oder wurde offline genommen.</div>;
+  if (!quiz || !quiz.isPublished) return <div className="flex items-center justify-center h-screen p-8 text-center"><Card><CardHeader><CardTitle>Quiz nicht verfügbar</CardTitle><CardDescription>Dieses Quiz existiert nicht oder wurde offline genommen.</CardDescription></CardHeader></Card></div>;
 
-  return (
-    <div className="flex flex-col h-screen bg-background">
-        <main className="flex-1 overflow-y-auto p-6 md:p-12 flex flex-col items-center justify-center">
-            {currentSlide?.type === 'welcome' ? (
-                <div className="text-center space-y-8 max-w-md w-full animate-in fade-in zoom-in duration-300">
-                    <h1 className="text-4xl font-extrabold">{quiz.title}</h1>
-                    <p className="text-muted-foreground">von {quiz.creator}</p>
-                    <div className="flex justify-center gap-2">
-                        <Badge variant="outline">
-                            {currentSlide.content.askName ? <User className="w-3 h-3 mr-1" /> : <Shield className="w-3 h-3 mr-1" />}
-                            {currentSlide.content.askName ? 'Name erforderlich' : 'Anonym'}
-                        </Badge>
-                    </div>
+  const renderSlide = () => {
+    if (!currentSlide) return null;
+    switch(currentSlide.type) {
+        case 'welcome':
+            return (
+                <div className="text-center space-y-8 max-w-md w-full animate-in fade-in zoom-in duration-500">
+                    <h1 className="text-5xl font-black tracking-tight">{quiz.title}</h1>
+                    <p className="text-muted-foreground text-xl">von {quiz.creator}</p>
                     {currentSlide.content.askName && (
-                        <div className="space-y-2 text-left">
-                            <Label>Dein Name</Label>
-                            <Input placeholder="Wie heißt du?" value={userName} onChange={(e) => setUserName(e.target.value)} className="text-lg py-6" />
+                        <div className="space-y-3 text-left">
+                            <Label className="text-base font-bold">Wie heißt du?</Label>
+                            <Input placeholder="Dein Name..." value={userName} onChange={(e) => setUserName(e.target.value)} className="text-lg py-6" />
                         </div>
                     )}
-                    <Button className="w-full h-12 text-lg font-bold" onClick={handleNext} disabled={currentSlide.content.askName && !userName.trim()}>Quiz starten</Button>
+                    <Button className="w-full h-14 text-xl font-bold" onClick={handleNext} disabled={currentSlide.content.askName && !userName.trim()}>Quiz starten</Button>
                 </div>
-            ) : currentSlide?.type === 'multiple-choice' ? (
-                <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
-                    <h2 className="text-2xl font-bold">{currentSlide.content.question}</h2>
-                    <div className="grid gap-3">
+            );
+        case 'multiple-choice':
+            return (
+                <div className="w-full max-w-2xl space-y-10">
+                    <h2 className="text-3xl md:text-4xl font-bold leading-tight">{currentSlide.content.question}</h2>
+                    <div className="grid gap-4">
                         {(currentSlide.content.options || []).map((opt: any) => {
                             const isSelected = selectedMcOption === opt.id;
                             const isCorrect = opt.isCorrect;
-                            let btnClass = "justify-start h-auto py-4 px-6 text-left border-2 text-lg transition-all";
+                            let btnClass = "justify-start h-auto py-6 px-8 text-left border-2 text-xl transition-all duration-300";
                             if (answerStatus !== 'none') {
-                                if (isCorrect) btnClass += " bg-green-600 border-green-700 text-white hover:bg-green-600";
-                                else if (isSelected && !isCorrect) btnClass += " bg-red-600 border-red-700 text-white hover:bg-red-600";
+                                if (isCorrect) btnClass += " bg-green-600 border-green-700 text-white shadow-lg";
+                                else if (isSelected && !isCorrect) btnClass += " bg-red-600 border-red-700 text-white";
                             }
                             return (
                                 <Button key={opt.id} variant="outline" disabled={answerStatus !== 'none'} onClick={() => handleMcSelect(opt.id)} className={btnClass}>
-                                    {opt.text}
+                                    <div className="flex items-center gap-4">
+                                        {answerStatus !== 'none' && (isCorrect ? <CheckCircle2 className="h-6 w-6 shrink-0"/> : isSelected ? <XCircle className="h-6 w-6 shrink-0"/> : null)}
+                                        {opt.text}
+                                    </div>
                                 </Button>
                             );
                         })}
                     </div>
                 </div>
-            ) : currentSlide?.type === 'short-answer' ? (
-                <div className="w-full max-w-xl space-y-8 text-center animate-in slide-in-from-right duration-300">
-                    <h2 className="text-2xl font-bold">{currentSlide.content.question}</h2>
-                    <div className="relative">
-                        <Input placeholder="Antwort..." value={userAnswer} onChange={(e) => setUserAnswer(e.target.value)} disabled={answerStatus !== 'none' && answerStatus !== 'checking'} className="text-xl py-8 px-6 text-center" />
-                        {answerStatus === 'checking' && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin" />}
-                    </div>
-                    {answerStatus === 'none' && <Button size="lg" onClick={checkShortAnswer} disabled={!userAnswer.trim()}>Prüfen</Button>}
-                    {answerStatus === 'correct' && <p className="text-green-600 font-bold animate-in zoom-in">Richtig!</p>}
-                    {answerStatus === 'incorrect' && <p className="text-red-600 font-bold animate-in zoom-in">Falsch. Lösung: {currentSlide.content.answer}</p>}
-                </div>
-            ) : currentSlide?.type === 'long-answer' ? (
-                <div className="w-full max-w-2xl space-y-8 animate-in slide-in-from-right duration-300">
-                    <h2 className="text-2xl font-bold">{currentSlide.content.question}</h2>
-                    <div className="relative">
-                        <Textarea placeholder="Schreibe hier deine Antwort..." value={userAnswer} onChange={(e) => setUserAnswer(e.target.value)} disabled={answerStatus !== 'none' && answerStatus !== 'checking'} className="text-lg p-6 min-h-[180px]" />
-                        {answerStatus === 'checking' && <div className="absolute inset-0 bg-background/50 flex flex-col items-center justify-center rounded-md z-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /><p className="font-bold">KI prüft...</p></div>}
-                    </div>
-                    {answerStatus === 'none' && <Button size="lg" onClick={checkLongAnswerAction} disabled={!userAnswer.trim()}>KI-Prüfung starten</Button>}
-                    {aiFeedback && (
-                        <div className="p-4 rounded-lg bg-secondary/50 mt-4 animate-in slide-in-from-top-2 duration-300">
-                            <p className="text-sm font-bold flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-primary" /> KI-Feedback ({aiScore}/10):</p>
-                            <p className="text-sm">{aiFeedback}</p>
-                        </div>
-                    )}
-                </div>
-            ) : currentSlide?.type === 'vocabulary' ? (
-                <div className="w-full max-w-2xl space-y-6 animate-in slide-in-from-right duration-300">
-                    <h2 className="text-2xl font-bold mb-4 text-center">Vokabel-Check</h2>
-                    <div className="grid gap-4">
-                        {currentSlide.content.pairs.map((pair: any) => (
-                        <div key={pair.id} className="grid grid-cols-[1fr_1fr] gap-4 items-center">
-                            <div className="text-right font-medium text-lg">{pair.foreign}</div>
+            );
+        case 'short-answer':
+            return (
+                <div className="w-full max-w-xl space-y-10 text-center">
+                    <h2 className="text-3xl md:text-4xl font-bold">{currentSlide.content.question}</h2>
+                    <div className="space-y-6">
+                        <div className="relative">
                             <Input 
-                            placeholder="Übersetzung..." 
-                            value={vocabAnswers[pair.id] || ''} 
-                            onChange={(e) => setVocabAnswers(prev => ({...prev, [pair.id]: e.target.value}))}
-                            className={cn(
-                                "text-center py-6",
-                                vocabResults[pair.id] === true && "border-green-500 bg-green-50",
-                                vocabResults[pair.id] === false && "border-red-500 bg-red-50"
-                            )}
-                            disabled={answerStatus !== 'none'}
+                                placeholder="Deine Antwort..." 
+                                value={currentAnswer} 
+                                onChange={(e) => setCurrentAnswer(e.target.value)} 
+                                disabled={answerStatus !== 'none' && answerStatus !== 'checking'} 
+                                className="text-2xl py-10 px-6 text-center shadow-sm" 
                             />
+                            {answerStatus === 'checking' && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-primary" />}
                         </div>
-                        ))}
-                    </div>
-                    {answerStatus === 'none' && (
-                        <Button className="w-full h-12 text-lg mt-4" onClick={checkVocab}>Ergebnisse prüfen</Button>
-                    )}
-                </div>
-            ) : currentSlide?.type === 'text' ? (
-                <div className="w-full max-w-2xl space-y-6 animate-in slide-in-from-right duration-300">
-                    <h2 className="text-3xl font-bold border-b pb-4">{currentSlide.content.title}</h2>
-                    <div className="text-lg leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                        {currentSlide.content.text}
+                        {answerStatus === 'none' && <Button size="lg" className="w-full h-14 text-lg" onClick={checkShortAnswer} disabled={!currentAnswer.trim()}>Prüfen</Button>}
+                        {answerStatus === 'correct' && <div className="p-4 bg-green-100 text-green-700 rounded-xl font-bold text-xl animate-in zoom-in">Richtig! ✨</div>}
+                        {answerStatus === 'incorrect' && <div className="p-4 bg-red-100 text-red-700 rounded-xl font-bold text-xl animate-in zoom-in">Nicht ganz... Lösung: {currentSlide.content.answer}</div>}
                     </div>
                 </div>
-            ) : currentSlide?.type === 'conclusion' ? (
-                <div className="text-center space-y-10 w-full max-w-md animate-in zoom-in duration-500">
+            );
+        case 'long-answer':
+            return (
+                <div className="w-full max-w-3xl space-y-8">
+                    <h2 className="text-3xl md:text-4xl font-bold">{currentSlide.content.question}</h2>
                     <div className="space-y-4">
-                        <h1 className="text-5xl font-extrabold tracking-tight">Vielen Dank!</h1>
-                        <p className="text-xl text-muted-foreground font-medium">
-                            Du bist mit dem Quiz fertig! Du kannst diese Seite nun schließen.
-                        </p>
-                    </div>
-
-                    {currentSlide.content.showScore && (
-                        <div className="p-8 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2">
-                            <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Dein Ergebnis</p>
-                            <p className="text-7xl font-black text-primary">{totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%</p>
-                            <p className="text-sm text-muted-foreground">{correctCount} von {totalQuestions} richtig</p>
+                        <div className="relative">
+                            <Textarea 
+                                placeholder="Schreibe deine Antwort hier ausführlich auf..." 
+                                value={currentAnswer} 
+                                onChange={(e) => setCurrentAnswer(e.target.value)} 
+                                disabled={answerStatus !== 'none' && answerStatus !== 'checking'} 
+                                className="text-xl p-8 min-h-[250px] leading-relaxed" 
+                            />
+                            {answerStatus === 'checking' && (
+                                <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-md z-10">
+                                    <Loader2 className="animate-spin h-12 w-12 text-primary mb-4" />
+                                    <p className="font-bold text-lg">Die KI analysiert deine Antwort...</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-
-                    {currentSlide.content.collectFeedback && (
-                        <div className="space-y-6">
-                            <p className="font-bold text-lg">Wie fandest du das Quiz?</p>
-                            <div className="flex justify-center gap-8">
-                                <button 
-                                    onClick={() => { setFeedbackValue('sad'); saveResponse('sad'); }}
-                                    className={cn(
-                                        "p-2 rounded-full transition-colors",
-                                        feedbackValue === 'sad' ? "bg-red-100 text-red-600" : "text-muted-foreground hover:text-red-400"
-                                    )}
-                                >
-                                    <Frown className="w-16 h-16" />
-                                </button>
-                                <button 
-                                    onClick={() => { setFeedbackValue('neutral'); saveResponse('neutral'); }}
-                                    className={cn(
-                                        "p-2 rounded-full transition-colors",
-                                        feedbackValue === 'neutral' ? "bg-amber-100 text-amber-600" : "text-muted-foreground hover:text-amber-400"
-                                    )}
-                                >
-                                    <Meh className="w-16 h-16" />
-                                </button>
-                                <button 
-                                    onClick={() => { setFeedbackValue('happy'); saveResponse('happy'); }}
-                                    className={cn(
-                                        "p-2 rounded-full transition-colors",
-                                        feedbackValue === 'happy' ? "bg-green-100 text-green-600" : "text-muted-foreground hover:text-green-400"
-                                    )}
-                                >
-                                    <Smile className="w-16 h-16" />
-                                </button>
+                        {answerStatus === 'none' && <Button size="lg" className="w-full h-14 text-xl" onClick={checkLongAnswerAction} disabled={!currentAnswer.trim()}>Antwort absenden & prüfen</Button>}
+                        {aiFeedback && (
+                            <div className="p-6 rounded-2xl bg-primary/5 border-2 border-primary/10 mt-6 animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-lg font-bold flex items-center gap-2 text-primary"><Sparkles className="w-6 h-6" /> KI-Feedback</p>
+                                    <Badge className="text-lg py-1 px-3">{aiScore} / 10</Badge>
+                                </div>
+                                <p className="text-lg leading-relaxed text-muted-foreground">{aiFeedback}</p>
                             </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-3">
-                        <Button className="w-full h-14 text-lg font-bold" onClick={() => saveResponse(feedbackValue || undefined)}>
-                            Quiz beenden
-                        </Button>
-                        {currentSlide.content.collectFeedback && !feedbackValue && (
-                            <Button variant="ghost" onClick={() => saveResponse()}>
-                                Ohne Bewertung beenden
-                            </Button>
                         )}
                     </div>
                 </div>
-            ) : null}
+            );
+        case 'text':
+            return (
+                <div className="w-full max-w-3xl space-y-10 animate-in fade-in duration-700">
+                    <h2 className="text-4xl md:text-5xl font-black border-b-4 border-primary/20 pb-6">{currentSlide.content.title}</h2>
+                    <div className="text-xl md:text-2xl leading-relaxed whitespace-pre-wrap text-muted-foreground font-medium">
+                        {currentSlide.content.text}
+                    </div>
+                </div>
+            );
+        case 'conclusion':
+            return (
+                <div className="text-center space-y-12 w-full max-w-xl animate-in zoom-in duration-500">
+                    <div className="space-y-4">
+                        <h1 className="text-6xl font-black tracking-tighter">Vielen Dank!</h1>
+                        <p className="text-2xl text-muted-foreground font-medium">Du bist mit dem Quiz fertig! Du kannst diese Seite nun schließen.</p>
+                    </div>
+                    {currentSlide.content.showScore && (
+                        <div className="p-10 bg-primary/5 rounded-3xl border-4 border-primary/10 shadow-inner">
+                            <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm mb-2">Dein Endergebnis</p>
+                            <p className="text-8xl font-black text-primary mb-2">{totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%</p>
+                            <p className="text-xl text-muted-foreground">{correctCount} von {totalQuestions} Aufgaben richtig gelöst</p>
+                        </div>
+                    )}
+                    {currentSlide.content.collectFeedback && (
+                        <div className="space-y-8">
+                            <p className="font-black text-2xl">Wie hat es dir gefallen?</p>
+                            <div className="flex justify-center gap-10">
+                                <button onClick={() => submitQuiz('sad')} className="group transition-transform hover:scale-110"><Frown className="w-20 h-20 text-muted-foreground group-hover:text-red-500 transition-colors" /></button>
+                                <button onClick={() => submitQuiz('neutral')} className="group transition-transform hover:scale-110"><Meh className="w-20 h-20 text-muted-foreground group-hover:text-amber-500 transition-colors" /></button>
+                                <button onClick={() => submitQuiz('happy')} className="group transition-transform hover:scale-110"><Smile className="w-20 h-20 text-muted-foreground group-hover:text-green-500 transition-colors" /></button>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex flex-col gap-4">
+                        <Button className="w-full h-16 text-2xl font-black rounded-2xl shadow-lg" onClick={() => submitQuiz()} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin"/> : 'Quiz beenden'}
+                        </Button>
+                        <Button variant="ghost" className="text-muted-foreground" onClick={() => window.close()}>Ohne Bewertung beenden</Button>
+                    </div>
+                </div>
+            );
+        default: return null;
+    }
+  }
+
+  const canGoNext = currentSlide?.type === 'welcome' || currentSlide?.type === 'text' || currentSlide?.type === 'conclusion' || answerStatus !== 'none';
+
+  return (
+    <div className="min-h-screen bg-background selection:bg-primary/20 flex flex-col">
+        <main className="flex-1 flex flex-col items-center justify-center p-6 md:p-12">
+            {renderSlide()}
         </main>
 
-        <footer className="p-2 px-4 border-t bg-secondary/10 relative">
-            <div className="flex justify-end mb-1">
-                <span className="text-[10px] font-mono font-bold text-muted-foreground">{currentIndex + 1} / {quiz.slides.length}</span>
-            </div>
-            <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary transition-all duration-500" style={{ width: `${((currentIndex + 1) / quiz.slides.length) * 100}%` }} />
-            </div>
-            <div className="flex justify-end mt-2">
-                <Button size="sm" onClick={handleNext} disabled={currentIndex === quiz.slides.length - 1 || answerStatus === 'checking'}>
-                    Weiter <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
+        <footer className={cn(
+            "fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t transition-all duration-500 z-50",
+            isFooterVisible ? "translate-y-0" : "translate-y-full"
+        )}>
+            <div className="max-w-4xl mx-auto space-y-4">
+                <div className="flex justify-between items-end">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Fortschritt</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl font-black text-primary">{currentIndex + 1}</span>
+                            <span className="text-muted-foreground font-bold">/ {quiz.slides.length}</span>
+                        </div>
+                    </div>
+                    <Button 
+                        onClick={handleNext} 
+                        disabled={!canGoNext || currentIndex === quiz.slides.length - 1}
+                        className="h-14 px-8 text-xl font-black rounded-xl shadow-md group"
+                    >
+                        Weiter <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                </div>
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                    <div 
+                        className="h-full bg-primary transition-all duration-700 ease-in-out" 
+                        style={{ width: `${((currentIndex + 1) / quiz.slides.length) * 100}%` }} 
+                    />
+                </div>
             </div>
         </footer>
     </div>
