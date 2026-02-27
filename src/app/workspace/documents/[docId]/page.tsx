@@ -177,7 +177,6 @@ export default function TextDocumentPage() {
     document.execCommand('styleWithCSS', false, 'true');
 
     if (range.collapsed) {
-        // Create an anchor span for the next text to be typed
         const span = document.createElement('span');
         if (styleKey === 'fontSize') {
             span.style.fontSize = `${value}px`;
@@ -186,7 +185,6 @@ export default function TextDocumentPage() {
             span.style.fontFamily = value;
         }
         
-        // Zero-width space keeps the cursor inside the span
         span.innerHTML = '&#8203;';
         range.insertNode(span);
         
@@ -197,9 +195,15 @@ export default function TextDocumentPage() {
         selection.addRange(newRange);
     } else {
         if (styleKey === 'fontFamily') {
-            document.execCommand('fontName', false, value);
+            document.execCommand('fontName', false, 'temp-font');
+            const fonts = editorRef.current?.querySelectorAll('font[face="temp-font"]');
+            fonts?.forEach(f => {
+                const s = document.createElement('span');
+                s.style.fontFamily = value;
+                s.innerHTML = f.innerHTML;
+                f.parentNode?.replaceChild(s, f);
+            });
         } else if (styleKey === 'fontSize') {
-            // Using document.execCommand with a temp tag then replacing it for complex selections
             document.execCommand('fontSize', false, '7'); 
             const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
             fonts?.forEach(f => {
@@ -310,6 +314,7 @@ export default function TextDocumentPage() {
 
   const handleMediaInsert = () => {
     if (!mediaUrl.trim()) return;
+    editorRef.current?.focus();
 
     if (isMediaDialogOpen.type === 'link') {
         execCommand('createLink', mediaUrl);
@@ -415,7 +420,7 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold" onMouseDown={preventDefault}><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-60 overflow-y-auto">
                         {FONTS.map(font => (
@@ -449,7 +454,7 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe"><Palette className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe" onMouseDown={preventDefault}><Palette className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (
@@ -459,7 +464,7 @@ export default function TextDocumentPage() {
                 </DropdownMenu>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Marker"><Highlighter className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Marker" onMouseDown={preventDefault}><Highlighter className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (
@@ -559,7 +564,6 @@ export default function TextDocumentPage() {
         ::selection {
             background-color: hsla(var(--primary), 0.3);
         }
-        /* Ensure styles are always active inside spans */
         .prose span {
             font-size: inherit;
             font-family: inherit;
