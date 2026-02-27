@@ -45,6 +45,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 
 type TextDocument = {
   title: string;
@@ -85,9 +86,11 @@ export default function TextDocumentPage() {
   const [title, setTitle] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
-  const [isEditing, setIsEditing] = useState(!isLocked);
-  const [isManifestOpen, setIsManifestOpen] = useState(false);
+  
+  // Define states in correct order to avoid "access before initialization" error
   const [isLocked, setIsLocked] = useState(false);
+  const [isEditing, setIsEditing] = useState(true); 
+  const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
@@ -107,7 +110,9 @@ export default function TextDocumentPage() {
     if (documentData) {
       setTitle(documentData.title);
       setIsLocked(!!documentData.isLocked);
-      if (documentData.isLocked) setIsEditing(false);
+      if (documentData.isLocked) {
+          setIsEditing(false);
+      }
       
       if (editorRef.current && editorRef.current.innerHTML !== documentData.content) {
         editorRef.current.innerHTML = documentData.content;
@@ -206,13 +211,14 @@ export default function TextDocumentPage() {
     document.execCommand('styleWithCSS', false, 'true');
 
     if (range.collapsed) {
+        // Insert style anchor for next input
         const span = document.createElement('span');
         if (styleKey === 'fontFamily') span.style.fontFamily = value;
         if (styleKey === 'fontSize') {
             span.style.fontSize = `${value}px`;
             setFontSize(value);
         }
-        span.appendChild(document.createTextNode('\u200B'));
+        span.appendChild(document.createTextNode('\u200B')); // Zero-width space
         range.insertNode(span);
         range.setStart(span.firstChild!, 1);
         range.setEnd(span.firstChild!, 1);
@@ -221,6 +227,14 @@ export default function TextDocumentPage() {
     } else {
         if (styleKey === 'fontFamily') {
             document.execCommand('fontName', false, value);
+            // Browser might insert <font face="...">, normalize to span style if possible
+            const fonts = editorRef.current?.querySelectorAll('font[face]');
+            fonts?.forEach(f => {
+                const s = document.createElement('span');
+                s.style.fontFamily = f.getAttribute('face') || '';
+                s.innerHTML = f.innerHTML;
+                f.parentNode?.replaceChild(s, f);
+            });
         } else if (styleKey === 'fontSize') {
             document.execCommand('fontSize', false, '7'); 
             const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
@@ -329,13 +343,17 @@ export default function TextDocumentPage() {
     editorRef.current?.focus();
     const selection = window.getSelection();
     if (!selection) return;
+    
+    // Restore selection from memory
     if (savedRange.current) {
         selection.removeAllRanges();
         selection.addRange(savedRange.current);
     }
+    
     if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     let htmlToInsert = '';
+    
     if (isMediaDialogOpen.type === 'link') {
         document.execCommand('createLink', false, mediaUrl);
     } else if (isMediaDialogOpen.type === 'image') {
@@ -346,11 +364,13 @@ export default function TextDocumentPage() {
         else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
     }
+    
     if (htmlToInsert) {
         const fragment = range.createContextualFragment(htmlToInsert);
         range.insertNode(fragment);
         range.collapse(false);
     }
+    
     setMediaUrl('');
     setIsMediaDialogOpen({ ...isMediaDialogOpen, open: false });
     triggerAutoSave();
