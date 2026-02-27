@@ -11,7 +11,7 @@ import {
     Loader2, ArrowLeft, Bold, Italic, Underline, Link as LinkIcon, 
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, Type, MoreHorizontal, Trash2, ChevronDown,
-    Strikethrough, Palette, Highlighter, Grid3X3, PlusSquare, MinusSquare,
+    Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
     Indent, Outdent
 } from 'lucide-react';
 import {
@@ -70,6 +70,7 @@ export default function TextDocumentPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
+  const [isInTable, setIsInTable] = useState(false);
 
   const docRef = useMemoFirebase(() => 
     !isNewDoc && user && typeof docId === 'string'
@@ -89,6 +90,17 @@ export default function TextDocumentPage() {
       setSaveStatus('idle');
     }
   }, [documentData]);
+
+  // Table detection logic
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const table = getTableUnderCursor();
+      setIsInTable(!!table);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim()) return;
@@ -156,7 +168,6 @@ export default function TextDocumentPage() {
     execCommand('insertHTML', tableHtml);
   };
 
-  // Advanced Table Controls
   const getTableUnderCursor = () => {
     const selection = window.getSelection();
     if (!selection?.rangeCount) return null;
@@ -172,7 +183,8 @@ export default function TextDocumentPage() {
     const table = getTableUnderCursor();
     if (!table) return;
     const row = table.insertRow();
-    for (let i = 0; i < table.rows[0].cells.length; i++) {
+    const cellCount = table.rows[0].cells.length;
+    for (let i = 0; i < cellCount; i++) {
       const cell = row.insertCell();
       cell.innerHTML = 'Neu';
       cell.style.border = '1px solid #ddd';
@@ -201,6 +213,7 @@ export default function TextDocumentPage() {
     const table = getTableUnderCursor();
     if (!table) return;
     table.remove();
+    setIsInTable(false);
     triggerAutoSave();
   };
 
@@ -208,8 +221,8 @@ export default function TextDocumentPage() {
       const selection = window.getSelection();
       if (!selection?.rangeCount) return;
       let node = selection.getRangeAt(0).startContainer;
-      while (node && node.nodeName !== 'TR') node = node.parentNode as Node;
-      if (node) {
+      while (node && node.nodeName !== 'TR' && node !== editorRef.current) node = node.parentNode as Node;
+      if (node && node.nodeName === 'TR') {
           (node as HTMLTableRowElement).remove();
           triggerAutoSave();
       }
@@ -255,7 +268,7 @@ export default function TextDocumentPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Dokument wirklich löschen?</AlertDialogTitle></AlertDialogHeader>
@@ -289,24 +302,24 @@ export default function TextDocumentPage() {
         </DialogContent>
       </Dialog>
 
-      <header className="bg-background border-b p-4 flex flex-col gap-4 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-                <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
+      <header className="bg-background border-b sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center justify-between p-3 px-4">
+            <div className="flex items-center gap-3 flex-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
                 <Input 
                     placeholder="Titel des Dokuments..." 
-                    className="text-2xl font-black border-0 shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent flex-1"
+                    className="text-lg font-black border-0 shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent flex-1"
                     value={title}
                     onChange={e => { setTitle(e.target.value); triggerAutoSave(); }}
                 />
             </div>
-            <div className="flex items-center gap-2 ml-4">
-                <span className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded">
-                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            <div className="flex items-center gap-2">
+                <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
+                    {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
                     {saveStatus === 'saving' ? 'Wird gespeichert' : 'Gespeichert'}
                 </span>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty'}><Save className="mr-2 h-4 w-4" /> Manuell speichern</DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -316,23 +329,23 @@ export default function TextDocumentPage() {
             </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-secondary/20 rounded-xl overflow-x-auto no-scrollbar border">
-            {/* Fonts & Sizes */}
-            <div className="flex items-center gap-1 border-r pr-2">
+        {/* Compact Single-Line Toolbar */}
+        <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
+            {/* Font & Size combined */}
+            <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 gap-1 font-bold text-xs"><Type className="h-4 w-4" /> <ChevronDown className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><Type className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Arial')}>Standard (Sans)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Georgia')}>Serifen (Schule)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Courier New')}>Code (Mono)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Arial')}>Sans (Standard)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Georgia')}>Serif (Klassisch)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => execCommand('fontName', 'Courier New')}>Mono (Code)</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 gap-1 font-black">A <ChevronDown className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-black">A <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                         <DropdownMenuItem onClick={() => execCommand('fontSize', '2')}>Klein</DropdownMenuItem>
@@ -343,83 +356,79 @@ export default function TextDocumentPage() {
                 </DropdownMenu>
             </div>
 
-            {/* Basic Style */}
-            <div className="flex items-center gap-1 border-r pr-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('bold')} title="Fett"><Bold className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('italic')} title="Kursiv"><Italic className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('underline')} title="Unterstrichen"><Underline className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('strikethrough')} title="Durchgestrichen"><Strikethrough className="h-4 w-4" /></Button>
+            {/* Formatting */}
+            <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
             </div>
 
             {/* Colors */}
-            <div className="flex items-center gap-1 border-r pr-2">
+            <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Textfarbe"><Palette className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe"><Palette className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (
-                            <button key={color} className="w-6 h-6 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Hintergrundfarbe"><Highlighter className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Marker"><Highlighter className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                         {['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (
-                            <button key={color} className="w-6 h-6 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />
+                            <button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
 
-            {/* Alignment & Lists */}
-            <div className="flex items-center gap-1 border-r pr-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('justifyRight')}><AlignRight className="h-4 w-4" /></Button>
+            {/* Lists & Indent */}
+            <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('insertUnorderedList')}><List className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-4 w-4" /></Button>
-                <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('outdent')}><Outdent className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => execCommand('indent')}><Indent className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5" /></Button>
             </div>
 
-            {/* Media */}
-            <div className="flex items-center gap-1 border-r pr-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsMediaDialogOpen({type: 'link', open: true})} title="Link einfügen"><LinkIcon className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsMediaDialogOpen({type: 'image', open: true})} title="Bild einfügen"><ImageIcon className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsMediaDialogOpen({type: 'video', open: true})} title="Video einfügen"><Video className="h-4 w-4" /></Button>
+            {/* Alignment */}
+            <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5" /></Button>
             </div>
 
-            {/* Table Management */}
-            <div className="flex items-center gap-1 bg-primary/10 px-1 rounded-lg">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={insertTable} title="Tabelle einfügen"><TableIcon className="h-4 w-4" /></Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 px-2 gap-1 text-primary text-xs font-bold">
-                            Tabelle <ChevronDown className="h-3 w-3" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuLabel>Tabellen-Optionen</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={addRow} className="gap-2"><PlusSquare className="h-4 w-4" /> Zeile unterhalb</DropdownMenuItem>
-                        <DropdownMenuItem onClick={addColumn} className="gap-2"><PlusSquare className="h-4 w-4" /> Spalte rechts</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={deleteRow} className="text-destructive gap-2"><MinusSquare className="h-4 w-4" /> Zeile löschen</DropdownMenuItem>
-                        <DropdownMenuItem onClick={deleteCurrentTable} className="text-destructive gap-2 font-bold"><Trash2 className="h-4 w-4" /> Ganze Tabelle löschen</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+            {/* Media & Table */}
+            <div className="flex items-center gap-0.5 shrink-0 pl-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'link', open: true})}><LinkIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'image', open: true})}><ImageIcon className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMediaDialogOpen({type: 'video', open: true})}><Video className="h-3.5 w-3.5" /></Button>
+                <Separator orientation="vertical" className="h-4 mx-1" />
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
             </div>
         </div>
+
+        {/* Dynamic Contextual Table Toolbar */}
+        {isInTable && (
+            <div className="flex items-center gap-2 p-1 px-4 bg-primary/10 border-t animate-in slide-in-from-top-1 duration-200">
+                <span className="text-[10px] font-black uppercase text-primary/70 mr-2 flex items-center gap-1"><TableIcon className="h-3 w-3" /> Tabelle</span>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={addRow}><PlusSquare className="h-3 w-3" /> Zeile unten</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onClick={addColumn}><PlusSquare className="h-3 w-3" /> Spalte rechts</Button>
+                <Separator orientation="vertical" className="h-4 mx-1" />
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive hover:text-destructive" onClick={deleteRow}><MinusSquare className="h-3 w-3" /> Zeile löschen</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive font-black hover:text-destructive" onClick={deleteCurrentTable}><Trash2 className="h-3 w-3" /> Tabelle löschen</Button>
+            </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-auto p-4 md:p-12 flex justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="w-full max-w-4xl bg-background shadow-2xl rounded-2xl min-h-[1100px] p-8 md:p-20 border transition-all">
+        <div className="w-full max-w-4xl bg-background shadow-2xl rounded-2xl min-h-[1100px] p-8 md:p-20 border transition-all mb-20">
             <div 
                 ref={editorRef}
                 contentEditable
@@ -440,13 +449,20 @@ export default function TextDocumentPage() {
         }
         table {
             transition: all 0.2s;
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
         }
         table td, table th {
-            min-width: 100px;
+            min-width: 50px;
+            border: 1px solid #ddd;
+            padding: 12px;
             position: relative;
         }
-        table tr:hover {
-            background-color: rgba(0,0,0,0.02);
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eee;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;
