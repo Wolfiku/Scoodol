@@ -47,16 +47,24 @@ const items: ExploreItem[] = [
         kind: "type"
     },
     {
-        title: "Lernzettel",
-        description: "Perfekt strukturiert für deine Prüfungsvorbereitung.",
-        icon: <BookOpen className="w-8 h-8" />,
-        href: "/workspace/notes/new?template=study",
-        category: "Lernen",
+        title: "Link-Sammlung",
+        description: "Sammle Quellen für deine Recherche mit einer speziellen UI.",
+        icon: <Link2 className="w-8 h-8" />,
+        href: "/workspace/notes/new?template=links",
+        category: "Recherche",
         kind: "smart"
     },
     {
+        title: "Lernzettel",
+        description: "Strukturiert für deine Prüfungsvorbereitung mit Kernkonzepten.",
+        icon: <BookOpen className="w-8 h-8" />,
+        href: "/workspace/notes/new?template=study",
+        category: "Lernen",
+        kind: "template"
+    },
+    {
         title: "Stunden-Protokoll",
-        description: "Halte fest, was in der letzten Stunde wichtig war.",
+        description: "Halte Mitschriften und Hausaufgaben einer Stunde fest.",
         icon: <FileText className="w-8 h-8" />,
         href: "/workspace/notes/new?template=protocol",
         category: "Unterricht",
@@ -64,18 +72,10 @@ const items: ExploreItem[] = [
     },
     {
         title: "Referat-Planer",
-        description: "Plane deinen nächsten Vortrag von der Gliederung bis zum Handout.",
+        description: "Plane deinen Vortrag mit Meilensteinen und Gliederung.",
         icon: <Presentation className="w-8 h-8" />,
         href: "/workspace/notes/new?template=presentation",
         category: "Projekte",
-        kind: "smart"
-    },
-    {
-        title: "Link-Sammlung",
-        description: "Sammle Quellen und Inspiration für deine Hausarbeiten.",
-        icon: <Link2 className="w-8 h-8" />,
-        href: "/workspace/notes/new?template=links",
-        category: "Recherche",
         kind: "template"
     }
 ]
@@ -107,7 +107,7 @@ export default function ExplorePage() {
                         <Link href={item.href} key={item.title} className="block hover:no-underline">
                             <div className={cn(
                                 "p-6 border rounded-xl h-full flex flex-col items-start gap-4 transition-all hover:shadow-md hover:border-primary/50 group",
-                                item.kind === 'type' ? "bg-card" : "bg-accent/5"
+                                item.kind === 'type' ? "bg-card shadow-sm" : "bg-accent/5"
                             )}>
                                 <div className={cn(
                                     "p-3 rounded-lg transition-colors",
