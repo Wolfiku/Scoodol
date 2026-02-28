@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,8 @@ import {
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon
+    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon,
+    Sparkles, Library, Quote, Code, BookmarkPlus, ExternalLink, CornerUpRight
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,6 +49,9 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import QRCode from 'qrcode';
+import { generateAiWritingAssistance } from '@/app/actions';
+import { useTheme } from '@/hooks/use-theme';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 type TextDocument = {
   title: string;
@@ -95,6 +99,7 @@ export default function TextDocumentPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { aiLanguage } = useTheme();
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   
   const [title, setTitle] = useState('');
@@ -107,13 +112,22 @@ export default function TextDocumentPage() {
   const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isConfirmLiveUpdateOpen, setIsConfirmLiveUpdateOpen] = useState(false);
-  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
+  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link' | 'ext-link' | 'homework' | 'redirect', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
+  const [extLinkTitle, setExtLinkTitle] = useState('');
+  const [extLinkDesc, setExtLinkDesc] = useState('');
+  const [hwSubject, setHwSubject] = useState('');
+  const [hwTask, setHwTask] = useState('');
   const [isInTable, setIsInTable] = useState(false);
   const [fontSize, setFontSize] = useState('18');
   
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // For Scoodol Redirects
+  const [publicDocs, setPublicDocs] = useState<{id: string, title: string, type: 'document' | 'quiz'}[]>([]);
+  const [selectedRedirect, setSelectedRedirect] = useState<string | null>(null);
 
   const docRef = useMemoFirebase(() => 
     !isNewDoc && user && typeof docId === 'string'
@@ -166,6 +180,32 @@ export default function TextDocumentPage() {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
+  // Handle specialized button clicks in reading mode
+  useEffect(() => {
+    const handleClick = async (e: MouseEvent) => {
+        if (isEditing || !user) return;
+        const target = e.target as HTMLElement;
+        const btn = target.closest('.add-hw-btn') as HTMLButtonElement;
+        if (btn) {
+            const container = btn.closest('.hw-template') as HTMLElement;
+            if (container) {
+                const subject = container.dataset.subject || 'Allgemein';
+                const task = container.dataset.task || 'Aufgabe';
+                const hwRef = collection(firestore, `users/${user.uid}/homeworks`);
+                await addDocumentNonBlocking(hwRef, {
+                    subject,
+                    task,
+                    done: false,
+                    dueDate: ''
+                });
+                toast({ title: "Hausaufgabe hinzugefügt!", description: task });
+            }
+        }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [isEditing, user, firestore, toast]);
+
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim() || isLocked) return;
     setSaveStatus('saving');
@@ -204,7 +244,6 @@ export default function TextDocumentPage() {
     if (isLocked) return;
     setSaveStatus('dirty');
     
-    // Wenn das Dokument veröffentlicht ist, erzwingen wir eine manuelle Bestätigung
     if (isPublished) return;
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -251,13 +290,6 @@ export default function TextDocumentPage() {
     } else {
         if (styleKey === 'fontFamily') {
             document.execCommand('fontName', false, value);
-            const fonts = editorRef.current?.querySelectorAll('font[face]');
-            fonts?.forEach(f => {
-                const s = document.createElement('span');
-                s.style.fontFamily = f.getAttribute('face') || '';
-                s.innerHTML = f.innerHTML;
-                f.parentNode?.replaceChild(s, f);
-            });
         } else if (styleKey === 'fontSize') {
             document.execCommand('fontSize', false, '7'); 
             const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
@@ -271,6 +303,16 @@ export default function TextDocumentPage() {
         }
     }
     triggerAutoSave();
+  };
+
+  const insertExtra = (type: 'code' | 'quote') => {
+      let html = '';
+      if (type === 'code') {
+          html = `<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; font-family: monospace; overflow-x: auto; margin: 1em 0;"><code>Code hier einfügen...</code></pre><p><br></p>`;
+      } else if (type === 'quote') {
+          html = `<blockquote style="border-left: 4px solid var(--primary); padding-left: 1.5em; font-style: italic; color: #666; margin: 1.5em 0; font-size: 1.1em;">„Hier steht dein Zitat...“</blockquote><p><br></p>`;
+      }
+      execCommand('insertHTML', html);
   };
 
   const insertTable = () => {
@@ -362,7 +404,6 @@ export default function TextDocumentPage() {
   }
 
   const handleMediaInsert = () => {
-    if (!mediaUrl.trim()) return;
     editorRef.current?.focus();
     const selection = window.getSelection();
     if (!selection) return;
@@ -376,15 +417,23 @@ export default function TextDocumentPage() {
     const range = selection.getRangeAt(0);
     let htmlToInsert = '';
     
-    if (isMediaDialogOpen.type === 'link') {
+    if (isMediaDialogOpen.type === 'link' && mediaUrl.trim()) {
         document.execCommand('createLink', false, mediaUrl);
-    } else if (isMediaDialogOpen.type === 'image') {
+    } else if (isMediaDialogOpen.type === 'image' && mediaUrl.trim()) {
         htmlToInsert = `<div style="text-align: center; margin: 1.5em 0;"><img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="Bild" /></div><p><br></p>`;
-    } else if (isMediaDialogOpen.type === 'video') {
+    } else if (isMediaDialogOpen.type === 'video' && mediaUrl.trim()) {
         let embedUrl = mediaUrl;
         if (mediaUrl.includes('youtube.com/watch?v=')) embedUrl = mediaUrl.replace('watch?v=', 'embed/');
         else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
+    } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
+        htmlToInsert = `<div class="ext-link-card" style="border: 1px solid #eee; background: #fafafa; padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; flex-direction: column; gap: 0.5em;"><div style="display: flex; align-items: center; gap: 0.5em; color: var(--primary); font-weight: bold;"><ExternalLink style="width: 16px; height: 16px;" /> ${extLinkTitle || 'Link'}</div><p style="margin: 0; font-size: 0.9em; color: #666;">${extLinkDesc || ''}</p><a href="${mediaUrl}" target="_blank" style="align-self: flex-start; background: var(--primary); color: white; padding: 0.5em 1.5em; border-radius: 100px; text-decoration: none; font-size: 0.85em; font-weight: bold; margin-top: 0.5em;">Zum Link</a></div><p><br></p>`;
+    } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
+        htmlToInsert = `<div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed var(--accent); background: hsla(var(--accent), 0.05); padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; align-items: center; justify-content: space-between; gap: 1em;"><div><div style="font-[10px] uppercase font-black opacity-50 mb-1">Hausaufgabe (${hwSubject || 'Allg.'})</div><div style="font-weight: bold; font-size: 1.1em;">${hwTask}</div></div><button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.7em 1.2em; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em;"><BookmarkPlus style="width: 16px; height: 16px;" /> Einplanen</button></div><p><br></p>`;
+    } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
+        const item = publicDocs.find(d => d.id === selectedRedirect);
+        const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
+        htmlToInsert = `<div class="scoodol-redirect" style="border: 2px solid var(--primary); background: white; padding: 1.5em; border-radius: 20px; margin: 2em 0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.5em;"><div style="background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">${item?.type === 'document' ? '<FileText />' : '<BrainCircuit />'}</div><div style="flex: 1;"><div style="font-size: 0.7em; uppercase font-black opacity-50 mb-0.5">Scoodol Weiterleitung</div><div style="font-weight: 900; font-size: 1.2em;">${item?.title || 'Datei'}</div></div><a href="${url}" style="background: #f0f0f0; color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none;"><CornerUpRight style="width: 18px; height: 18px;" /></a></div><p><br></p>`;
     }
     
     if (htmlToInsert) {
@@ -393,15 +442,68 @@ export default function TextDocumentPage() {
         range.collapse(false);
     }
     
-    setMediaUrl('');
+    setMediaUrl(''); setExtLinkTitle(''); setExtLinkDesc(''); setHwSubject(''); setHwTask(''); setSelectedRedirect(null);
     setIsMediaDialogOpen({ ...isMediaDialogOpen, open: false });
     triggerAutoSave();
   };
 
-  const openMediaDialog = (type: 'image' | 'video' | 'link') => {
+  const openMediaDialog = (type: 'image' | 'video' | 'link' | 'ext-link' | 'homework' | 'redirect') => {
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) savedRange.current = selection.getRangeAt(0).cloneRange();
+      
+      if (type === 'redirect' && user) {
+          // Fetch public items
+          const fetchPublic = async () => {
+              const docsRef = collection(firestore, `users/${user.uid}/documents`);
+              const qDocs = query(docsRef, where('isPublished', '==', true));
+              const quizzesRef = collection(firestore, `users/${user.uid}/quizzes`);
+              const qQuiz = query(quizzesRef, where('isPublished', '==', true));
+              
+              const [snapDocs, snapQuiz] = await Promise.all([getDocs(qDocs), getDocs(qQuiz)]);
+              const items: any[] = [];
+              snapDocs.forEach(d => items.push({ id: d.id, title: d.data().title, type: 'document' }));
+              snapQuiz.forEach(d => items.push({ id: d.id, title: d.data().title, type: 'quiz' }));
+              setPublicDocs(items);
+          };
+          fetchPublic();
+      }
+      
       setIsMediaDialogOpen({ type, open: true });
+  }
+
+  const handleAiAssistance = async (task: 'improve' | 'extend' | 'summarize') => {
+      const selection = window.getSelection();
+      let textToProcess = '';
+      let range: Range | null = null;
+
+      if (selection && selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
+          textToProcess = selection.toString();
+          range = selection.getRangeAt(0);
+      } else {
+          textToProcess = editorRef.current?.innerText || '';
+      }
+
+      if (!textToProcess.trim()) return;
+
+      setIsAiLoading(true);
+      const res = await generateAiWritingAssistance(textToProcess, task, aiLanguage);
+      setIsAiLoading(false);
+
+      if ('result' in res) {
+          if (range) {
+              range.deleteContents();
+              const fragment = range.createContextualFragment(res.result);
+              range.insertNode(fragment);
+          } else {
+              if (editorRef.current) {
+                  editorRef.current.innerHTML += `<p>${res.result}</p>`;
+              }
+          }
+          triggerAutoSave();
+          toast({ title: "KI-Hilfe abgeschlossen!" });
+      } else {
+          toast({ variant: 'destructive', title: "Fehler", description: res.error });
+      }
   }
 
   const handleDelete = async () => {
@@ -585,11 +687,51 @@ export default function TextDocumentPage() {
       <Dialog open={isMediaDialogOpen.open} onOpenChange={(open) => setIsMediaDialogOpen({...isMediaDialogOpen, open})}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>{isMediaDialogOpen.type === 'link' ? 'Link einfügen' : isMediaDialogOpen.type === 'image' ? 'Bild-URL einfügen' : 'Video-URL einfügen'}</DialogTitle>
-                <DialogDescription>Gib die URL für dein Medium ein.</DialogDescription>
+                <DialogTitle>
+                    {isMediaDialogOpen.type === 'link' ? 'Link einfügen' : 
+                     isMediaDialogOpen.type === 'image' ? 'Bild-URL einfügen' : 
+                     isMediaDialogOpen.type === 'video' ? 'Video-URL einfügen' : 
+                     isMediaDialogOpen.type === 'ext-link' ? 'Erweiterter Link' : 
+                     isMediaDialogOpen.type === 'homework' ? 'Hausaufgabe einplanen' : 'Scoodol Redirect'}
+                </DialogTitle>
+                <DialogDescription>Gib die Details für dein Element ein.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4"><div className="space-y-2"><Label htmlFor="url">URL</Label><Input id="url" placeholder="https://..." value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus /></div></div>
-            <DialogFooter><Button variant="outline" onClick={() => setIsMediaDialogOpen({...isMediaDialogOpen, open: false})}>Abbrechen</Button><Button onClick={handleMediaInsert}>Einfügen</Button></DialogFooter>
+            <div className="space-y-4 py-4">
+                {(isMediaDialogOpen.type === 'link' || isMediaDialogOpen.type === 'image' || isMediaDialogOpen.type === 'video' || isMediaDialogOpen.type === 'ext-link') && (
+                    <div className="space-y-2">
+                        <Label htmlFor="url">URL</Label>
+                        <Input id="url" placeholder="https://..." value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus />
+                    </div>
+                )}
+                {isMediaDialogOpen.type === 'ext-link' && (
+                    <>
+                        <div className="space-y-2"><Label>Anzeigename</Label><Input placeholder="Titel..." value={extLinkTitle} onChange={e => setExtLinkTitle(e.target.value)} /></div>
+                        <div className="space-y-2"><Label>Beschreibung</Label><Input placeholder="Kurzer Text..." value={extLinkDesc} onChange={e => setExtLinkDesc(e.target.value)} /></div>
+                    </>
+                )}
+                {isMediaDialogOpen.type === 'homework' && (
+                    <>
+                        <div className="space-y-2"><Label>Fach</Label><Input placeholder="z.B. Mathe" value={hwSubject} onChange={e => setHwSubject(e.target.value)} /></div>
+                        <div className="space-y-2"><Label>Aufgabe</Label><Input placeholder="S. 44 Nr. 1" value={hwTask} onChange={e => setHwTask(e.target.value)} /></div>
+                    </>
+                )}
+                {isMediaDialogOpen.type === 'redirect' && (
+                    <div className="space-y-2">
+                        <Label>Öffentliches Dokument wählen</Label>
+                        <Select value={selectedRedirect || ''} onValueChange={setSelectedRedirect}>
+                            <SelectTrigger><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                            <SelectContent>
+                                {publicDocs.map(d => (<SelectItem key={d.id} value={d.id}>{d.title} ({d.type === 'document' ? 'Doc' : 'Quiz'})</SelectItem>))}
+                                {publicDocs.length === 0 && <div className="p-2 text-xs text-muted-foreground">Keine öffentlichen Dateien gefunden.</div>}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsMediaDialogOpen({...isMediaDialogOpen, open: false})}>Abbrechen</Button>
+                <Button onClick={handleMediaInsert} disabled={(isMediaDialogOpen.type === 'redirect' && !selectedRedirect) || (isMediaDialogOpen.type === 'homework' && !hwTask.trim())}>Einfügen</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -658,6 +800,21 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
                 <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className={cn("h-7 px-2 gap-1 text-primary animate-pulse", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span className="text-[10px] font-black uppercase">Magic</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('improve')}><Edit className="mr-2 h-4 w-4" /> Stil verbessern</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('extend')}><PlusSquare className="mr-2 h-4 w-4" /> Weiterschreiben</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('summarize')}><List className="mr-2 h-4 w-4" /> Zusammenfassen</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
+                    <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold" onMouseDown={preventDefault}><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent className="max-h-60 overflow-y-auto">
                             {FONTS.map(font => (<DropdownMenuItem key={font.name} onClick={() => applyStyle('fontFamily', font.family)} style={{ fontFamily: font.family }}>{font.name}</DropdownMenuItem>))}
@@ -703,6 +860,16 @@ export default function TextDocumentPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('video')}><Video className="h-3.5 w-3.5" /></Button>
                     <Separator orientation="vertical" className="h-4 mx-1" />
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-primary ml-1" onMouseDown={preventDefault}><Library className="h-3.5 w-3.5" /><span className="text-[10px] font-black uppercase">Extra</span></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => insertExtra('code')}><Code className="mr-2 h-4 w-4" /> Codefeld</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => insertExtra('quote')}><Quote className="mr-2 h-4 w-4" /> Zitat</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openMediaDialog('ext-link')}><ExternalLink className="mr-2 h-4 w-4" /> Erw. Link</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openMediaDialog('homework')}><BookmarkPlus className="mr-2 h-4 w-4" /> Hausivorlage</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openMediaDialog('redirect')}><CornerUpRight className="mr-2 h-4 w-4" /> Scoodol-Link</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
         )}

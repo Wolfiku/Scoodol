@@ -20,6 +20,8 @@ import type { TutorChatOutput } from "@/ai/flows/tutor-chat";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp, getApps }from "firebase/app";
+import { ai } from "@/ai/genkit";
+import { z } from "genkit";
 
 if (!getApps().some(app => app.name === 'admin-action-app')) {
     initializeApp(firebaseConfig, 'admin-action-app');
@@ -137,5 +139,31 @@ export async function sendPasswordResetEmailForUser(email: string): Promise<{suc
              return { success: false, error: 'Benutzer mit dieser E-Mail nicht gefunden.' };
         }
         return { success: false, error: 'E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden.' };
+    }
+}
+
+export async function generateAiWritingAssistance(text: string, task: 'improve' | 'extend' | 'summarize', language: string): Promise<{ result: string } | { error: string }> {
+    try {
+        const prompt = ai.definePrompt({
+            name: 'writingAssistance',
+            input: { schema: z.object({ text: z.string(), task: z.string(), language: z.string() }) },
+            output: { schema: z.object({ result: z.string() }) },
+            prompt: `Du bist ein hilfreicher Schreib-Assistent für Schüler. 
+            Aufgabe: {{{task}}}
+            Text: "{{{text}}}"
+            Sprache: {{language}}
+            
+            Regeln:
+            - Wenn 'improve', dann korrigiere Fehler und verbessere den Schreibstil (ausdrucksvoller).
+            - Wenn 'extend', dann schreibe den Text sinnvoll weiter.
+            - Wenn 'summarize', dann fasse die wichtigsten Punkte kurz zusammen.
+            Behalte das Niveau eines Schülers bei, aber sei präzise.`
+        });
+
+        const { output } = await prompt({ text, task, language });
+        return output ? { result: output.result } : { error: "Keine Antwort erhalten." };
+    } catch (error) {
+        console.error("AI Writing Error:", error);
+        return { error: "KI-Unterstützung fehlgeschlagen." };
     }
 }
