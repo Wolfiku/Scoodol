@@ -13,7 +13,7 @@ import {
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send
+    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -68,11 +68,22 @@ const FONTS = [
     { name: 'Open Sans', family: 'Open Sans, sans-serif' },
     { name: 'Montserrat', family: 'Montserrat, sans-serif' },
     { name: 'Ubuntu', family: 'Ubuntu, sans-serif' },
-    { name: 'Georgia', family: 'Georgia, serif' },
+    { name: 'Oswald', family: 'Oswald, sans-serif' },
+    { name: 'Raleway', family: 'Raleway, sans-serif' },
     { name: 'Playfair Display', family: 'Playfair Display, serif' },
     { name: 'Lora', family: 'Lora, serif' },
+    { name: 'Merriweather', family: 'Merriweather, serif' },
+    { name: 'PT Serif', family: 'PT Serif, serif' },
+    { name: 'EB Garamond', family: 'EB Garamond, serif' },
+    { name: 'Georgia', family: 'Georgia, serif' },
     { name: 'Fira Code', family: 'Fira Code, monospace' },
-    { name: 'Courier New', family: 'Courier New, monospace' },
+    { name: 'Source Code Pro', family: 'Source Code Pro, monospace' },
+    { name: 'Inconsolata', family: 'Inconsolata, monospace' },
+    { name: 'Pacifico', family: 'Pacifico, cursive' },
+    { name: 'Dancing Script', family: 'Dancing Script, cursive' },
+    { name: 'Caveat', family: 'Caveat, cursive' },
+    { name: 'Comfortaa', family: 'Comfortaa, display' },
+    { name: 'Bangers', family: 'Bangers, display' },
 ];
 
 export default function TextDocumentPage() {
@@ -510,12 +521,14 @@ export default function TextDocumentPage() {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Roboto:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Ubuntu:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@400;700&family=Comfortaa:wght@400;700&family=Dancing+Script:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@400;700&family=Inconsolata:wght@400;700&family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700;900&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Raleway:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;700&family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Ubuntu:wght@400;700&display=swap');
         [contenteditable]:empty:before { content: 'Beginne hier mit deinem Text...'; color: #a1a1aa; cursor: text; font-style: italic; }
         table { border-collapse: collapse; width: 100%; margin: 1em 0; }
         table td, table th { min-width: 50px; border: 1px solid #ddd; padding: 12px; }
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #eee; }
         ::selection { background-color: hsla(var(--primary), 0.3); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -657,6 +670,7 @@ export default function TextDocumentPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="Formatierung löschen" onMouseDown={preventDefault} onClick={() => execCommand('removeFormat')}><Eraser className="h-3.5 w-3.5" /></Button>
                 </div>
                 <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                     <DropdownMenu>
@@ -665,7 +679,10 @@ export default function TextDocumentPage() {
                     </DropdownMenu>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" title="Marker" onMouseDown={preventDefault}><Highlighter className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">{['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />))}</DropdownMenuContent>
+                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
+                            <button className="w-5 h-5 rounded-full border border-border flex items-center justify-center bg-background" onClick={() => execCommand('hiliteColor', 'transparent')} title="Keine Markierung"><XIcon className="w-3 h-3 text-destructive" /></button>
+                            {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />))}
+                        </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
                 <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
