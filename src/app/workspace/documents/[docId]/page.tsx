@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -932,21 +931,6 @@ export default function TextDocumentPage() {
             <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
                 <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className={cn("h-7 px-2 gap-1 text-primary animate-pulse", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
-                                <Sparkles className="h-3.5 w-3.5" />
-                                <span className="text-[10px] font-black uppercase">Magic</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('improve')}><Edit className="mr-2 h-4 w-4" /> Stil verbessern</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('extend')}><PlusSquare className="mr-2 h-4 w-4" /> Weiterschreiben</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('summarize')}><List className="mr-2 h-4 w-4" /> Zusammenfassen</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold" onMouseDown={preventDefault}><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent className="max-h-60 overflow-y-auto">
                             {FONTS.map(font => (<DropdownMenuItem key={font.name} onClick={() => applyStyle('fontFamily', font.family)} style={{ fontFamily: font.family }}>{font.name}</DropdownMenuItem>))}
@@ -992,11 +976,24 @@ export default function TextDocumentPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('video')}><Video className="h-3.5 w-3.5" /></Button>
                     <Separator orientation="vertical" className="h-4 mx-1" />
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
+                    
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-primary ml-1" onMouseDown={preventDefault}>
+                            <Button variant="ghost" size="icon" className={cn("h-7 w-7 text-primary animate-pulse ml-1", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
+                                <Sparkles className="h-3.5 w-3.5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('improve')}><Edit className="mr-2 h-4 w-4" /> Stil verbessern</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('extend')}><PlusSquare className="mr-2 h-4 w-4" /> Weiterschreiben</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAiAssistance('summarize')}><List className="mr-2 h-4 w-4" /> Zusammenfassen</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary ml-1" onMouseDown={preventDefault}>
                                 <Library className="h-3.5 w-3.5" />
-                                <span className="text-[10px] font-black uppercase">Extra</span>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
