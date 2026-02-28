@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -186,6 +187,30 @@ export default function TextDocumentPage() {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
+  // Keyboard Handler for Code Blocks
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+          const selection = window.getSelection();
+          if (!selection || !selection.rangeCount) return;
+          
+          let node = selection.getRangeAt(0).startContainer;
+          let inCode = false;
+          while (node && node !== editorRef.current) {
+              if (node.nodeName === 'PRE' || node.nodeName === 'CODE') {
+                  inCode = true;
+                  break;
+              }
+              node = node.parentNode as Node;
+          }
+
+          if (inCode) {
+              e.preventDefault();
+              document.execCommand('insertText', false, '\n');
+              triggerAutoSave();
+          }
+      }
+  };
+
   // Handle specialized button clicks in reading mode
   useEffect(() => {
     const handleClick = async (e: MouseEvent) => {
@@ -314,8 +339,7 @@ export default function TextDocumentPage() {
   const insertExtra = (type: 'code' | 'quote') => {
       let html = '';
       if (type === 'code') {
-          // Neues, verbessertes Codefeld-Design (VS-Code Style)
-          html = `<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 1.25rem; border-radius: 0.5rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; margin: 1.5rem 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; position: relative;"><code>Code hier einfügen...</code></pre><p><br></p>`;
+          html = `<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 1.25rem; border-radius: 0.5rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; margin: 1.5rem 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; display: block;">Code hier einfügen...</pre><p><br></p>`;
       } else if (type === 'quote') {
           html = `<blockquote style="border-left: 4px solid var(--primary); padding-left: 1.5em; font-style: italic; color: #666; margin: 1.5em 0; font-size: 1.1em;">„Hier steht dein Zitat...“</blockquote><p><br></p>`;
       }
@@ -459,7 +483,6 @@ export default function TextDocumentPage() {
       if (selection && selection.rangeCount > 0) savedRange.current = selection.getRangeAt(0).cloneRange();
       
       if (type === 'redirect' && user) {
-          // Fetch public items
           const fetchPublic = async () => {
               const docsRef = collection(firestore, `users/${user.uid}/documents`);
               const qDocs = query(docsRef, where('isPublished', '==', true));
@@ -638,6 +661,7 @@ export default function TextDocumentPage() {
         ::selection { background-color: hsla(var(--primary), 0.3); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        pre { white-space: pre-wrap !important; word-break: break-all; }
       `}</style>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -903,6 +927,7 @@ export default function TextDocumentPage() {
                     !isEditing && "cursor-default"
                 )}
                 onInput={triggerAutoSave}
+                onKeyDown={handleKeyDown}
                 spellCheck="false"
                 style={{ fontFamily: 'inherit' }}
             />
