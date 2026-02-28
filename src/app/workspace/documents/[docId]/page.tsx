@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -315,7 +314,8 @@ export default function TextDocumentPage() {
   const insertExtra = (type: 'code' | 'quote') => {
       let html = '';
       if (type === 'code') {
-          html = `<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; font-family: monospace; overflow-x: auto; margin: 1em 0; white-space: pre-wrap; line-height: 1.4;"><code>Code hier einfügen...</code></pre><p><br></p>`;
+          // Neues, verbessertes Codefeld-Design (VS-Code Style)
+          html = `<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 1.25rem; border-radius: 0.5rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.5; margin: 1.5rem 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; position: relative;"><code>Code hier einfügen...</code></pre><p><br></p>`;
       } else if (type === 'quote') {
           html = `<blockquote style="border-left: 4px solid var(--primary); padding-left: 1.5em; font-style: italic; color: #666; margin: 1.5em 0; font-size: 1.1em;">„Hier steht dein Zitat...“</blockquote><p><br></p>`;
       }
