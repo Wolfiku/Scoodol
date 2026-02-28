@@ -185,7 +185,6 @@ export default function TextDocumentPage() {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
-  // FIXED KEYDOWN HANDLER FOR CODE BLOCKS
   const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
           const selection = window.getSelection();
@@ -204,7 +203,6 @@ export default function TextDocumentPage() {
 
           if (preBlock) {
               e.preventDefault();
-              // Insert literal newline at cursor without splitting the PRE block
               const range = selection.getRangeAt(0);
               const textNode = document.createTextNode('\n');
               range.deleteContents();
@@ -465,13 +463,42 @@ export default function TextDocumentPage() {
         else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
-        htmlToInsert = `<div class="ext-link-card" style="border: 1px solid #eee; background: #fafafa; padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; flex-direction: column; gap: 0.5em;"><div style="display: flex; align-items: center; gap: 0.5em; color: var(--primary); font-weight: bold;">🔗 ${extLinkTitle || 'Link'}</div><p style="margin: 0; font-size: 0.9em; color: #666;">${extLinkDesc || ''}</p><a href="${mediaUrl}" target="_blank" style="align-self: flex-start; background: var(--primary); color: white; padding: 0.5em 1.5em; border-radius: 100px; text-decoration: none; font-size: 0.85em; font-weight: bold; margin-top: 0.5em;">Zum Link</a></div><p><br></p>`;
+        htmlToInsert = `
+            <div class="ext-link-card" style="border: 1px solid #e2e8f0; background: #ffffff; padding: 1.25rem; border-radius: 1rem; margin: 1.5rem 0; display: flex; flex-direction: column; gap: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-left: 4px solid var(--primary);">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="background: hsla(var(--primary), 0.1); color: var(--primary); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px;">🔗</div>
+                    <div style="font-weight: 800; font-size: 1.1rem; color: #1a202c; line-height: 1.2;">${extLinkTitle || 'Externer Link'}</div>
+                </div>
+                <div style="color: #4a5568; font-size: 0.95rem; line-height: 1.5; margin: 0;">${extLinkDesc || 'Klicke auf den Button, um die Webseite zu öffnen.'}</div>
+                <a href="${mediaUrl}" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: white; padding: 0.6rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.85rem; font-weight: 700; width: fit-content; margin-top: 0.25rem; transition: all 0.2s;">Webseite öffnen</a>
+            </div>
+            <p><br></p>
+        `;
     } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
-        htmlToInsert = `<div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed var(--accent); background: hsla(var(--accent), 0.05); padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; align-items: center; justify-content: space-between; gap: 1em;"><div><div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 4px;">Hausaufgabe (${hwSubject || 'Allg.'})</div><div style="font-weight: bold; font-size: 1.1em;">${hwTask}</div></div><button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.7em 1.2em; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button></div><p><br></p>`;
+        htmlToInsert = `
+            <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsla(var(--accent), 0.05); padding: 1.25rem; border-radius: 1rem; margin: 1.5rem 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+                <div style="flex: 1;">
+                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsla(var(--accent), 0.7); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
+                    <div style="font-weight: 800; font-size: 1.1rem; color: var(--foreground); line-height: 1.3;">${hwTask}</div>
+                </div>
+                <button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.6rem 1.25rem; border-radius: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; flex-shrink: 0; height: fit-content; align-self: center; box-shadow: 0 4px 10px hsla(var(--accent), 0.3);">➕ Einplanen</button>
+            </div>
+            <p><br></p>
+        `;
     } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
         const item = publicDocs.find(d => d.id === selectedRedirect);
         const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
-        htmlToInsert = `<div class="scoodol-redirect" style="border: 2px solid var(--primary); background: white; padding: 1.5em; border-radius: 20px; margin: 2em 0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.5em;"><div style="background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">${item?.type === 'document' ? '📄' : '🧠'}</div><div style="flex: 1;"><div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 2px;">Scoodol Weiterleitung</div><div style="font-weight: 900; font-size: 1.2em;">${item?.title || 'Datei'}</div></div><a href="${url}" style="background: #f0f0f0; color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 20px;">↗️</a></div><p><br></p>`;
+        htmlToInsert = `
+            <div class="scoodol-redirect" style="border: 1px solid #e2e8f0; background: white; padding: 1.25rem; border-radius: 1.25rem; margin: 2rem 0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.25rem; border-left: 4px solid var(--primary);">
+                <div style="background: hsla(var(--primary), 0.1); color: var(--primary); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">${item?.type === 'document' ? '📄' : '🧠'}</div>
+                <div style="flex: 1;">
+                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Dokument</div>
+                    <div style="font-weight: 900; font-size: 1.2rem; color: var(--foreground); line-height: 1.2;">${item?.title || 'Datei'}</div>
+                </div>
+                <a href="${url}" style="background: #f1f5f9; color: var(--foreground); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 18px; flex-shrink: 0; transition: transform 0.2s;">↗️</a>
+            </div>
+            <p><br></p>
+        `;
     }
     
     if (htmlToInsert) {
@@ -669,6 +696,8 @@ export default function TextDocumentPage() {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         pre { white-space: pre-wrap !important; word-break: break-all; }
+        .ext-link-card:hover { transform: translateY(-2px); transition: all 0.2s; }
+        .add-hw-btn:active { transform: scale(0.95); }
       `}</style>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -899,7 +928,12 @@ export default function TextDocumentPage() {
                     <Separator orientation="vertical" className="h-4 mx-1" />
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-primary ml-1" onMouseDown={preventDefault}><Library className="h-3.5 w-3.5" /><span className="text-[10px] font-black uppercase">Extra</span></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-primary ml-1" onMouseDown={preventDefault}>
+                                <Library className="h-3.5 w-3.5" />
+                                <span className="text-[10px] font-black uppercase">Extra</span>
+                            </Button>
+                        </DropdownMenuTrigger>
                         <DropdownMenuContent>
                             <DropdownMenuItem onClick={() => insertExtra('code')}><Code className="mr-2 h-4 w-4" /> Codefeld</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => insertExtra('quote')}><Quote className="mr-2 h-4 w-4" /> Zitat</DropdownMenuItem>
