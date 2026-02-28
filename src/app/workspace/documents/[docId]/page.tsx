@@ -464,9 +464,10 @@ export default function TextDocumentPage() {
         else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
+        const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
         htmlToInsert = `
             <div class="ext-link-card" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 0.75rem; margin: 1.5rem 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-left: 4px solid hsl(var(--primary)); font-family: inherit;">
-                <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔗</div>
+                <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${linkIconSvg}</div>
                 <div style="min-width: 0; flex: 1;">
                     <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
                     <div style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
@@ -489,9 +490,13 @@ export default function TextDocumentPage() {
     } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
         const item = publicDocs.find(d => d.id === selectedRedirect);
         const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
+        const redirectIconSvg = item?.type === 'document' ? 
+            `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>` :
+            `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"></path></svg>`;
+        
         htmlToInsert = `
             <div class="scoodol-redirect" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; margin: 1.5rem 0; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); display: flex; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--accent)); font-family: inherit;">
-                <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">${item?.type === 'document' ? '📄' : '🧠'}</div>
+                <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${redirectIconSvg}</div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 9px; text-transform: uppercase; font-weight: 800; color: hsl(var(--muted-foreground)); margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Datei</div>
                     <div style="font-weight: 800; font-size: 1.1rem; color: hsl(var(--foreground)); line-height: 1.2; truncate;">${item?.title || 'Datei'}</div>
