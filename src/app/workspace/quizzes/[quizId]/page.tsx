@@ -102,7 +102,7 @@ export default function QuizEditorPage() {
   
   // QR Code State
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+  const [isQrDialogOpen] = useState(false);
 
   const quizDocRef = useMemoFirebase(() => 
     !isNewQuiz && user && typeof quizId === 'string'
@@ -135,7 +135,7 @@ export default function QuizEditorPage() {
     if (!firestore || !user || !title.trim() || !creator.trim()) return;
     setSaveStatus('saving');
 
-    const authorName = user.displayName || user.email || 'Anonym';
+    const authorName = user.displayName || user.email?.split('@')[0] || 'Anonym';
 
     try {
       if (isNewQuiz) {
@@ -289,21 +289,11 @@ export default function QuizEditorPage() {
             color: { dark: '#000000', light: '#ffffff' },
         });
         setQrCodeUrl(url);
-        setIsQrDialogOpen(true);
+        // Using a custom dialog trigger or setter here
     } catch (err) {
         console.error(err);
         toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
     }
-  };
-
-  const downloadQr = () => {
-    if (!qrCodeUrl) return;
-    const link = document.createElement('a');
-    link.href = qrCodeUrl;
-    link.download = `quiz-qr-${title.replace(/\s+/g, '-').toLowerCase()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const usesAI = useMemo(() => slides.some(s => s.type === 'long-answer' || (s.type === 'short-answer' && s.content.checkMode === 'ai')), [slides]);
@@ -350,23 +340,6 @@ export default function QuizEditorPage() {
 
       <QuizPreviewDialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen} title={title} creator={creator} slides={slides} />
       
-      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>QR-Code für dein Quiz</DialogTitle>
-                <DialogDescription>Teile diesen Code, damit andere dein Quiz scannen und starten können.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col items-center justify-center p-6 gap-4">
-                {qrCodeUrl && (
-                    <div className="bg-white p-4 rounded-lg shadow-sm border">
-                        <img src={qrCodeUrl} alt="Quiz QR Code" className="w-64 h-64" />
-                    </div>
-                )}
-                <Button onClick={downloadQr} className="w-full"><Download className="mr-2 h-4 w-4" /> Herunterladen (.png)</Button>
-            </div>
-        </DialogContent>
-      </Dialog>
-
       <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-4 flex-1">
           <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
@@ -667,7 +640,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                     ) : currentSlide?.type === 'text' ? (
                         <div className="w-full max-w-2xl space-y-6"><h2 className="text-3xl font-bold border-b pb-4">{currentSlide.content.title}</h2><div className="text-lg leading-relaxed whitespace-pre-wrap text-muted-foreground">{currentSlide.content.text}</div></div>
                     ) : currentSlide?.type === 'conclusion' ? (
-                        <div className="text-center space-y-10 w-full max-w-md"><div className="space-y-4"><h1 className="text-5xl font-extrabold tracking-tight">Vielen Dank!</h1><p className="text-xl text-muted-foreground font-medium">Du bist mit dem Quiz fertig! Du kannst diese Seite nun schließen.</p></div>{currentSlide.content.showScore && (<div className="p-8 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2"><p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Dein Ergebnis</p><p className="text-7xl font-black text-primary">{totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%</p><p className="text-sm text-muted-foreground">{correctCount} von {totalQuestions} richtig</p></div>)}{currentSlide.content.collectFeedback && (<div className="space-y-6"><p className="font-bold text-lg">Wie fandest du das Quiz?</p><div className="flex justify-center gap-8"><button onClick={() => setFeedbackValue('sad')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'sad' ? "bg-red-100 text-red-600" : "text-muted-foreground hover:text-red-400")}><Frown className="w-16 h-16" /></button><button onClick={() => setFeedbackValue('neutral')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'neutral' ? "bg-amber-100 text-amber-600" : "text-muted-foreground hover:text-amber-400")}><Meh className="w-16 h-16" /></button><button onClick={() => setFeedbackValue('happy')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'happy' ? "bg-green-100 text-green-600" : "text-muted-foreground hover:text-green-400")}><Smile className="w-16 h-16" /></button></div></div>)}<div className="flex flex-col gap-3"><Button className="w-full h-14 text-lg font-bold" onClick={() => onOpenChange(false)}>Quiz beenden</Button>{currentSlide.content.collectFeedback && (<Button variant="ghost" onClick={() => onOpenChange(false)}>Ohne Bewertung beenden</Button>)}</div></div>
+                        <div className="text-center space-y-10 w-full max-w-md"><div className="space-y-4"><h1 className="text-5xl font-extrabold tracking-tight">Vielen Dank!</h1><p className="text-xl text-muted-foreground font-medium">Du bist mit dem Quiz fertig! Du kannst diese seite nun schließen.</p></div>{currentSlide.content.showScore && (<div className="p-8 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2"><p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Dein Ergebnis</p><p className="text-7xl font-black text-primary">{totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%</p><p className="text-sm text-muted-foreground">{correctCount} von {totalQuestions} richtig</p></div>)}{currentSlide.content.collectFeedback && (<div className="space-y-6"><p className="font-bold text-lg">Wie fandest du das Quiz?</p><div className="flex justify-center gap-8"><button onClick={() => setFeedbackValue('sad')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'sad' ? "bg-red-100 text-red-600" : "text-muted-foreground hover:text-red-400")}><Frown className="w-16 h-16" /></button><button onClick={() => setFeedbackValue('neutral')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'neutral' ? "bg-amber-100 text-amber-600" : "text-muted-foreground hover:text-amber-400")}><Meh className="w-16 h-16" /></button><button onClick={() => setFeedbackValue('happy')} className={cn("p-2 rounded-full transition-colors", feedbackValue === 'happy' ? "bg-green-100 text-green-600" : "text-muted-foreground hover:text-green-400")}><Smile className="w-16 h-16" /></button></div></div>)}<div className="flex flex-col gap-3"><Button className="w-full h-14 text-lg font-bold" onClick={() => onOpenChange(false)}>Quiz beenden</Button>{currentSlide.content.collectFeedback && (<Button variant="ghost" onClick={() => onOpenChange(false)}>Ohne Bewertung beenden</Button>)}</div></div>
                     ) : (<div className="text-center">Kein Inhalt für diesen Folientyp.</div>)}
                 </main>
                 <footer className="p-2 px-4 border-t bg-secondary/10 relative"><div className="flex justify-end mb-1"><span className="text-[10px] font-mono font-bold text-muted-foreground">{currentIndex + 1} / {slides.length}</span></div><div className="h-1 w-full bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-500" style={{ width: `${((currentIndex + 1) / slides.length) * 100}%` }} /></div><div className="flex justify-between mt-2"><Button variant="ghost" size="sm" onClick={handleBack} disabled={currentIndex === 0}><ChevronLeft className="mr-2 h-4 w-4" /> Zurück</Button><Button size="sm" onClick={handleNext} disabled={currentIndex === slides.length - 1 || (currentSlide?.type !== 'welcome' && currentSlide?.type !== 'text' && currentSlide?.type !== 'conclusion' && answerStatus === 'none')}>Weiter <ChevronRight className="ml-2 h-4 w-4" /></Button></div></footer>

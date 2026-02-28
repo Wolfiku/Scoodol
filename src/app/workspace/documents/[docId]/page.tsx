@@ -222,7 +222,7 @@ export default function TextDocumentPage() {
     setSaveStatus('saving');
 
     const content = editorRef.current?.innerHTML || '';
-    const authorName = user.displayName || user.email || 'Anonym';
+    const authorName = user.displayName || user.email?.split('@')[0] || 'Anonym';
 
     try {
       if (isNewDoc) {
