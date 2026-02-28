@@ -1,28 +1,22 @@
 
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Loader2, ArrowLeft, FileText, Globe, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
+import { Loader2, Globe } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type TextDocument = {
   title: string;
   content: string;
-  ownerId: string;
   isPublished?: boolean;
-  createdAt: any;
-  updatedAt: any;
+  ownerId: string;
+  updatedAt?: any;
 };
 
 export default function PublicDocumentPage() {
   const params = useParams();
-  const router = useRouter();
   const userId = params?.userId as string;
   const docId = params?.docId as string;
   const firestore = useFirestore();
@@ -31,26 +25,22 @@ export default function PublicDocumentPage() {
     userId && docId ? doc(firestore, `users/${userId}/documents`, docId) : null
   , [firestore, userId, docId]);
 
-  const { data: documentData, isLoading } = useDoc<TextDocument>(docRef);
+  const { data: document, isLoading } = useDoc<TextDocument>(docRef);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <Loader2 className="animate-spin text-primary w-10 h-10" />
-        <p className="text-muted-foreground animate-pulse">Dokument wird geladen...</p>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="animate-spin text-primary w-8 h-8" />
       </div>
     );
   }
 
-  if (!documentData || !documentData.isPublished) {
+  if (!document || !document.isPublished) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
-        <div className="bg-secondary/50 p-6 rounded-full mb-6">
-            <Globe className="w-16 h-16 text-muted-foreground" />
-        </div>
-        <h1 className="text-3xl font-black mb-2">Nicht verfügbar</h1>
-        <p className="text-muted-foreground max-w-md mb-8">Dieses Dokument ist entweder privat oder existiert nicht mehr.</p>
-        <Button onClick={() => router.push('/')} variant="outline">Zurück zu Scoodol</Button>
+      <div className="flex flex-col items-center justify-center h-screen bg-background p-6 text-center">
+        <Globe className="w-16 h-16 text-muted-foreground mb-4 opacity-20" />
+        <h1 className="text-2xl font-bold mb-2">Dokument nicht verfügbar</h1>
+        <p className="text-muted-foreground">Dieses Dokument ist entweder privat oder existiert nicht.</p>
       </div>
     );
   }
@@ -59,48 +49,29 @@ export default function PublicDocumentPage() {
     <div className="min-h-screen bg-background">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Roboto:wght@400;700&family=Playfair+Display:wght@400;700;900&family=Ubuntu:wght@400;700&display=swap');
-        table { border-collapse: collapse; width: 100%; margin: 1.5em 0; border: 1px solid #ddd; }
-        table td, table th { border: 1px solid #ddd; padding: 12px; }
-        .table-container { overflow-x: auto; margin: 1.5em 0; }
-        img { max-width: 100%; height: auto; border-radius: 8px; }
-        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 12px; overflow: hidden; }
+        table { border-collapse: collapse; width: 100%; margin: 1.5em 0; }
+        table td, table th { min-width: 50px; border: 1px solid #ddd; padding: 12px; }
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #eee; }
+        img { max-width: 100%; height: auto; border-radius: 12px; }
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; }
         .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
       `}</style>
 
-      <header className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-4xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2 rounded-lg"><FileText className="w-5 h-5 text-primary" /></div>
-                <h1 className="text-lg font-black truncate max-w-[200px] md:max-w-md">{documentData.title}</h1>
-            </div>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1.5 py-1">
-                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
-                Live Ansicht
-            </Badge>
+      <header className="border-b bg-card py-12">
+        <div className="max-w-4xl mx-auto px-6">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2">{document.title}</h1>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Globe className="w-3 h-3" />
+                Öffentliches Dokument
+            </p>
         </div>
       </header>
 
-      <main className="container mx-auto max-w-4xl p-6 md:p-12 pb-24">
-        <div className="flex flex-wrap gap-4 items-center mb-8 text-sm text-muted-foreground bg-secondary/20 p-4 rounded-xl border">
-            <div className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                <span className="font-medium">Geteilt von Scoodol Nutzer</span>
-            </div>
-            <Separator orientation="vertical" className="h-4 hidden sm:block" />
-            <div className="flex items-center gap-2">
-                <span>Zuletzt aktualisiert: {documentData.updatedAt ? format(new Date(documentData.updatedAt.seconds * 1000), 'PPP', { locale: de }) : 'Unbekannt'}</span>
-            </div>
-        </div>
-
+      <main className="max-w-4xl mx-auto py-12 px-6">
         <div 
-            className="prose dark:prose-invert max-w-none text-lg leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: documentData.content }}
+          className="prose dark:prose-invert max-w-none text-lg leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: document.content }}
         />
-
-        <div className="mt-20 pt-12 border-t text-center">
-            <p className="text-muted-foreground text-sm mb-4">Erstellt mit Scoodol - Deinem smarten Schulbegleiter.</p>
-            <Button onClick={() => router.push('/')} variant="secondary">Jetzt selbst Scoodol nutzen</Button>
-        </div>
       </main>
     </div>
   );

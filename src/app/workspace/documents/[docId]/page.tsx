@@ -13,7 +13,7 @@ import {
     Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy
+    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -95,12 +95,12 @@ export default function TextDocumentPage() {
   const [isEditing, setIsEditing] = useState(true); 
   const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isConfirmLiveUpdateOpen, setIsConfirmLiveUpdateOpen] = useState(false);
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
   const [isInTable, setIsInTable] = useState(false);
   const [fontSize, setFontSize] = useState('18');
   
-  // QR Code State
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
@@ -183,6 +183,7 @@ export default function TextDocumentPage() {
         }, { merge: true });
       }
       setSaveStatus('idle');
+      setIsConfirmLiveUpdateOpen(false);
     } catch (error) {
       setSaveStatus('dirty');
     }
@@ -191,6 +192,10 @@ export default function TextDocumentPage() {
   const triggerAutoSave = () => {
     if (isLocked) return;
     setSaveStatus('dirty');
+    
+    // Wenn das Dokument veröffentlicht ist, erzwingen wir eine manuelle Bestätigung
+    if (isPublished) return;
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(handleSave, 2000);
   };
@@ -523,6 +528,21 @@ export default function TextDocumentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={isConfirmLiveUpdateOpen} onOpenChange={setIsConfirmLiveUpdateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Änderungen live schalten?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Dieses Dokument ist veröffentlicht. Sobald du speicherst, werden die Änderungen für alle Besucher sofort sichtbar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Noch nicht</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSave} className="bg-green-600 text-white hover:bg-green-700">Änderungen veröffentlichen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={isManifestOpen} onOpenChange={setIsManifestOpen}>
           <DialogContent>
               <DialogHeader>
@@ -574,15 +594,24 @@ export default function TextDocumentPage() {
             </div>
             <div className="flex items-center gap-2">
                 {isPublished && (
-                    <span className="text-[9px] uppercase font-black text-green-600 flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded animate-pulse cursor-pointer" onClick={handleShowQr}>
+                    <Button variant="ghost" size="sm" className="text-[9px] uppercase font-black text-green-600 flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded animate-pulse h-6" onClick={handleShowQr}>
                         <Globe className="h-2.5 w-2.5" />
                         Live
+                    </Button>
+                )}
+                
+                {isPublished && saveStatus === 'dirty' ? (
+                    <Button variant="default" size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 animate-in zoom-in duration-300" onClick={() => setIsConfirmLiveUpdateOpen(true)}>
+                        <Send className="h-3 w-3 mr-1" />
+                        Live schalten
+                    </Button>
+                ) : (
+                    <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
+                        {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
+                        {saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}
                     </span>
                 )}
-                <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
-                    {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-                    {saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}
-                </span>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
