@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -308,7 +315,7 @@ export default function TextDocumentPage() {
   const insertExtra = (type: 'code' | 'quote') => {
       let html = '';
       if (type === 'code') {
-          html = `<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; font-family: monospace; overflow-x: auto; margin: 1em 0;"><code>Code hier einfügen...</code></pre><p><br></p>`;
+          html = `<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; font-family: monospace; overflow-x: auto; margin: 1em 0; white-space: pre-wrap; line-height: 1.4;"><code>Code hier einfügen...</code></pre><p><br></p>`;
       } else if (type === 'quote') {
           html = `<blockquote style="border-left: 4px solid var(--primary); padding-left: 1.5em; font-style: italic; color: #666; margin: 1.5em 0; font-size: 1.1em;">„Hier steht dein Zitat...“</blockquote><p><br></p>`;
       }
@@ -427,13 +434,13 @@ export default function TextDocumentPage() {
         else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
-        htmlToInsert = `<div class="ext-link-card" style="border: 1px solid #eee; background: #fafafa; padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; flex-direction: column; gap: 0.5em;"><div style="display: flex; align-items: center; gap: 0.5em; color: var(--primary); font-weight: bold;"><ExternalLink style="width: 16px; height: 16px;" /> ${extLinkTitle || 'Link'}</div><p style="margin: 0; font-size: 0.9em; color: #666;">${extLinkDesc || ''}</p><a href="${mediaUrl}" target="_blank" style="align-self: flex-start; background: var(--primary); color: white; padding: 0.5em 1.5em; border-radius: 100px; text-decoration: none; font-size: 0.85em; font-weight: bold; margin-top: 0.5em;">Zum Link</a></div><p><br></p>`;
+        htmlToInsert = `<div class="ext-link-card" style="border: 1px solid #eee; background: #fafafa; padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; flex-direction: column; gap: 0.5em;"><div style="display: flex; align-items: center; gap: 0.5em; color: var(--primary); font-weight: bold;">🔗 ${extLinkTitle || 'Link'}</div><p style="margin: 0; font-size: 0.9em; color: #666;">${extLinkDesc || ''}</p><a href="${mediaUrl}" target="_blank" style="align-self: flex-start; background: var(--primary); color: white; padding: 0.5em 1.5em; border-radius: 100px; text-decoration: none; font-size: 0.85em; font-weight: bold; margin-top: 0.5em;">Zum Link</a></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
-        htmlToInsert = `<div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed var(--accent); background: hsla(var(--accent), 0.05); padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; align-items: center; justify-content: space-between; gap: 1em;"><div><div style="font-[10px] uppercase font-black opacity-50 mb-1">Hausaufgabe (${hwSubject || 'Allg.'})</div><div style="font-weight: bold; font-size: 1.1em;">${hwTask}</div></div><button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.7em 1.2em; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em;"><BookmarkPlus style="width: 16px; height: 16px;" /> Einplanen</button></div><p><br></p>`;
+        htmlToInsert = `<div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed var(--accent); background: hsla(var(--accent), 0.05); padding: 1.5em; border-radius: 16px; margin: 1.5em 0; display: flex; align-items: center; justify-content: space-between; gap: 1em;"><div><div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 4px;">Hausaufgabe (${hwSubject || 'Allg.'})</div><div style="font-weight: bold; font-size: 1.1em;">${hwTask}</div></div><button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.7em 1.2em; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
         const item = publicDocs.find(d => d.id === selectedRedirect);
         const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
-        htmlToInsert = `<div class="scoodol-redirect" style="border: 2px solid var(--primary); background: white; padding: 1.5em; border-radius: 20px; margin: 2em 0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.5em;"><div style="background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">${item?.type === 'document' ? '<FileText />' : '<BrainCircuit />'}</div><div style="flex: 1;"><div style="font-size: 0.7em; uppercase font-black opacity-50 mb-0.5">Scoodol Weiterleitung</div><div style="font-weight: 900; font-size: 1.2em;">${item?.title || 'Datei'}</div></div><a href="${url}" style="background: #f0f0f0; color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none;"><CornerUpRight style="width: 18px; height: 18px;" /></a></div><p><br></p>`;
+        htmlToInsert = `<div class="scoodol-redirect" style="border: 2px solid var(--primary); background: white; padding: 1.5em; border-radius: 20px; margin: 2em 0; box-shadow: 0 10px 30px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.5em;"><div style="background: var(--primary); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">${item?.type === 'document' ? '📄' : '🧠'}</div><div style="flex: 1;"><div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 2px;">Scoodol Weiterleitung</div><div style="font-weight: 900; font-size: 1.2em;">${item?.title || 'Datei'}</div></div><a href="${url}" style="background: #f0f0f0; color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 20px;">↗️</a></div><p><br></p>`;
     }
     
     if (htmlToInsert) {
