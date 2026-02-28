@@ -62,6 +62,7 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 type TextDocument = {
   title: string;
   content: string;
+  authorName?: string;
   ownerId: string;
   isLocked?: boolean;
   isPublished?: boolean;
@@ -221,6 +222,7 @@ export default function TextDocumentPage() {
     setSaveStatus('saving');
 
     const content = editorRef.current?.innerHTML || '';
+    const authorName = user.displayName || user.email || 'Anonym';
 
     try {
       if (isNewDoc) {
@@ -228,6 +230,7 @@ export default function TextDocumentPage() {
         const newDocRef = await addDoc(docsColRef, {
           title,
           content,
+          authorName,
           ownerId: user.uid,
           isLocked: false,
           isPublished: false,
@@ -240,6 +243,7 @@ export default function TextDocumentPage() {
         await setDoc(docRef, {
           title,
           content,
+          authorName,
           updatedAt: serverTimestamp(),
         }, { merge: true });
       }
@@ -264,7 +268,6 @@ export default function TextDocumentPage() {
     const handleClick = async (e: MouseEvent) => {
         const target = e.target as HTMLElement;
         
-        // Block löschen
         const removeBtn = target.closest('.remove-block-btn') as HTMLButtonElement;
         if (removeBtn && isEditing) {
             const wrapper = removeBtn.closest('.special-block-wrapper') || removeBtn.closest('.table-container') || removeBtn.closest('.video-wrapper');
@@ -275,7 +278,6 @@ export default function TextDocumentPage() {
             }
         }
 
-        // Hausaufgabe hinzufügen (nur im Lese-Modus)
         if (isEditing || !user) return;
         const hwBtn = target.closest('.add-hw-btn') as HTMLButtonElement;
         if (hwBtn) {
@@ -361,13 +363,6 @@ export default function TextDocumentPage() {
             <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
                 <button class="remove-block-btn" contenteditable="false" title="Block löschen">✕</button>
                 <pre style="background-color: #121212; color: #e0e0e0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.6; margin: 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; display: block; tab-size: 4;"><code>Code hier einfügen...</code></pre>
-            </div>
-            <p><br></p>`;
-      } else if (type === 'quote') {
-          html = `
-            <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
-                <button class="remove-block-btn" contenteditable="false" title="Zitat löschen">✕</button>
-                <blockquote style="border-left: 5px solid var(--primary); padding: 1rem 1.5rem; background: hsla(var(--primary), 0.05); font-style: italic; color: var(--foreground); margin: 0; font-size: 1.15rem; border-radius: 0 0.5rem 0.5rem 0; line-height: 1.6;">„Hier steht dein Zitat...“</blockquote>
             </div>
             <p><br></p>`;
       }
@@ -613,15 +608,6 @@ export default function TextDocumentPage() {
     router.push('/workspace');
   };
 
-  const toggleLock = async () => {
-      if (isNewDoc || !docRef) return;
-      const newLockState = !isLocked;
-      setIsLocked(newLockState);
-      if (newLockState) setIsEditing(false);
-      await setDoc(docRef, { isLocked: newLockState }, { merge: true });
-      toast({ title: newLockState ? 'Dokument gesperrt' : 'Dokument entsperrt' });
-  };
-
   const togglePublish = async () => {
       if (isNewDoc || !docRef) return;
       const newPublishState = !isPublished;
@@ -656,16 +642,6 @@ export default function TextDocumentPage() {
         console.error(err);
         toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
     }
-  };
-
-  const downloadQr = () => {
-    if (!qrCodeUrl) return;
-    const link = document.createElement('a');
-    link.href = qrCodeUrl;
-    link.download = `doc-qr-${title.replace(/\s+/g, '-').toLowerCase()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const exportAsPDF = () => {
@@ -801,7 +777,7 @@ export default function TextDocumentPage() {
               <div className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="text-muted-foreground">Titel</div><div className="font-bold">{title || 'Unbenannt'}</div>
-                      <div className="text-muted-foreground">Autor</div><div className="font-bold">{user?.displayName || user?.email || 'System'}</div>
+                      <div className="text-muted-foreground">Autor</div><div className="font-bold">{documentData?.authorName || user?.displayName || user?.email || 'System'}</div>
                       <div className="text-muted-foreground">Erstellt am</div><div className="font-bold">{documentData?.createdAt ? format(new Date(documentData.createdAt.seconds * 1000), 'PPP p', { locale: de }) : 'Gerade eben'}</div>
                       <div className="text-muted-foreground">Letzte Änderung</div><div className="font-bold">{documentData?.updatedAt ? format(new Date(documentData.updatedAt.seconds * 1000), 'PPP p', { locale: de }) : 'Unbekannt'}</div>
                       <div className="text-muted-foreground">Status</div><div className="flex gap-2"><Badge variant={isLocked ? 'destructive' : 'secondary'}>{isLocked ? 'Gesperrt' : 'Offen'}</Badge>{isPublished && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Öffentlich</Badge>}</div>
@@ -814,7 +790,7 @@ export default function TextDocumentPage() {
       <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>QR-Code für dein Dokument</DialogTitle><DialogDescription>Teile diesen Code, damit andere dein Dokument scannen und lesen können.</DialogDescription></DialogHeader>
-            <div className="flex flex-col items-center justify-center p-6 gap-4">{qrCodeUrl && (<div className="bg-white p-4 rounded-lg shadow-sm border"><img src={qrCodeUrl} alt="Doc QR Code" className="w-64 h-64" /></div>)}<Button onClick={downloadQr} className="w-full"><Download className="mr-2 h-4 w-4" /> Herunterladen (.png)</Button></div>
+            <div className="flex flex-col items-center justify-center p-6 gap-4">{qrCodeUrl && (<div className="bg-white p-4 rounded-lg shadow-sm border"><img src={qrCodeUrl} alt="Doc QR Code" className="w-64 h-64" /></div>)}<Button onClick={() => { if(!qrCodeUrl) return; const link = document.createElement('a'); link.href = qrCodeUrl; link.download = 'doc-qr.png'; link.click(); }} className="w-full"><Download className="mr-2 h-4 w-4" /> Herunterladen (.png)</Button></div>
         </DialogContent>
       </Dialog>
 
@@ -979,7 +955,7 @@ export default function TextDocumentPage() {
                     
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className={cn("h-7 w-7 text-primary animate-pulse ml-1", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
+                            <Button variant="ghost" size="icon" className={cn("h-7 w-7 text-primary ml-1", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
                                 <Sparkles className="h-3.5 w-3.5" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -998,7 +974,6 @@ export default function TextDocumentPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                             <DropdownMenuItem onClick={() => insertExtra('code')}><Code className="mr-2 h-4 w-4" /> Codefeld</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => insertExtra('quote')}><Quote className="mr-2 h-4 w-4" /> Zitat</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openMediaDialog('ext-link')}><ExternalLink className="mr-2 h-4 w-4" /> Erw. Link</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openMediaDialog('homework')}><BookmarkPlus className="mr-2 h-4 w-4" /> Hausivorlage</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openMediaDialog('redirect')}><CornerUpRight className="mr-2 h-4 w-4" /> Scoodol-Link</DropdownMenuItem>
