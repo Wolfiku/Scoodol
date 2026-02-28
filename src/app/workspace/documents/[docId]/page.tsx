@@ -465,24 +465,24 @@ export default function TextDocumentPage() {
         htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
     } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
         htmlToInsert = `
-            <div class="ext-link-card" style="border: 1px solid #e2e8f0; background: #ffffff; padding: 1rem; border-radius: 0.75rem; margin: 1.5rem 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-left: 4px solid var(--primary); font-family: sans-serif;">
-                <div style="background: hsla(var(--primary), 0.1); color: var(--primary); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔗</div>
+            <div class="ext-link-card" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 0.75rem; margin: 1.5rem 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-left: 4px solid hsl(var(--primary)); font-family: inherit;">
+                <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">🔗</div>
                 <div style="min-width: 0; flex: 1;">
-                    <div style="font-weight: 800; font-size: 1rem; color: #1a202c; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
-                    <div style="color: #718096; font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
+                    <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
+                    <div style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
                 </div>
-                <a href="${mediaUrl}" target="_blank" style="background: var(--primary); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 700; white-space: nowrap; transition: opacity 0.2s; margin-left: 0.5rem;">Öffnen</a>
+                <a href="${mediaUrl}" target="_blank" style="background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; margin-left: 0.5rem; display: inline-block;">Öffnen</a>
             </div>
             <p><br></p>
         `;
     } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
         htmlToInsert = `
-            <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsla(var(--accent), 0.05); padding: 1.25rem; border-radius: 1rem; margin: 1.5rem 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-                <div style="flex: 1;">
-                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsla(var(--accent), 0.7); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
-                    <div style="font-weight: 800; font-size: 1.1rem; color: var(--foreground); line-height: 1.3;">${hwTask}</div>
+            <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; margin: 1.5rem 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-family: inherit;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsl(var(--accent)); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
+                    <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.3; truncate;">${hwTask}</div>
                 </div>
-                <button class="add-hw-btn" style="background: var(--accent); color: white; border: none; padding: 0.6rem 1.25rem; border-radius: 0.75rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; flex-shrink: 0; height: fit-content; align-self: center; box-shadow: 0 4px 10px hsla(var(--accent), 0.3);">➕ Einplanen</button>
+                <button class="add-hw-btn" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button>
             </div>
             <p><br></p>
         `;
@@ -490,13 +490,13 @@ export default function TextDocumentPage() {
         const item = publicDocs.find(d => d.id === selectedRedirect);
         const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
         htmlToInsert = `
-            <div class="scoodol-redirect" style="border: 1px solid #e2e8f0; background: white; padding: 1.25rem; border-radius: 1.25rem; margin: 2rem 0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 1.25rem; border-left: 4px solid var(--primary);">
-                <div style="background: hsla(var(--primary), 0.1); color: var(--primary); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">${item?.type === 'document' ? '📄' : '🧠'}</div>
-                <div style="flex: 1;">
-                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; opacity: 0.5; margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Dokument</div>
-                    <div style="font-weight: 900; font-size: 1.2rem; color: var(--foreground); line-height: 1.2;">${item?.title || 'Datei'}</div>
+            <div class="scoodol-redirect" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; margin: 1.5rem 0; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); display: flex; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--accent)); font-family: inherit;">
+                <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">${item?.type === 'document' ? '📄' : '🧠'}</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 9px; text-transform: uppercase; font-weight: 800; color: hsl(var(--muted-foreground)); margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Datei</div>
+                    <div style="font-weight: 800; font-size: 1.1rem; color: hsl(var(--foreground)); line-height: 1.2; truncate;">${item?.title || 'Datei'}</div>
                 </div>
-                <a href="${url}" style="background: #f1f5f9; color: var(--foreground); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 18px; flex-shrink: 0; transition: transform 0.2s;">↗️</a>
+                <a href="${url}" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">Öffnen</a>
             </div>
             <p><br></p>
         `;
