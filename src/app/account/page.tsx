@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { updateProfile, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const accountSchema = z.object({
@@ -30,6 +30,7 @@ export default function AccountPage() {
   const [password, setPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
   const form = useForm<z.infer<typeof accountSchema>>({
@@ -50,7 +51,7 @@ export default function AccountPage() {
   }, [user, form]);
 
   const onSubmit = async (values: z.infer<typeof accountSchema>) => {
-    if (!user || !auth) return;
+    if (!user || !auth || !firestore) return;
     setIsLoading(true);
 
     const promises = [];
@@ -58,6 +59,8 @@ export default function AccountPage() {
 
     if (displayName !== user.displayName) {
       promises.push(updateProfile(user, { displayName }));
+      // Sync to Firestore document so it can be read publicly
+      promises.push(updateDoc(doc(firestore, 'users', user.uid), { displayName }));
     }
 
     if (email !== user.email && email) {
@@ -85,13 +88,16 @@ export default function AccountPage() {
   };
   
   const handleReauthenticate = async () => {
-    if (!user || !user.email) return;
+    if (!user || !user.email || !firestore) return;
     setIsLoading(true);
 
     try {
         const credential = EmailAuthProvider.credential(user.email, password);
         await reauthenticateWithCredential(user, credential);
         await updateEmail(user, newEmail);
+        
+        // Also update the email in the Firestore document settings for easier querying/display
+        await updateDoc(doc(firestore, 'users', user.uid), { 'settings.email': newEmail });
         
         toast({
             title: "E-Mail aktualisiert!",

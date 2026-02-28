@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -72,6 +71,7 @@ export default function RegisterPage() {
       const userData = {
           role: 'user', // Set default role
           shareId: user.uid, // Set shareId
+          displayName: user.email?.split('@')[0] || 'Nutzer', // Default displayName in Firestore
           settings: {
               email: user.email, // Save email in settings for easier querying
               theme: theme || 'light',
@@ -104,19 +104,12 @@ export default function RegisterPage() {
       localStorage.removeItem('timetableSettings');
       localStorage.removeItem('homeworks');
       localStorage.removeItem('isSetupComplete');
-      // Keep theme settings for a smoother visual transition
-      // localStorage.removeItem('theme'); 
-      // localStorage.removeItem('startView');
-      // localStorage.removeItem('aiLanguage');
-      // localStorage.removeItem('betaFeaturesEnabled');
-      // localStorage.removeItem('profilePicture');
 
       toast({
         title: "Registrierung erfolgreich!",
         description: "Dein Account wurde erstellt und deine Daten wurden übernommen.",
       });
       
-      // Redirect to home, which will now show the authenticated state
       router.push('/');
 
     } catch (error: any) {
@@ -203,5 +196,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    
