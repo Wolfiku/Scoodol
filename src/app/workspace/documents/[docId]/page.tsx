@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -107,8 +106,8 @@ export default function TextDocumentPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { aiLanguage } = useTheme();
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [title, setTitle] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
@@ -132,7 +131,6 @@ export default function TextDocumentPage() {
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // For Scoodol Redirects
   const [publicDocs, setPublicDocs] = useState<{id: string, title: string, type: 'document' | 'quiz'}[]>([]);
   const [selectedRedirect, setSelectedRedirect] = useState<string | null>(null);
 
@@ -187,31 +185,39 @@ export default function TextDocumentPage() {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
-  // Keyboard Handler for Code Blocks
+  // FIXED KEYDOWN HANDLER FOR CODE BLOCKS
   const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
           const selection = window.getSelection();
           if (!selection || !selection.rangeCount) return;
           
-          let node = selection.getRangeAt(0).startContainer;
-          let inCode = false;
+          let node: Node | null = selection.getRangeAt(0).startContainer;
+          let preBlock: HTMLPreElement | null = null;
+          
           while (node && node !== editorRef.current) {
-              if (node.nodeName === 'PRE' || node.nodeName === 'CODE') {
-                  inCode = true;
+              if (node.nodeName === 'PRE') {
+                  preBlock = node as HTMLPreElement;
                   break;
               }
-              node = node.parentNode as Node;
+              node = node.parentNode;
           }
 
-          if (inCode) {
+          if (preBlock) {
               e.preventDefault();
-              document.execCommand('insertText', false, '\n');
+              // Insert literal newline at cursor without splitting the PRE block
+              const range = selection.getRangeAt(0);
+              const textNode = document.createTextNode('\n');
+              range.deleteContents();
+              range.insertNode(textNode);
+              range.setStartAfter(textNode);
+              range.setEndAfter(textNode);
+              selection.removeAllRanges();
+              selection.addRange(range);
               triggerAutoSave();
           }
       }
   };
 
-  // Handle specialized button clicks in reading mode
   useEffect(() => {
     const handleClick = async (e: MouseEvent) => {
         if (isEditing || !user) return;
@@ -227,7 +233,8 @@ export default function TextDocumentPage() {
                     subject,
                     task,
                     done: false,
-                    dueDate: ''
+                    dueDate: '',
+                    createdAt: Date.now()
                 });
                 toast({ title: "Hausaufgabe hinzugefügt!", description: task });
             }
