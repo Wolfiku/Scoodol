@@ -217,32 +217,6 @@ export default function TextDocumentPage() {
       }
   };
 
-  useEffect(() => {
-    const handleClick = async (e: MouseEvent) => {
-        if (isEditing || !user) return;
-        const target = e.target as HTMLElement;
-        const btn = target.closest('.add-hw-btn') as HTMLButtonElement;
-        if (btn) {
-            const container = btn.closest('.hw-template') as HTMLElement;
-            if (container) {
-                const subject = container.dataset.subject || 'Allgemein';
-                const task = container.dataset.task || 'Aufgabe';
-                const hwRef = collection(firestore, `users/${user.uid}/homeworks`);
-                await addDocumentNonBlocking(hwRef, {
-                    subject,
-                    task,
-                    done: false,
-                    dueDate: '',
-                    createdAt: Date.now()
-                });
-                toast({ title: "Hausaufgabe hinzugefügt!", description: task });
-            }
-        }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [isEditing, user, firestore, toast]);
-
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim() || isLocked) return;
     setSaveStatus('saving');
@@ -286,6 +260,45 @@ export default function TextDocumentPage() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(handleSave, 2000);
   };
+
+  useEffect(() => {
+    const handleClick = async (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        
+        // Block löschen
+        const removeBtn = target.closest('.remove-block-btn') as HTMLButtonElement;
+        if (removeBtn && isEditing) {
+            const wrapper = removeBtn.closest('.special-block-wrapper') || removeBtn.closest('.table-container') || removeBtn.closest('.video-wrapper');
+            if (wrapper) {
+                wrapper.remove();
+                triggerAutoSave();
+                return;
+            }
+        }
+
+        // Hausaufgabe hinzufügen (nur im Lese-Modus)
+        if (isEditing || !user) return;
+        const hwBtn = target.closest('.add-hw-btn') as HTMLButtonElement;
+        if (hwBtn) {
+            const container = hwBtn.closest('.hw-template') as HTMLElement;
+            if (container) {
+                const subject = container.dataset.subject || 'Allgemein';
+                const task = container.dataset.task || 'Aufgabe';
+                const hwRef = collection(firestore, `users/${user.uid}/homeworks`);
+                await addDocumentNonBlocking(hwRef, {
+                    subject,
+                    task,
+                    done: false,
+                    dueDate: '',
+                    createdAt: Date.now()
+                });
+                toast({ title: "Hausaufgabe hinzugefügt!", description: task });
+            }
+        }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [isEditing, user, firestore, toast]);
 
   const execCommand = (command: string, value: string = '') => {
     if (!isEditing || isLocked) return;
@@ -345,16 +358,27 @@ export default function TextDocumentPage() {
   const insertExtra = (type: 'code' | 'quote') => {
       let html = '';
       if (type === 'code') {
-          html = `<pre style="background-color: #121212; color: #e0e0e0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.6; margin: 1.5rem 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; display: block; tab-size: 4;"><code>Code hier einfügen...</code></pre><p><br></p>`;
+          html = `
+            <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
+                <button class="remove-block-btn" contenteditable="false" title="Block löschen">✕</button>
+                <pre style="background-color: #121212; color: #e0e0e0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.6; margin: 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; display: block; tab-size: 4;"><code>Code hier einfügen...</code></pre>
+            </div>
+            <p><br></p>`;
       } else if (type === 'quote') {
-          html = `<blockquote style="border-left: 5px solid var(--primary); padding: 1rem 1.5rem; background: hsla(var(--primary), 0.05); font-style: italic; color: var(--foreground); margin: 1.5rem 0; font-size: 1.15rem; border-radius: 0 0.5rem 0.5rem 0; line-height: 1.6;">„Hier steht dein Zitat...“</blockquote><p><br></p>`;
+          html = `
+            <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
+                <button class="remove-block-btn" contenteditable="false" title="Zitat löschen">✕</button>
+                <blockquote style="border-left: 5px solid var(--primary); padding: 1rem 1.5rem; background: hsla(var(--primary), 0.05); font-style: italic; color: var(--foreground); margin: 0; font-size: 1.15rem; border-radius: 0 0.5rem 0.5rem 0; line-height: 1.6;">„Hier steht dein Zitat...“</blockquote>
+            </div>
+            <p><br></p>`;
       }
       execCommand('insertHTML', html);
   };
 
   const insertTable = () => {
     const tableHtml = `
-      <div class="table-container" style="margin: 1.5em 0; overflow-x: auto;">
+      <div class="table-container special-block-wrapper" style="margin: 1.5em 0; overflow-x: auto; position: relative;">
+        <button class="remove-block-btn" contenteditable="false" title="Tabelle löschen">✕</button>
         <table style="width: 100%; border-collapse: collapse; border: 2px solid #ddd; border-radius: 8px;">
           <thead>
             <tr style="background-color: #f4f4f5;">
@@ -456,61 +480,68 @@ export default function TextDocumentPage() {
     
     if (isMediaDialogOpen.type === 'link' && mediaUrl.trim()) {
         document.execCommand('createLink', false, mediaUrl);
-    } else if (isMediaDialogOpen.type === 'image' && mediaUrl.trim()) {
-        htmlToInsert = `<div style="text-align: center; margin: 1.5em 0;"><img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="Bild" /></div><p><br></p>`;
-    } else if (isMediaDialogOpen.type === 'video' && mediaUrl.trim()) {
-        let embedUrl = mediaUrl;
-        if (mediaUrl.includes('youtube.com/watch?v=')) embedUrl = mediaUrl.replace('watch?v=', 'embed/');
-        else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
-        htmlToInsert = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; margin: 2em 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
-    } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
-        const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
-        htmlToInsert = `
-            <div class="ext-link-card" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 0.75rem; margin: 1.5rem 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-left: 4px solid hsl(var(--primary)); font-family: inherit;">
-                <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${linkIconSvg}</div>
-                <div style="min-width: 0; flex: 1;">
-                    <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
-                    <div style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
+    } else {
+        let blockContent = '';
+        if (isMediaDialogOpen.type === 'image' && mediaUrl.trim()) {
+            blockContent = `<div style="text-align: center;"><img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="Bild" /></div>`;
+        } else if (isMediaDialogOpen.type === 'video' && mediaUrl.trim()) {
+            let embedUrl = mediaUrl;
+            if (mediaUrl.includes('youtube.com/watch?v=')) embedUrl = mediaUrl.replace('watch?v=', 'embed/');
+            else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
+            blockContent = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div>`;
+        } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
+            const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+            blockContent = `
+                <div class="ext-link-card" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 0.75rem; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border-left: 4px solid hsl(var(--primary)); font-family: inherit;">
+                    <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${linkIconSvg}</div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
+                        <div style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
+                    </div>
+                    <a href="${mediaUrl}" target="_blank" style="background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; margin-left: 0.5rem; display: inline-block;">Öffnen</a>
                 </div>
-                <a href="${mediaUrl}" target="_blank" style="background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; margin-left: 0.5rem; display: inline-block;">Öffnen</a>
-            </div>
-            <p><br></p>
-        `;
-    } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
-        htmlToInsert = `
-            <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; margin: 1.5rem 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-family: inherit;">
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsl(var(--accent)); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
-                    <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.3; truncate;">${hwTask}</div>
+            `;
+        } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
+            blockContent = `
+                <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-family: inherit;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsl(var(--accent)); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
+                        <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.3; truncate;">${hwTask}</div>
+                    </div>
+                    <button class="add-hw-btn" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button>
                 </div>
-                <button class="add-hw-btn" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button>
-            </div>
-            <p><br></p>
-        `;
-    } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
-        const item = publicDocs.find(d => d.id === selectedRedirect);
-        const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
-        const redirectIconSvg = item?.type === 'document' ? 
-            `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>` :
-            `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"></path></svg>`;
-        
-        htmlToInsert = `
-            <div class="scoodol-redirect" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; margin: 1.5rem 0; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); display: flex; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--accent)); font-family: inherit;">
-                <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${redirectIconSvg}</div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 9px; text-transform: uppercase; font-weight: 800; color: hsl(var(--muted-foreground)); margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Datei</div>
-                    <div style="font-weight: 800; font-size: 1.1rem; color: hsl(var(--foreground)); line-height: 1.2; truncate;">${item?.title || 'Datei'}</div>
+            `;
+        } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
+            const item = publicDocs.find(d => d.id === selectedRedirect);
+            const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
+            const redirectIconSvg = item?.type === 'document' ? 
+                `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>` :
+                `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"></path></svg>`;
+            
+            blockContent = `
+                <div class="scoodol-redirect" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); display: flex; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--accent)); font-family: inherit;">
+                    <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${redirectIconSvg}</div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 9px; text-transform: uppercase; font-weight: 800; color: hsl(var(--muted-foreground)); margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Datei</div>
+                        <div style="font-weight: 800; font-size: 1.1rem; color: hsl(var(--foreground)); line-height: 1.2; truncate;">${item?.title || 'Datei'}</div>
+                    </div>
+                    <a href="${url}" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">Öffnen</a>
                 </div>
-                <a href="${url}" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">Öffnen</a>
-            </div>
-            <p><br></p>
-        `;
-    }
-    
-    if (htmlToInsert) {
-        const fragment = range.createContextualFragment(htmlToInsert);
-        range.insertNode(fragment);
-        range.collapse(false);
+            `;
+        }
+
+        if (blockContent) {
+            htmlToInsert = `
+                <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
+                    <button class="remove-block-btn" contenteditable="false" title="Element löschen">✕</button>
+                    ${blockContent}
+                </div>
+                <p><br></p>
+            `;
+            const fragment = range.createContextualFragment(htmlToInsert);
+            range.insertNode(fragment);
+            range.collapse(false);
+        }
     }
     
     setMediaUrl(''); setExtLinkTitle(''); setExtLinkDesc(''); setHwSubject(''); setHwTask(''); setSelectedRedirect(null);
@@ -653,6 +684,7 @@ export default function TextDocumentPage() {
                           td, th { border: 1px solid #ddd; padding: 12px; text-align: left; }
                           img { max-width: 100%; height: auto; border-radius: 8px; }
                           .video-wrapper { display: none; }
+                          .remove-block-btn { display: none; }
                       </style>
                   </head>
                   <body>
@@ -704,6 +736,36 @@ export default function TextDocumentPage() {
         pre { white-space: pre-wrap !important; word-break: break-all; }
         .ext-link-card:hover { transform: translateY(-2px); transition: all 0.2s; }
         .add-hw-btn:active { transform: scale(0.95); }
+        
+        .special-block-wrapper:hover .remove-block-btn {
+          display: flex !important;
+        }
+        .remove-block-btn {
+          position: absolute;
+          right: -10px;
+          top: -10px;
+          background: hsl(var(--destructive));
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 24px;
+          height: 24px;
+          cursor: pointer;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 40;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          font-weight: bold;
+          font-size: 12px;
+          transition: transform 0.1s;
+        }
+        .remove-block-btn:hover {
+          transform: scale(1.1);
+        }
+        .read-only .remove-block-btn, .public-view .remove-block-btn {
+          display: none !important;
+        }
       `}</style>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -852,9 +914,6 @@ export default function TextDocumentPage() {
                         </DropdownMenuItem>
                         {isPublished && <DropdownMenuItem onClick={handleShowQr}><QrCode className="mr-2 h-4 w-4" /> QR-Code anzeigen</DropdownMenuItem>}
                         {isPublished && <DropdownMenuItem onClick={copyPublicLink}><Copy className="mr-2 h-4 w-4" /> Link kopieren</DropdownMenuItem>}
-                        <DropdownMenuItem onClick={toggleLock} disabled={isNewDoc}>
-                            {isLocked ? <><Unlock className="mr-2 h-4 w-4" /> Entsperren</> : <><Lock className="mr-2 h-4 w-4" /> Sperren</>}
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Export</DropdownMenuLabel>
                         <DropdownMenuItem onClick={exportAsPDF}><FileText className="mr-2 h-4 w-4" /> Als PDF (Drucken)</DropdownMenuItem>
@@ -964,7 +1023,7 @@ export default function TextDocumentPage() {
         )}
       </header>
 
-      <main className="flex-1 overflow-auto bg-background selection:bg-primary/30">
+      <main className={cn("flex-1 overflow-auto bg-background selection:bg-primary/30", !isEditing && "read-only")}>
         <div className="w-full h-full p-6 md:p-12 max-w-5xl mx-auto">
             <div 
                 ref={editorRef}
