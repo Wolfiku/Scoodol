@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -60,6 +59,7 @@ type Slide = {
 type Quiz = {
   title: string;
   creator: string;
+  authorName?: string;
   slides: Slide[];
   ownerId: string;
   isPublished?: boolean;
@@ -135,12 +135,15 @@ export default function QuizEditorPage() {
     if (!firestore || !user || !title.trim() || !creator.trim()) return;
     setSaveStatus('saving');
 
+    const authorName = user.displayName || user.email || 'Anonym';
+
     try {
       if (isNewQuiz) {
         const quizColRef = collection(firestore, `users/${user.uid}/quizzes`);
         const newDocRef = await addDoc(quizColRef, {
           title,
           creator,
+          authorName,
           slides,
           ownerId: user.uid,
           isPublished: false,
@@ -153,6 +156,7 @@ export default function QuizEditorPage() {
         await setDoc(quizDocRef, {
           title,
           creator,
+          authorName,
           slides,
           isPublished,
           updatedAt: serverTimestamp(),

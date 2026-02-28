@@ -13,7 +13,7 @@ import {
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
     Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon,
-    Sparkles, Library, Quote, Code, BookmarkPlus, ExternalLink, CornerUpRight
+    Sparkles, Library, Code, BookmarkPlus, ExternalLink, CornerUpRight
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -356,7 +356,7 @@ export default function TextDocumentPage() {
     triggerAutoSave();
   };
 
-  const insertExtra = (type: 'code' | 'quote') => {
+  const insertExtra = (type: 'code') => {
       let html = '';
       if (type === 'code') {
           html = `
