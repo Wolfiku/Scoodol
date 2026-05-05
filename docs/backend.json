@@ -60,7 +60,8 @@
             "startView": { "type": "string" },
             "aiLanguage": { "type": "string" },
             "betaFeaturesEnabled": { "type": "boolean" },
-            "profilePicture": { "type": "string", "format": "uri" }
+            "profilePicture": { "type": "string", "format": "uri" },
+            "scratchpad": { "type": "string", "description": "Internal scratchpad notes from smart tools." }
           }
         }
       }

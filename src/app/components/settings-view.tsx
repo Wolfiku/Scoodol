@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch"
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { doc, updateDoc } from "firebase/firestore"
+import { APP_VERSION } from "@/app/lib/version"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -743,7 +744,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     made by @wolfiku, powered by limbo
                 </span>
                 <span>
-                    Version 1.4.2
+                    Version {APP_VERSION}
                 </span>
             </div>
         </div>
