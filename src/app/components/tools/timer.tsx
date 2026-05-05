@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
@@ -31,13 +32,14 @@ export default function Timer() {
     return (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
   }, [hours, minutes, seconds]);
 
+  // Recalculate only when inputs change, and only if not running
   useEffect(() => {
-    const totalSeconds = calculateTotalSeconds();
     if (!isRunning) {
+      const totalSeconds = calculateTotalSeconds();
       setInitialTime(totalSeconds);
       setTimeLeft(totalSeconds);
     }
-  }, [hours, minutes, seconds, isRunning, calculateTotalSeconds]);
+  }, [hours, minutes, seconds, calculateTotalSeconds]); // Removed isRunning from dependencies
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -47,7 +49,6 @@ export default function Timer() {
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
       setIsFinished(true);
-      // Removed audioRef.current?.play();
     }
     return () => {
       if (timerRef.current) {
@@ -67,8 +68,8 @@ export default function Timer() {
     setIsRunning(false);
     setIsFinished(false);
     const totalSeconds = calculateTotalSeconds();
+    setInitialTime(totalSeconds);
     setTimeLeft(totalSeconds);
-    // Removed audio handling
   };
 
   const progress = initialTime > 0 ? (timeLeft / initialTime) * 100 : 0;
@@ -80,7 +81,8 @@ export default function Timer() {
         <CardDescription>Stelle einen Countdown für deine Lerneinheiten.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
-        {isRunning || timeLeft < initialTime ? (
+        {/* Show countdown if running, progressed (but paused), or finished */}
+        {(isRunning || (timeLeft < initialTime && timeLeft > 0) || isFinished) ? (
           <div className="relative w-64 h-64 flex items-center justify-center">
             <svg className="w-full h-full" viewBox="0 0 100 100">
                 <circle className="text-secondary" strokeWidth="7" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50"/>
@@ -104,37 +106,46 @@ export default function Timer() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min="0"
-              placeholder="00"
-              value={hours}
-              onChange={e => setHours(e.target.value)}
-              className="w-20 text-center text-3xl h-20"
-              aria-label="Stunden"
-            />
-            <span className="text-3xl font-bold">:</span>
-            <Input
-              type="number"
-              min="0"
-              max="59"
-              placeholder="25"
-              value={minutes}
-              onChange={e => setMinutes(e.target.value)}
-              className="w-20 text-center text-3xl h-20"
-              aria-label="Minuten"
-            />
-            <span className="text-3xl font-bold">:</span>
-            <Input
-              type="number"
-              min="0"
-              max="59"
-              placeholder="00"
-              value={seconds}
-              onChange={e => setSeconds(e.target.value)}
-              className="w-20 text-center text-3xl h-20"
-              aria-label="Sekunden"
-            />
+            <div className="flex flex-col items-center">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Std</Label>
+                <Input
+                    type="number"
+                    min="0"
+                    placeholder="00"
+                    value={hours}
+                    onChange={e => setHours(e.target.value)}
+                    className="w-20 text-center text-3xl h-20"
+                    aria-label="Stunden"
+                />
+            </div>
+            <span className="text-3xl font-bold mt-5">:</span>
+            <div className="flex flex-col items-center">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Min</Label>
+                <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    placeholder="25"
+                    value={minutes}
+                    onChange={e => setMinutes(e.target.value)}
+                    className="w-20 text-center text-3xl h-20"
+                    aria-label="Minuten"
+                />
+            </div>
+            <span className="text-3xl font-bold mt-5">:</span>
+            <div className="flex flex-col items-center">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Sek</Label>
+                <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    placeholder="00"
+                    value={seconds}
+                    onChange={e => setSeconds(e.target.value)}
+                    className="w-20 text-center text-3xl h-20"
+                    aria-label="Sekunden"
+                />
+            </div>
           </div>
         )}
 
