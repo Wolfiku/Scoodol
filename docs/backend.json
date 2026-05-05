@@ -61,7 +61,12 @@
             "aiLanguage": { "type": "string" },
             "betaFeaturesEnabled": { "type": "boolean" },
             "profilePicture": { "type": "string", "format": "uri" },
-            "scratchpad": { "type": "string", "description": "Internal scratchpad notes from smart tools." }
+            "scratchpad": { "type": "string", "description": "Legacy scratchpad note." },
+            "notesSlots": { 
+              "type": "object", 
+              "description": "15 slots for personal notes in tools.",
+              "additionalProperties": { "type": "string" }
+            }
           }
         }
       }
