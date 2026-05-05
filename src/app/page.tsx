@@ -61,6 +61,7 @@ type UserData = {
     settings: UserSettings,
     groupId?: string;
     groupSettings?: GroupSettings;
+    displayName?: string;
 }
 
 type GroupData = {
@@ -111,7 +112,6 @@ export default function Page() {
   
   const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
-  // Effect for local data and initial setup check
   useEffect(() => {
     try {
       const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
@@ -128,40 +128,60 @@ export default function Page() {
             profilePicture: localStorage.getItem('profilePicture') || undefined
         };
         setLocalSettings(settings);
-      } else {
-        setIsSetupComplete(false);
       }
     } catch (e) {
       console.error("Failed to parse local storage data:", e);
-      setIsSetupComplete(false);
     }
   }, []);
 
-  // Main effect for auth, data loading, and determining final app state
   useEffect(() => {
     const checkAuthAndData = async () => {
-      if (isUserLoading) {
+      if (isUserLoading) return;
+
+      if (!user) {
+        await initiateAnonymousSignIn(auth);
         return;
       }
-      if (user) {
-        if (!user.isAnonymous) {
-          if (isUserDataLoading) {
-            return;
-          }
-          setIsSetupComplete(!!userData);
-        }
+
+      if (!user.isAnonymous) {
+        if (isUserDataLoading) return;
+        
+        // Setup is complete if user has a cloud profile with a timetable or a display name
+        const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0) || !!userData?.displayName;
+        const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
+        
+        setIsSetupComplete(hasCloudData || localSetupDone);
       } else {
-        await initiateAnonymousSignIn(auth);
+        // For anonymous users, rely on local storage
+        const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
+        setIsSetupComplete(localSetupDone);
       }
+
       setIsLoading(false);
     };
+
     checkAuthAndData();
   }, [user, isUserLoading, userData, isUserDataLoading, auth]);
 
-  
-  const updateUserData = (data: Partial<UserData>) => {
+  const cleanData = (data: any): any => {
+    if (data === undefined) return null;
+    if (data !== null && typeof data === 'object') {
+        if (data.constructor?.name === 'FieldValue' || data.constructor?.name === 'Timestamp') {
+            return data;
+        }
+        const clean: any = Array.isArray(data) ? [] : {};
+        for (const key in data) {
+            clean[key] = cleanData(data[key]);
+        }
+        return clean;
+    }
+    return data;
+  };
+
+  const updateUserData = async (data: Partial<UserData>) => {
+    const cleaned = cleanData(data);
     if (user && !user.isAnonymous && userDocRef) {
-        setDoc(userDocRef, data, { merge: true });
+        await setDoc(userDocRef, cleaned, { merge: true });
     } else {
         if(data.timetable) {
             localStorage.setItem('timetable', JSON.stringify(data.timetable));
@@ -181,9 +201,10 @@ export default function Page() {
     }
   }
 
-  const handleSetupComplete = (newUserData: Partial<UserData>) => {
+  const handleSetupComplete = async (newUserData: Partial<UserData>) => {
+    const cleaned = cleanData(newUserData);
     if (user && !user.isAnonymous && userDocRef) {
-      setDoc(userDocRef, newUserData, { merge: true });
+      await setDoc(userDocRef, cleaned, { merge: true });
     } else {
       localStorage.setItem('isSetupComplete', 'true');
       if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
@@ -208,7 +229,7 @@ export default function Page() {
     };
     
     if (user && !user.isAnonymous && userDocRef) {
-        setDoc(userDocRef, dataToSave, { merge: true }).then(() => {
+        setDoc(userDocRef, cleanData(dataToSave), { merge: true }).then(() => {
              window.location.reload();
         });
     } else {
@@ -254,7 +275,7 @@ export default function Page() {
   const { currentTimetable, currentTimetableSettings, isTimetableSynced } = useMemo(() => {
     const isSynced = !!(userData?.groupSettings?.syncTimetable && groupData);
     
-    if (isSynced) {
+    if (isSynced && groupData) {
         return {
             currentTimetable: groupData.timetable,
             currentTimetableSettings: groupData.timetableSettings,

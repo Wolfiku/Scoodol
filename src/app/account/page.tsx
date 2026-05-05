@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { updateProfile, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -59,7 +59,6 @@ export default function AccountPage() {
 
     if (displayName !== user.displayName) {
       promises.push(updateProfile(user, { displayName }));
-      // Sync to Firestore document so it can be read publicly
       promises.push(updateDoc(doc(firestore, 'users', user.uid), { displayName }));
     }
 
@@ -67,7 +66,7 @@ export default function AccountPage() {
         setNewEmail(email);
         setIsReauthDialogOpen(true);
         setIsLoading(false);
-        return; // Wait for re-authentication
+        return;
     }
 
     try {
@@ -96,7 +95,6 @@ export default function AccountPage() {
         await reauthenticateWithCredential(user, credential);
         await updateEmail(user, newEmail);
         
-        // Also update the email in the Firestore document settings for easier querying/display
         await updateDoc(doc(firestore, 'users', user.uid), { 'settings.email': newEmail });
         
         toast({
@@ -120,7 +118,6 @@ export default function AccountPage() {
     }
   }
 
-
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -136,36 +133,36 @@ export default function AccountPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-2xl">
-         <Dialog open={isReauthDialogOpen} onOpenChange={setIsReauthDialogOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Bestätige deine Identität</DialogTitle>
-                    <DialogDescription>
-                        Um deine E-Mail-Adresse zu ändern, gib bitte dein aktuelles Passwort ein.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <Input 
-                        type="password"
-                        placeholder="Dein aktuelles Passwort"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                    />
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsReauthDialogOpen(false)}>Abbrechen</Button>
-                    <Button onClick={handleReauthenticate} disabled={isLoading}>
-                        {isLoading ? <Loader2 className="animate-spin" /> : 'Bestätigen & Ändern'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
+      <Dialog open={isReauthDialogOpen} onOpenChange={setIsReauthDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bestätige deine Identität</DialogTitle>
+            <DialogDescription>
+              Um deine E-Mail-Adresse zu ändern, gib bitte dein aktuelles Passwort ein.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              type="password"
+              placeholder="Dein aktuelles Passwort"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReauthDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleReauthenticate} disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin" /> : 'Bestätigen & Ändern'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Zurück
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Zurück
       </Button>
+
       <Card>
         <CardHeader>
           <CardTitle>Account verwalten</CardTitle>
