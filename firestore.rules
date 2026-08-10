@@ -7,6 +7,7 @@ service cloud.firestore {
       
       match /homeworks/{id} { allow read, write: if request.auth.uid == userId; }
       match /quickNotes/{id} { allow read, write: if request.auth.uid == userId; }
+      match /statistics/{id} { allow read, write: if request.auth.uid == userId; }
       match /documents/{id} { 
         allow read: if (resource != null && resource.data.isPublished == true) || request.auth.uid == userId; 
         allow write: if request.auth.uid == userId; 
