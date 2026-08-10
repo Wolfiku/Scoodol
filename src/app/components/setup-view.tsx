@@ -166,6 +166,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
     const { toast } = useToast();
     const [showValidationDialog, setShowValidationDialog] = useState(false);
     const [calculatedDuration, setCalculatedDuration] = useState(0);
+    const { user } = useUser();
     const router = useRouter();
 
 
@@ -226,7 +227,6 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const dataUri = reader.result as string;
-            // TODO: This should ideally use the globally selected language
             const result = await scanTimetableImage(dataUri, 'German');
 
             if (result.error || !result.timetable) {
@@ -364,6 +364,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
     }
 
     if (mode === 'welcome') {
+        const isLoggedIn = user && !user.isAnonymous;
         return (
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
@@ -380,16 +381,24 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                         <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Los geht's!</Button>
-                         <Button size="lg" variant="outline" className="w-full" asChild>
-                            <Link href="/login">Anmelden</Link>
-                        </Button>
-                         <div className="text-center text-sm">
-                            Noch keinen Account?{" "}
-                            <Button variant="link" asChild className="p-0 h-auto">
-                                <Link href="/register">Jetzt registrieren</Link>
-                            </Button>
-                         </div>
+                         {isLoggedIn ? (
+                             <div className="space-y-4">
+                                <p className="text-sm font-bold text-primary">Angemeldet als {user.email}</p>
+                                <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Jetzt einrichten!</Button>
+                             </div>
+                         ) : (
+                             <>
+                                <Button size="lg" variant="outline" className="w-full" asChild>
+                                    <Link href="/login">Anmelden</Link>
+                                </Button>
+                                <div className="text-center text-sm">
+                                    Noch keinen Account?{" "}
+                                    <Button variant="link" asChild className="p-0 h-auto">
+                                        <Link href="/register">Jetzt registrieren</Link>
+                                    </Button>
+                                </div>
+                             </>
+                         )}
                     </CardContent>
                     <CardFooter className="flex justify-center gap-4 text-sm pt-4">
                         <Button variant="link" asChild className="text-muted-foreground">

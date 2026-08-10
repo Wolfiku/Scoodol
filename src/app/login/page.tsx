@@ -31,8 +31,8 @@ function LoginForm() {
   const redirectPath = searchParams.get('redirect') || '/';
 
   useEffect(() => {
-    // Only redirect if loading is finished AND we have a verified user session
-    if (!isUserLoading && user) {
+    // Nur weiterleiten, wenn wirklich ein permanenter User angemeldet ist
+    if (!isUserLoading && user && !user.isAnonymous) {
       router.replace(redirectPath);
     }
   }, [user, isUserLoading, router, redirectPath]);
@@ -49,7 +49,7 @@ function LoginForm() {
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({ title: "Willkommen zurück!", description: "Du hast dich erfolgreich angemeldet." });
-      // The useEffect will handle the redirection after auth state change
+      // Die Weiterleitung passiert im useEffect
     } catch (error: any) {
       let message = "Anmeldung fehlgeschlagen. Bitte prüfe deine Daten.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -71,7 +71,7 @@ function LoginForm() {
   return (
     <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
       <Button variant="ghost" asChild className="mb-8 self-start md:self-center">
-        <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Zurück</Link>
+        <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Startseite</Link>
       </Button>
 
       <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">

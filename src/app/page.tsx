@@ -66,7 +66,7 @@ export default function Page() {
   const [view, setView] = useState('');
 
   const userDocRef = useMemoFirebase(() => 
-    user ? doc(firestore, `users/${user.uid}`) : null
+    user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
@@ -88,25 +88,25 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    // 1. Wait for Firebase Auth to determine if a user exists
+    // 1. Warte auf Auth-Status
     if (isUserLoading) return;
 
-    // 2. If no user is logged in, send to login (unless already there)
-    if (!user) {
+    // 2. Kein User oder Gast-User -> Ab zum Login
+    if (!user || user.isAnonymous) {
         if (!pathname.includes('/login') && !pathname.includes('/register') && !pathname.includes('/groups/join')) {
             router.replace('/login');
         }
         return;
     }
 
-    // 3. If user exists, wait for Firestore profile to load
+    // 3. User ist da, warte auf Profil-Daten
     if (isUserDataLoading) return;
 
-    // 4. Evaluate setup state based on presence of timetable
+    // 4. Prüfe ob Setup nötig ist (kein Stundenplan vorhanden)
     const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
     setIsSetupComplete(hasCloudData);
     
-    // 5. Set initial view if not already set
+    // 5. Initial-Ansicht setzen
     if (!view) {
         if (userData?.settings?.startView) {
             setView(userData.settings.startView);
@@ -152,18 +152,18 @@ export default function Page() {
     }
   };
 
-  // Central Loading Screen
-  if (isUserLoading || (user && isUserDataLoading) || (!appIsReady && user)) {
+  // Zentraler Lade-Screen
+  if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading) || (!appIsReady && user && !user.isAnonymous)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-        <p className="text-muted-foreground mt-4 animate-pulse font-bold tracking-widest uppercase text-xs">Scoodol lädt...</p>
+        <p className="text-muted-foreground mt-4 animate-pulse font-bold tracking-widest uppercase text-xs">Scoodol wird geladen...</p>
       </div>
     );
   }
 
-  // If logged in but no profile data found
-  if (user && isSetupComplete === false) {
+  // Wenn eingeloggt aber kein Profil
+  if (user && !user.isAnonymous && isSetupComplete === false) {
     return <SetupView 
         onSetupComplete={handleSetupComplete} 
         onTimetableImport={handleTimetableImport} 
