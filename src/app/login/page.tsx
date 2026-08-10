@@ -31,7 +31,7 @@ function LoginForm() {
   const redirectPath = searchParams.get('redirect') || '/';
 
   useEffect(() => {
-    // Nur weiterleiten, wenn ein permanenter User angemeldet ist
+    // Forward to dashboard if already logged in with a permanent account
     if (!isUserLoading && user && !user.isAnonymous) {
       router.replace(redirectPath);
     }
@@ -49,7 +49,6 @@ function LoginForm() {
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({ title: "Willkommen zurück!", description: "Du hast dich erfolgreich angemeldet." });
-      // Die Weiterleitung passiert im useEffect
     } catch (error: any) {
       let message = "Anmeldung fehlgeschlagen. Bitte prüfe deine Daten.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

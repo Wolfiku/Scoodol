@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -13,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, initiateEmailSignUp } from '@/firebase';
 import { Loader2, ArrowLeft, Mail, Lock, UserPlus } from 'lucide-react';
 import Link from 'next/link';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 
 const registerSchema = z.object({
@@ -28,11 +29,6 @@ export default function RegisterPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const [isLoading, setIsLoading] = useState(false);
-
-  const form = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { displayName: "", email: "", password: "" },
-  });
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     if (!auth || !firestore) return;
@@ -75,6 +71,11 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  const form = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { displayName: "", email: "", password: "" },
+  });
 
   return (
     <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">

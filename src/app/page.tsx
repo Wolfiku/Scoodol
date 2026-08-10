@@ -15,7 +15,6 @@ import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { signInAnonymously } from '@/firebase/non-blocking-login';
 
 type TimetableEntry = {
   id: string;
@@ -58,13 +57,10 @@ type UserData = {
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
-  const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const { startView } = useTheme();
 
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean | null>(null);
-  const [appIsReady, setAppIsReady] = useState(false);
   const [view, setView] = useState('');
 
   const userDocRef = useMemoFirebase(() => 
@@ -92,74 +88,39 @@ export default function Page() {
   useEffect(() => {
     if (isUserLoading) return;
 
-    // Trigger anonymous sign-in if no user exists at all
-    if (!user) {
-        signInAnonymously(auth);
+    // NO GUEST ACCOUNTS: Redirect to login if no user is present
+    if (!user || user.isAnonymous) {
+        if (!pathname.startsWith('/login') && !pathname.startsWith('/register') && !pathname.startsWith('/public')) {
+            router.replace('/login');
+        }
         return;
     }
 
-    // Wait for permanent profile data if logged in
-    if (!user.isAnonymous && isUserDataLoading) return;
-
-    // Check setup state
-    let setupDone = false;
-    if (!user.isAnonymous) {
-        // Registered users: check cloud data
-        setupDone = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
-    } else {
-        // Guests: check local storage
-        try {
-            const localTimetable = localStorage.getItem('timetable');
-            setupDone = !!(localTimetable && localTimetable !== '{}');
-        } catch (e) {
-            setupDone = false;
-        }
-    }
-    
-    setIsSetupComplete(setupDone);
-    
-    // Set initial view
+    // Set initial view once user is loaded
     if (!view) {
-        if (!user.isAnonymous && userData?.settings?.startView) {
+        if (userData?.settings?.startView) {
             setView(userData.settings.startView);
         } else {
-            const localStartView = localStorage.getItem('startView');
-            setView(localStartView || 'daily');
+            setView('daily');
         }
     }
-
-    setAppIsReady(true);
-  }, [user, isUserLoading, userData, isUserDataLoading, auth, view]);
+  }, [user, isUserLoading, userData, router, pathname, view]);
 
   const updateUserData = async (data: Partial<UserData>) => {
+    if (!userDocRef) return;
     const cleaned = cleanData(data);
-    if (userDocRef) {
-        await setDoc(userDocRef, cleaned, { merge: true });
-    } else {
-        // Guest mode: save locally
-        if (data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
-        if (data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
-        if (data.settings) {
-            if (data.settings.theme) localStorage.setItem('theme', data.settings.theme);
-            if (data.settings.startView) localStorage.setItem('startView', data.settings.startView);
-        }
-    }
+    await setDoc(userDocRef, cleaned, { merge: true });
   };
 
   const handleSetupComplete = async (newUserData: Partial<UserData>) => {
+    if (!userDocRef) return;
     const cleaned = cleanData(newUserData);
-    if (userDocRef) {
-      await setDoc(userDocRef, cleaned, { merge: true });
-    } else {
-        // Save locally for guests
-        if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
-        if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
-    }
-    setIsSetupComplete(true);
+    await setDoc(userDocRef, cleaned, { merge: true });
     setView(startView || 'daily');
   };
 
   const handleTimetableImport = (importedData: any) => {
+    if (!userDocRef) return;
     const dataToSave = cleanData({
       timetable: importedData.timetable,
       timetableSettings: importedData.timetableSettings,
@@ -171,18 +132,10 @@ export default function Page() {
         profilePicture: importedData.profilePicture,
       }
     });
-    
-    if (userDocRef) {
-        setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
-    } else {
-        // Local import
-        localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
-        localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
-        window.location.reload();
-    }
+    setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
   };
 
-  if (isUserLoading || (!appIsReady && user)) {
+  if (isUserLoading || (user && isUserDataLoading)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -191,8 +144,8 @@ export default function Page() {
     );
   }
 
-  // Show Setup if not complete (works for both guests and members)
-  if (isSetupComplete === false) {
+  // Show Setup if authenticated but no data yet
+  if (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0)) {
     return <SetupView 
         onSetupComplete={handleSetupComplete} 
         onTimetableImport={handleTimetableImport} 
@@ -200,20 +153,9 @@ export default function Page() {
     />;
   }
 
-  // Get effective data (Cloud for members, Local for guests)
-  const getLocalData = (key: string, fallback: any) => {
-      try {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : fallback;
-      } catch (e) { return fallback; }
-  }
-
-  const currentTimetable = !user?.isAnonymous ? (userData?.timetable || {}) : getLocalData('timetable', {});
-  const currentSettings = !user?.isAnonymous ? (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }) : getLocalData('timetableSettings', { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-
   const renderView = () => {
-    const effectiveTimetable = isPreviewMode ? previewTimetableData : currentTimetable;
-    const effectiveSettings = isPreviewMode ? { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 } : currentSettings;
+    const effectiveTimetable = isPreviewMode ? previewTimetableData : (userData?.timetable || {});
+    const effectiveSettings = isPreviewMode ? { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 } : (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
 
     switch(view) {
       case 'daily': return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} onTimetableUpdate={(nt) => updateUserData({ timetable: nt })} />;
@@ -221,10 +163,12 @@ export default function Page() {
       case 'homework': return <HomeworkPlanner />;
       case 'smart-tool': return <SmartToolsView />;
       case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={false} />;
-      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: currentTimetable, timetableSettings: currentSettings }} isEditing={true} viewMode="edit" />;
+      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable, timetableSettings: userData?.timetableSettings }} isEditing={true} viewMode="edit" />;
       default: return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} onTimetableUpdate={(nt) => updateUserData({ timetable: nt })} />;
     }
   }
+
+  if (!user) return null;
 
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
