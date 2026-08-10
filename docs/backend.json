@@ -7,6 +7,7 @@
       "properties": {
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
+        "role": { "type": "string" },
         "settings": {
           "type": "object",
           "properties": {
@@ -58,6 +59,33 @@
         "updatedAt": { "type": "object" }
       },
       "required": ["title", "ownerId"]
+    },
+    "TodoList": {
+      "title": "To-Do List",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "tasks": { "type": "array" },
+        "settings": { "type": "object" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["title", "ownerId"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "creator": { "type": "string" },
+        "slides": { "type": "array" },
+        "ownerId": { "type": "string" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["title", "ownerId"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -65,6 +93,8 @@
     "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" },
     "/users/{userId}/homeworks/{hwId}": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" },
     "/users/{userId}/quickNotes/{noteId}": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" },
-    "/users/{userId}/documents/{docId}": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" }
+    "/users/{userId}/documents/{docId}": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" },
+    "/users/{userId}/todoLists/{listId}": { "schema": { "$ref": "#/entities/TodoList" }, "description": "To-Do Lists" },
+    "/users/{userId}/quizzes/{quizId}": { "schema": { "$ref": "#/entities/Quiz" }, "description": "Quizzes" }
   }
 }
