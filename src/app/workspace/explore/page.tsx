@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Type, BarChart3 } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Type } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -52,14 +52,6 @@ const items: ExploreItem[] = [
         icon: <BrainCircuit className="w-8 h-8" />,
         href: "/workspace/quizzes/new",
         category: "Interaktiv",
-        kind: "type"
-    },
-    {
-        title: "Statistik",
-        description: "Erstelle Diagramme und visualisiere Daten für deine Projekte.",
-        icon: <BarChart3 className="w-8 h-8" />,
-        href: "/workspace/statistics/new",
-        category: "Analyse",
         kind: "type"
     },
     {

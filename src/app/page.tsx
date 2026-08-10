@@ -51,7 +51,6 @@ type UserData = {
     timetable: TimetableData,
     timetableSettings: TimetableSettings,
     settings: UserSettings,
-    groupId?: string;
     displayName?: string;
 }
 
@@ -61,7 +60,7 @@ export default function Page() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { setTheme, setStartView: setThemeStartView, setAiLanguage, startView } = useTheme();
+  const { startView } = useTheme();
 
   const [isSetupComplete, setIsSetupComplete] = useState<boolean | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);
@@ -91,41 +90,41 @@ export default function Page() {
     return data;
   }, []);
 
+  // MASTER AUTH LOGIC
   useEffect(() => {
-    const evaluateState = async () => {
+    const handleAuth = async () => {
       // 1. Wait for Auth to settle
       if (isUserLoading) return;
 
-      // 2. Prevent interference on auth pages
-      if (pathname.includes('/login') || pathname.includes('/register')) {
+      // 2. Ignore auth logic on specific pages
+      if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/groups/join')) {
           return;
       }
 
-      // 3. Handle missing user (Anonymous auto-login)
+      // 3. No User? Sign in anonymously (Auto-Guest)
       if (!user) {
         try {
             await initiateAnonymousSignIn(auth);
         } catch (err) {
-            console.error("Auto sign-in failed", err);
+            console.error("Anonymous sign-in failed", err);
         }
         return;
       }
 
-      // 4. Handle Authenticated State
+      // 4. User is here! Now check Profile if not guest
       if (!user.isAnonymous) {
-        // Wait for profile to load
-        if (isUserDataLoading) return;
-        
+        if (isUserDataLoading) return; // Wait for cloud profile
+
         const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
-        const hasLocalFlag = localStorage.getItem('isSetupComplete') === 'true';
         
-        setIsSetupComplete(hasCloudData || hasLocalFlag);
+        // Setup state is determined by cloud presence
+        setIsSetupComplete(hasCloudData);
         
         if (userData?.settings?.startView && !view) {
             setView(userData.settings.startView);
         }
       } else {
-        // Guest user
+        // Guest mode logic
         const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
         if (localSetupDone) {
             const tt = localStorage.getItem('timetable');
@@ -139,11 +138,12 @@ export default function Page() {
         if (savedStartView && !view) setView(savedStartView);
       }
 
+      // Final step: We are ready!
       setAppIsReady(true);
     };
 
-    evaluateState();
-  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname]);
+    handleAuth();
+  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname, view]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     const cleaned = cleanData(data);
@@ -201,7 +201,7 @@ export default function Page() {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-        <p className="text-muted-foreground mt-4 animate-pulse">Initialisiere Scoodol...</p>
+        <p className="text-muted-foreground mt-4 animate-pulse font-bold tracking-widest uppercase text-xs">Scoodol lädt...</p>
       </div>
     );
   }

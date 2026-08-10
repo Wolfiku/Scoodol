@@ -1,44 +1,12 @@
 
 {
   "entities": {
-    "Subject": {
-      "title": "Subject",
-      "type": "object",
-      "description": "Represents a school subject with its associated details.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "room": { "type": "string" },
-        "teacher": { "type": "string" },
-        "startTime": { "type": "string" },
-        "endTime": { "type": "string" },
-        "isMainSubject": { "type": "boolean" }
-      },
-      "required": ["id", "name", "startTime", "endTime"]
-    },
-    "Homework": {
-      "title": "Homework",
-      "type": "object",
-      "description": "A single homework task.",
-      "properties": {
-        "id": { "type": "string" },
-        "subject": { "type": "string" },
-        "task": { "type": "string" },
-        "dueDate": { "type": "string", "format": "date" },
-        "done": { "type": "boolean" },
-        "completedAt": { "type": "number" }
-      },
-      "required": ["id", "task", "done"]
-    },
     "UserProfile": {
       "title": "User Profile",
       "type": "object",
       "properties": {
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
-        "shareId": { "type": "string" },
-        "role": { "type": "string", "enum": ["user", "admin", "workspace_plus_user"] },
-        "groupId": { "type": "string" },
         "settings": {
           "type": "object",
           "properties": {
@@ -51,6 +19,19 @@
         "timetable": { "type": "object" },
         "timetableSettings": { "type": "object" }
       }
+    },
+    "Homework": {
+      "title": "Homework",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subject": { "type": "string" },
+        "task": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "done": { "type": "boolean" },
+        "completedAt": { "type": "number" }
+      },
+      "required": ["id", "task", "done"]
     },
     "QuickNote": {
       "title": "Quick Note",
@@ -77,40 +58,13 @@
         "updatedAt": { "type": "object" }
       },
       "required": ["title", "ownerId"]
-    },
-    "Statistic": {
-      "title": "Statistic",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "ownerId": { "type": "string" },
-        "mode": { "type": "string", "enum": ["simple", "complex", "fast"] },
-        "charts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "type": { "type": "string" },
-              "design": { "type": "number" },
-              "data": { "type": "array", "items": { "type": "object" } }
-            }
-          }
-        },
-        "createdAt": { "type": "object" },
-        "updatedAt": { "type": "object" }
-      },
-      "required": ["title", "ownerId", "mode"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
   "firestore": {
-    "structure": [
-      { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" } },
-      { "path": "/users/{userId}/homeworks/{hwId}", "definition": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" } },
-      { "path": "/users/{userId}/quickNotes/{noteId}", "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" } },
-      { "path": "/users/{userId}/documents/{docId}", "definition": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" } },
-      { "path": "/users/{userId}/statistics/{statId}", "definition": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Stats" } }
-    ]
+    "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" },
+    "/users/{userId}/homeworks/{hwId}": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" },
+    "/users/{userId}/quickNotes/{noteId}": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" },
+    "/users/{userId}/documents/{docId}": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" }
   }
 }

@@ -41,7 +41,7 @@ function LoginForm() {
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({ title: "Anmeldung erfolgreich", description: "Willkommen zurück!" });
-      // Redirect happens in useEffect below when user state is stable
+      // The redirect is handled by the useEffect below once auth state updates
     } catch (error: any) {
        console.error("Login error:", error);
        let message = "E-Mail oder Passwort ist falsch.";
@@ -55,14 +55,14 @@ function LoginForm() {
   };
   
   useEffect(() => {
-    // Nur weiterleiten, wenn wir wirklich eingeloggt sind und der Ladezustand fertig ist
+    // Navigate ONLY if we are logged in with a real account and everything is loaded
     if (!isUserLoading && user && !user.isAnonymous) {
-      router.push(redirectPath);
+      router.replace(redirectPath);
     }
   }, [user, isUserLoading, router, redirectPath]);
 
   return (
-    <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
+    <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-primary">
       <CardHeader>
         <CardTitle className="text-2xl font-black">Willkommen zurück!</CardTitle>
         <CardDescription>Melde dich bei deinem Scoodol Account an.</CardDescription>
@@ -71,7 +71,7 @@ function LoginForm() {
         {isUserLoading && !user ? (
             <div className="flex flex-col items-center gap-4 py-8">
                 <Loader2 className="animate-spin text-primary h-8 w-8" />
-                <p className="text-sm text-muted-foreground">Prüfe Anmeldung...</p>
+                <p className="text-sm text-muted-foreground">Status wird geprüft...</p>
             </div>
         ) : (
             <>
