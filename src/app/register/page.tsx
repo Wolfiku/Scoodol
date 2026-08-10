@@ -1,146 +1,108 @@
 "use client";
 
-import { useState, Suspense } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, collection, writeBatch } from 'firebase/firestore';
+import { useAuth, useFirestore, initiateEmailSignUp } from '@/firebase';
+import { Loader2, ArrowLeft, Mail, Lock, UserPlus } from 'lucide-react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 
 const registerSchema = z.object({
-  email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
-  password: z.string().min(6, { message: "Passwort muss mindestens 6 Zeichen lang sein." }),
-  confirmPassword: z.string()
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwörter stimmen nicht überein.",
-  path: ["confirmPassword"],
+  displayName: z.string().min(2, { message: "Der Name muss mindestens 2 Zeichen lang sein." }),
+  email: z.string().email({ message: "Bitte gib eine gültige E-Mail-Adresse ein." }),
+  password: z.string().min(6, { message: "Das Passwort muss mindestens 6 Zeichen lang sein." }),
 });
 
-function RegisterForm() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
   const firestore = useFirestore();
-
-  const redirectPath = searchParams.get('redirect') || '/';
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { displayName: "", email: "", password: "" },
   });
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     if (!auth || !firestore) return;
     setIsLoading(true);
-    
+
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await initiateEmailSignUp(auth, values.email, values.password);
       const user = userCredential.user;
 
-      toast({
-        title: "Account wird erstellt...",
-        description: "Daten werden in die Cloud übertragen.",
-      });
+      await updateProfile(user, { displayName: values.displayName });
 
-      // Migrate data from localStorage
-      const timetable = localStorage.getItem('timetable');
-      const timetableSettings = localStorage.getItem('timetableSettings');
-      const homeworks = localStorage.getItem('homeworks');
-      const theme = localStorage.getItem('theme');
-      const startView = localStorage.getItem('startView');
-      const aiLanguage = localStorage.getItem('aiLanguage');
-      const betaFeaturesEnabled = localStorage.getItem('betaFeaturesEnabled') === 'true';
-      const profilePicture = localStorage.getItem('profilePicture');
+      // Migrate existing local data if present
+      const timetable = JSON.parse(localStorage.getItem('timetable') || '{}');
+      const timetableSettings = JSON.parse(localStorage.getItem('timetableSettings') || '{}');
 
       const batch = writeBatch(firestore);
-
       const userDocRef = doc(firestore, 'users', user.uid);
       
-      const userData = {
-          role: 'user',
-          shareId: user.uid,
-          displayName: user.email?.split('@')[0] || 'Nutzer',
-          settings: {
-              email: user.email,
-              theme: theme || 'light',
-              startView: startView || 'daily',
-              aiLanguage: aiLanguage || 'German',
-              betaFeaturesEnabled: betaFeaturesEnabled || false,
-              profilePicture: profilePicture || null,
-          },
-          timetable: timetable ? JSON.parse(timetable) : {},
-          timetableSettings: timetableSettings ? JSON.parse(timetableSettings) : {},
-      };
-
-      batch.set(userDocRef, userData);
-
-      if (homeworks) {
-          try {
-              const parsedHomeworks = JSON.parse(homeworks);
-              const homeworksColRef = collection(firestore, `users/${user.uid}/homeworks`);
-              parsedHomeworks.forEach((hw: any) => {
-                  const newHwRef = doc(homeworksColRef);
-                  const { id, ...rest } = hw; 
-                  batch.set(newHwRef, rest);
-              });
-          } catch (e) { console.error("HW migration failed", e); }
-      }
+      batch.set(userDocRef, {
+        displayName: values.displayName,
+        email: values.email,
+        timetable: Object.keys(timetable).length > 0 ? timetable : null,
+        timetableSettings: Object.keys(timetableSettings).length > 0 ? timetableSettings : null,
+        settings: {
+            theme: localStorage.getItem('theme') || 'light',
+            startView: localStorage.getItem('startView') || 'daily',
+            aiLanguage: localStorage.getItem('aiLanguage') || 'German',
+        },
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
 
       await batch.commit();
 
-      // Clear local migration source
-      localStorage.removeItem('timetable');
-      localStorage.removeItem('timetableSettings');
-      localStorage.removeItem('homeworks');
-      localStorage.setItem('isSetupComplete', 'true');
-
-      toast({
-        title: "Erfolgreich registriert!",
-        description: "Deine Daten wurden sicher gespeichert.",
-      });
-      
-      router.push(redirectPath);
-
+      toast({ title: "Account erstellt!", description: "Dein Scoodol-Account ist jetzt bereit." });
+      router.push('/');
     } catch (error: any) {
-       console.error("Registration error:", error);
-       let description = "Ein unbekannter Fehler ist aufgetreten.";
-       if (error.code === 'auth/email-already-in-use') description = "Diese E-Mail wird bereits verwendet.";
-       if (error.code === 'auth/invalid-email') description = "Ungültige E-Mail-Adresse.";
-       if (error.code === 'auth/weak-password') description = "Passwort ist zu schwach.";
-       
-      toast({
-        variant: "destructive",
-        title: "Registrierung fehlgeschlagen",
-        description,
-      });
+      let message = "Registrierung fehlgeschlagen.";
+      if (error.code === 'auth/email-already-in-use') message = "Diese E-Mail wird bereits verwendet.";
+      toast({ variant: "destructive", title: "Fehler", description: message });
       setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Account erstellen</CardTitle>
-          <CardDescription>Erstelle einen neuen Scoodol Account, um deine Daten zu sichern.</CardDescription>
+    <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
+      <Button variant="ghost" asChild className="mb-8 self-start md:self-center">
+        <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Zurück</Link>
+      </Button>
+
+      <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-3xl font-black">Registrieren</CardTitle>
+          <CardDescription>Erstelle einen Account, um deine Daten sicher zu speichern.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+               <FormField
+                control={form.control}
+                name="displayName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dein Anzeigename</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Max Mustermann" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="email"
@@ -148,7 +110,10 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>E-Mail</FormLabel>
                     <FormControl>
-                      <Input placeholder="deine@email.de" {...field} disabled={isLoading}/>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="deine@email.de" className="pl-10" {...field} disabled={isLoading} />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,53 +126,28 @@ function RegisterForm() {
                   <FormItem>
                     <FormLabel>Passwort</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} disabled={isLoading}/>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input type="password" placeholder="••••••" className="pl-10" {...field} disabled={isLoading} />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Passwort bestätigen</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="******" {...field} disabled={isLoading}/>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                {isLoading ? 'Registrierung...' : 'Registrieren & Sichern'}
+              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isLoading}>
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <><UserPlus className="mr-2" /> Account erstellen</>}
               </Button>
             </form>
           </Form>
-           <div className="mt-4 text-center text-sm">
-            Schon einen Account?{" "}
-             <Button variant="link" asChild className="p-0 h-auto">
-                <Link href={`/login${redirectPath !== '/' ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`}>Hier anmelden</Link>
-            </Button>
-          </div>
-           <div className="mt-6 text-center">
-             <Button variant="ghost" asChild>
-                <Link href="/">Zurück zur App</Link>
-            </Button>
-           </div>
         </CardContent>
+        <CardFooter className="flex flex-col gap-4 text-center">
+          <div className="text-sm text-muted-foreground">
+            Du hast schon einen Account?{" "}
+            <Link href="/login" className="text-primary font-bold hover:underline">Hier anmelden</Link>
+          </div>
+        </CardFooter>
       </Card>
+    </div>
   );
-}
-
-export default function RegisterPage() {
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-background p-4">
-            <Suspense fallback={<Loader2 className="animate-spin" />}>
-                <RegisterForm />
-            </Suspense>
-        </div>
-    );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -13,7 +12,7 @@ import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
-import { useAuth, useUser, initiateAnonymousSignIn, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 type TimetableEntry = {
@@ -57,16 +56,13 @@ type UserData = {
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
-  const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { startView } = useTheme();
 
   const [isSetupComplete, setIsSetupComplete] = useState<boolean | null>(null);
   const [appIsReady, setAppIsReady] = useState(false);
-  const [localTimetable, setLocalTimetable] = useState<TimetableData | null>(null);
-  const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings | null>(null);
-  const [view, setView] = useState('daily');
+  const [view, setView] = useState('');
 
   const userDocRef = useMemoFirebase(() => 
     user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
@@ -90,85 +86,45 @@ export default function Page() {
     return data;
   }, []);
 
-  // MASTER AUTH LOGIC
   useEffect(() => {
-    const handleAuth = async () => {
-      // 1. Wait for Auth to settle
-      if (isUserLoading) return;
+    if (isUserLoading) return;
 
-      // 2. Ignore auth logic on specific pages
-      if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/groups/join')) {
-          return;
-      }
-
-      // 3. No User? Sign in anonymously (Auto-Guest)
-      if (!user) {
-        try {
-            await initiateAnonymousSignIn(auth);
-        } catch (err) {
-            console.error("Anonymous sign-in failed", err);
-        }
+    if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/groups/join')) {
         return;
-      }
+    }
 
-      // 4. User is here! Now check Profile if not guest
-      if (!user.isAnonymous) {
-        if (isUserDataLoading) return; // Wait for cloud profile
+    // REDIRECT IF NO USER (No more Guest Mode)
+    if (!user) {
+        router.push('/login');
+        return;
+    }
 
-        const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
-        
-        // Setup state is determined by cloud presence
-        setIsSetupComplete(hasCloudData);
-        
-        if (userData?.settings?.startView && !view) {
-            setView(userData.settings.startView);
-        }
-      } else {
-        // Guest mode logic
-        const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
-        if (localSetupDone) {
-            const tt = localStorage.getItem('timetable');
-            const tts = localStorage.getItem('timetableSettings');
-            if (tt) setLocalTimetable(JSON.parse(tt));
-            if (tts) setLocalTimetableSettings(JSON.parse(tts));
-        }
-        setIsSetupComplete(localSetupDone);
-        
-        const savedStartView = localStorage.getItem('startView');
-        if (savedStartView && !view) setView(savedStartView);
-      }
+    if (isUserDataLoading) return;
 
-      // Final step: We are ready!
-      setAppIsReady(true);
-    };
+    // Evaluate setup state
+    const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
+    setIsSetupComplete(hasCloudData);
+    
+    if (userData?.settings?.startView && !view) {
+        setView(userData.settings.startView);
+    } else if (!view) {
+        setView('daily');
+    }
 
-    handleAuth();
-  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname, view]);
+    setAppIsReady(true);
+  }, [user, isUserLoading, userData, isUserDataLoading, pathname, router, view]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     const cleaned = cleanData(data);
-    if (user && !user.isAnonymous && userDocRef) {
+    if (userDocRef) {
         await setDoc(userDocRef, cleaned, { merge: true });
-    } else {
-        if(data.timetable) {
-            localStorage.setItem('timetable', JSON.stringify(data.timetable));
-            setLocalTimetable(data.timetable);
-        }
-        if(data.timetableSettings) {
-            localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
-            setLocalTimetableSettings(data.timetableSettings);
-        }
     }
   };
 
   const handleSetupComplete = async (newUserData: Partial<UserData>) => {
     const cleaned = cleanData(newUserData);
-    if (user && !user.isAnonymous && userDocRef) {
+    if (userDocRef) {
       await setDoc(userDocRef, cleaned, { merge: true });
-    } else {
-      localStorage.setItem('isSetupComplete', 'true');
-      if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
-      if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
     }
     setIsSetupComplete(true);
     setView(startView || 'daily');
@@ -187,17 +143,12 @@ export default function Page() {
       }
     });
     
-    if (user && !user.isAnonymous && userDocRef) {
+    if (userDocRef) {
         setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
-    } else {
-        localStorage.setItem('isSetupComplete', 'true');
-        if (importedData.timetable) localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
-        if (importedData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
-        window.location.reload();
     }
   };
 
-  if (!appIsReady) {
+  if (!appIsReady || isUserLoading || (user && isUserDataLoading)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -210,12 +161,12 @@ export default function Page() {
     return <SetupView 
         onSetupComplete={handleSetupComplete} 
         onTimetableImport={handleTimetableImport} 
-        initialData={{ settings: { profilePicture: localStorage.getItem('profilePicture') || undefined }}}
+        initialData={{ settings: { profilePicture: undefined }}}
     />;
   }
 
-  const currentTimetable = (user && !user.isAnonymous) ? (userData?.timetable || {}) : (localTimetable || {});
-  const currentSettings = (user && !user.isAnonymous) ? (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }) : (localTimetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+  const currentTimetable = userData?.timetable || {};
+  const currentSettings = userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
 
   const renderView = () => {
     const effectiveTimetable = isPreviewMode ? previewTimetableData : currentTimetable;

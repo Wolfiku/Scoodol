@@ -1,24 +1,22 @@
-
 'use client';
+
 import {
-  Auth,
-  UserCredential,
-  signInAnonymously,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  Auth,
 } from 'firebase/auth';
 
-/** Initiate anonymous sign-in (returns Promise). */
-export function initiateAnonymousSignIn(authInstance: Auth): Promise<UserCredential> {
-  return signInAnonymously(authInstance);
+/**
+ * Meldet einen Benutzer mit E-Mail und Passwort an.
+ * Gibt ein Promise zurück, das im Frontend verarbeitet werden kann.
+ */
+export async function initiateEmailSignIn(auth: Auth, email: string, pass: string) {
+  return signInWithEmailAndPassword(auth, email, pass);
 }
 
-/** Initiate email/password sign-up (returns Promise). */
-export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): Promise<UserCredential> {
-  return createUserWithEmailAndPassword(authInstance, email, password);
-}
-
-/** Initiate email/password sign-in (returns Promise). */
-export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<UserCredential> {
-  return signInWithEmailAndPassword(authInstance, email, password);
+/**
+ * Erstellt einen neuen Benutzer-Account.
+ */
+export async function initiateEmailSignUp(auth: Auth, email: string, pass: string) {
+  return createUserWithEmailAndPassword(auth, email, pass);
 }
