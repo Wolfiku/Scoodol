@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -741,7 +740,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     className="cursor-pointer"
                     onClick={handleFooterTap}
                 >
-                    made by @wolfiku, powered by limbo
+                    made by @wolfiku
                 </span>
                 <span>
                     Version {APP_VERSION}
