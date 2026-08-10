@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -107,6 +106,7 @@ export default function StatisticPage() {
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
 
   const hasInitialized = useRef(false);
+  const lastSavedData = useRef<string>('');
 
   const docRef = useMemoFirebase(() => 
     !isNewStat && user && typeof statId === 'string'
@@ -117,43 +117,54 @@ export default function StatisticPage() {
   const { data: statisticData, isLoading: isLoadingStat } = useDoc<StatisticDoc>(docRef);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Initial load or when server data arrives and we are not currently editing
+  // Initial load from server
   useEffect(() => {
-    if (statisticData && (saveStatus === 'idle' || !hasInitialized.current)) {
+    if (statisticData && !hasInitialized.current) {
       setTitle(statisticData.title);
       setMode(statisticData.mode);
       setCharts(statisticData.charts || []);
       setIsSetupDone(true);
       hasInitialized.current = true;
+      lastSavedData.current = JSON.stringify({ title: statisticData.title, mode: statisticData.mode, charts: statisticData.charts });
     }
-  }, [statisticData, saveStatus]);
+  }, [statisticData]);
 
   const handleSave = useCallback(async () => {
-    if (!firestore || !user || !title.trim()) return;
+    if (!firestore || !user || !title.trim() || saveStatus === 'idle') return;
+    
     setSaveStatus('saving');
+    const dataToSave = { title, mode, charts };
+    const dataString = JSON.stringify(dataToSave);
 
     try {
       if (isNewStat) {
         const statsColRef = collection(firestore, `users/${user.uid}/statistics`);
         const newDocRef = await addDoc(statsColRef, {
-          title, mode, charts, ownerId: user.uid,
-          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+          ...dataToSave,
+          ownerId: user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         });
+        lastSavedData.current = dataString;
         router.replace(`/workspace/statistics/${newDocRef.id}`);
       } else {
         if (!docRef) return;
-        await setDoc(docRef, { title, mode, charts, updatedAt: serverTimestamp() }, { merge: true });
+        await setDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() }, { merge: true });
+        lastSavedData.current = dataString;
       }
       setSaveStatus('idle');
     } catch (error) {
+      console.error("Save error:", error);
       setSaveStatus('dirty');
     }
-  }, [firestore, user, title, mode, charts, isNewStat, docRef, router]);
+  }, [firestore, user, title, mode, charts, isNewStat, docRef, router, saveStatus]);
 
   const triggerAutoSave = () => {
     setSaveStatus('dirty');
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(handleSave, 2000);
+    debounceTimer.current = setTimeout(() => {
+        handleSave();
+    }, 2000);
   };
 
   const addChart = (type: ChartType) => {
@@ -168,7 +179,7 @@ export default function StatisticPage() {
               { name: 'Punkt 3', value: 45, value2: 60, value3: 35 },
           ]
       };
-      setCharts([...charts, newChart]);
+      setCharts(prev => [...prev, newChart]);
       setTimeout(() => {
           setEditingChartId(newChart.id);
       }, 100);
@@ -368,10 +379,17 @@ export default function StatisticPage() {
         <div className="flex items-center gap-4 flex-1">
           <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex flex-col">
-            <Input value={title} onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1" />
+            <Input 
+                value={title} 
+                onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} 
+                className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1" 
+            />
             <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 h-4">{mode}-Mode</Badge>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">• {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin"/> : <Check className="h-2.5 w-2.5"/>}</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    • {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin"/> : <Check className="h-2.5 w-2.5"/>}
+                    <span className="ml-1 uppercase text-[9px] font-bold">{saveStatus === 'saving' ? 'Speichert...' : 'Gespeichert'}</span>
+                </span>
             </div>
           </div>
         </div>
@@ -417,11 +435,11 @@ export default function StatisticPage() {
                                         value={chart.title || ''} 
                                         placeholder="Name des Diagramms..."
                                         onChange={e => updateChart(chart.id, { title: e.target.value })}
-                                        className="h-7 text-xs font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1"
+                                        className="h-8 text-sm font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1"
                                     />
                                     <Badge variant="secondary" className="uppercase text-[8px] font-black tracking-widest hidden sm:inline-flex">{chart.type}</Badge>
                                 </div>
-                                <div className="flex gap-1 transition-opacity">
+                                <div className="flex gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setEditingChartId(chart.id)}><Settings className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10" onClick={() => deleteChart(chart.id)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
