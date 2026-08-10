@@ -102,7 +102,6 @@ export default function QuizEditorPage() {
   
   // QR Code State
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isQrDialogOpen] = useState(false);
 
   const quizDocRef = useMemoFirebase(() => 
     !isNewQuiz && user && typeof quizId === 'string'
@@ -289,7 +288,6 @@ export default function QuizEditorPage() {
             color: { dark: '#000000', light: '#ffffff' },
         });
         setQrCodeUrl(url);
-        // Using a custom dialog trigger or setter here
     } catch (err) {
         console.error(err);
         toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
@@ -589,7 +587,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
     }
 
     const checkVocab = () => {
-        const pairs = currentSlide.content.pairs;
+        const pairs = currentSlide.content.pairs || [];
         const results: Record<string, boolean> = {};
         let allCorrect = true;
         pairs.forEach((p: any) => {
@@ -636,7 +634,24 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                     ) : currentSlide?.type === 'long-answer' ? (
                         <div className="w-full max-w-2xl space-y-8"><h2 className="text-2xl font-bold">{currentSlide.content.question}</h2><div className="relative"><Textarea placeholder="Schreibe hier..." value={userAnswer} onChange={(e) => setUserAnswer(e.target.value)} disabled={answerStatus !== 'none' && answerStatus !== 'checking'} className="text-lg p-6 min-h-[180px]" />{answerStatus === 'checking' && <div className="absolute inset-0 bg-background/50 flex flex-col items-center justify-center rounded-md z-10"><Loader2 className="animate-spin h-8 w-8" /><p>KI prüft...</p></div>}</div>{answerStatus === 'none' && <Button size="lg" className="w-full h-14 text-lg font-bold" onClick={checkLongAnswerAction} disabled={!userAnswer.trim()}>KI-Prüfung</Button>}{aiFeedback && <div className="p-4 rounded-lg bg-secondary/50 mt-4 animate-in slide-in-from-top-2 duration-300"><p className="text-sm font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> KI-Feedback ({aiScore}/10):</p><p className="text-sm">{aiFeedback}</p></div>}</div>
                     ) : currentSlide?.type === 'vocabulary' ? (
-                        <div className="w-full max-w-2xl space-y-6"><h2 className="text-2xl font-bold mb-4 text-center">Vokabel-Check</h2><div className="grid gap-4">{currentSlide.content.pairs.map((pair: any) => (<div key={pair.id} className="grid grid-cols-[1fr_1fr] gap-4 items-center"><div className="text-right font-medium">{pair.foreign}</div><Input placeholder="Übersetzung..." value={vocabAnswers[pair.id] || ''} onChange={(e) => setVocabAnswers(prev => ({...prev, [pair.id]: e.target.value}))} className={cn("text-center", vocabResults[pair.id] === true && "border-green-500 bg-green-50", vocabResults[pair.id] === false && "border-red-500 bg-red-50")} disabled={answerStatus !== 'none'} /></div>))}</div>{answerStatus === 'none' && (<Button className="w-full mt-4" onClick={checkVocab}>Prüfen</Button>)}</div>
+                        <div className="w-full max-w-2xl space-y-6">
+                            <h2 className="text-2xl font-bold mb-4 text-center">Vokabel-Check</h2>
+                            <div className="grid gap-4">
+                                {(currentSlide.content.pairs || []).map((pair: any) => (
+                                    <div key={pair.id} className="grid grid-cols-[1fr_1fr] gap-4 items-center">
+                                        <div className="text-right font-medium">{pair.foreign}</div>
+                                        <Input 
+                                            placeholder="Übersetzung..." 
+                                            value={vocabAnswers[pair.id] || ''} 
+                                            onChange={(e) => setVocabAnswers(prev => ({...prev, [pair.id]: e.target.value}))} 
+                                            className={cn("text-center", vocabResults[pair.id] === true && "border-green-500 bg-green-50", vocabResults[pair.id] === false && "border-red-500 bg-red-50")} 
+                                            disabled={answerStatus !== 'none'} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            {answerStatus === 'none' && (<Button className="w-full mt-4" onClick={checkVocab}>Prüfen</Button>)}
+                        </div>
                     ) : currentSlide?.type === 'text' ? (
                         <div className="w-full max-w-2xl space-y-6"><h2 className="text-3xl font-bold border-b pb-4">{currentSlide.content.title}</h2><div className="text-lg leading-relaxed whitespace-pre-wrap text-muted-foreground">{currentSlide.content.text}</div></div>
                     ) : currentSlide?.type === 'conclusion' ? (
