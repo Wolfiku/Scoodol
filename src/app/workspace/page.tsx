@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -26,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/alert-dialog"
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
