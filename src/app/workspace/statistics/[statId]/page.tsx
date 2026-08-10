@@ -162,7 +162,10 @@ export default function StatisticPage() {
           ]
       };
       setCharts([...charts, newChart]);
-      setEditingChartId(newChart.id);
+      // Delay opening the dialog slightly to ensure the dropdown closes cleanly
+      setTimeout(() => {
+          setEditingChartId(newChart.id);
+      }, 100);
       triggerAutoSave();
   };
 
@@ -431,7 +434,6 @@ export default function StatisticPage() {
                             <DialogTitle className="text-2xl font-black">Daten bearbeiten</DialogTitle>
                             <DialogDescription className="text-xs uppercase tracking-widest font-bold">Element: {editingChart.type}</DialogDescription>
                         </div>
-                        <Button variant="outline" onClick={() => setEditingChartId(null)} className="rounded-full h-8 w-8 p-0"><X className="h-4 w-4"/></Button>
                     </DialogHeader>
                     <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                         <div className="flex-1 overflow-auto p-8 space-y-10 bg-background border-r">
