@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
@@ -321,8 +322,9 @@ export default function AccountPage() {
             <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <FormLabel>Neues Passwort</FormLabel>
+                        <Label htmlFor="new-password">Neues Passwort</Label>
                         <Input 
+                            id="new-password"
                             type="password" 
                             placeholder="••••••" 
                             value={newPassword}
@@ -330,8 +332,9 @@ export default function AccountPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <FormLabel>Passwort bestätigen</FormLabel>
+                        <Label htmlFor="confirm-password">Passwort bestätigen</Label>
                         <Input 
+                            id="confirm-password"
                             type="password" 
                             placeholder="••••••" 
                             value={confirmPassword}
