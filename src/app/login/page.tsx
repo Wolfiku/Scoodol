@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { initiateEmailSignIn, useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, initiateEmailSignIn } from '@/firebase';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
@@ -31,10 +32,7 @@ function LoginForm() {
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
@@ -42,28 +40,20 @@ function LoginForm() {
     setIsLoading(true);
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
-      toast({
-        title: "Anmeldung erfolgreich",
-        description: "Willkommen zurück!",
-      });
-      // The useEffect below will handle the redirect once the auth state updates
+      toast({ title: "Anmeldung erfolgreich", description: "Willkommen zurück!" });
+      // The useEffect below handles the redirect
     } catch (error: any) {
        console.error("Login error:", error);
        let message = "E-Mail oder Passwort ist falsch.";
        if (error.code === 'auth/user-not-found') message = "Account nicht gefunden.";
        if (error.code === 'auth/wrong-password') message = "Falsches Passwort.";
        
-       toast({
-        variant: "destructive",
-        title: "Login fehlgeschlagen",
-        description: message,
-      });
-      setIsLoading(false);
+       toast({ variant: "destructive", title: "Login fehlgeschlagen", description: message });
+       setIsLoading(false);
     }
   };
   
   useEffect(() => {
-    // Redirect if user is logged in (and not anonymous)
     if (!isUserLoading && user && !user.isAnonymous) {
       router.push(redirectPath);
     }
@@ -114,8 +104,7 @@ function LoginForm() {
               )}
             />
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-              {isLoading ? 'Anmeldung...' : 'Anmelden'}
+              {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : 'Anmelden'}
             </Button>
           </form>
         </Form>
@@ -138,9 +127,7 @@ function LoginForm() {
 export default function LoginPage() {
     return (
         <div className="flex items-center justify-center min-h-screen bg-background p-4">
-            <Suspense fallback={<Loader2 className="animate-spin" />}>
-                <LoginForm />
-            </Suspense>
+            <Suspense fallback={<Loader2 className="animate-spin" />}><LoginForm /></Suspense>
         </div>
     );
 }
