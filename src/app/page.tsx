@@ -15,6 +15,7 @@ import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { APP_VERSION } from '@/app/lib/version';
 
 type TimetableEntry = {
   id: string;
@@ -137,9 +138,19 @@ export default function Page() {
 
   if (isUserLoading || (user && isUserDataLoading && !view)) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
-        <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-        <p className="text-muted-foreground mt-4 animate-pulse font-bold tracking-widest uppercase text-xs">Scoodol wird geladen...</p>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4 relative overflow-hidden">
+        <div className="flex flex-col items-center animate-in fade-in duration-500">
+            <Loader2 className="w-12 h-12 animate-spin text-primary"/>
+            <p className="text-muted-foreground mt-4 animate-pulse font-bold tracking-widest uppercase text-[10px]">Scoodol wird geladen...</p>
+        </div>
+        
+        {/* Footer info for the loading screen */}
+        <div className="absolute bottom-8 left-8 text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] select-none">
+            @wolfikuproduction
+        </div>
+        <div className="absolute bottom-8 right-8 text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest select-none">
+            v{APP_VERSION}
+        </div>
       </div>
     );
   }
