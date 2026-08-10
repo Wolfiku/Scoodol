@@ -66,6 +66,7 @@ interface ChartDataPoint {
 interface ChartItem {
     id: string;
     type: ChartType;
+    title?: string;
     design: number; // 0, 1, 2
     data: ChartDataPoint[];
 }
@@ -105,6 +106,8 @@ export default function StatisticPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
 
+  const hasInitialized = useRef(false);
+
   const docRef = useMemoFirebase(() => 
     !isNewStat && user && typeof statId === 'string'
       ? doc(firestore, `users/${user.uid}/statistics`, statId)
@@ -114,13 +117,14 @@ export default function StatisticPage() {
   const { data: statisticData, isLoading: isLoadingStat } = useDoc<StatisticDoc>(docRef);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Synchronize with Firestore data only if we are idle
+  // Initial load or when server data arrives and we are not currently editing
   useEffect(() => {
-    if (statisticData && saveStatus === 'idle') {
+    if (statisticData && (saveStatus === 'idle' || !hasInitialized.current)) {
       setTitle(statisticData.title);
       setMode(statisticData.mode);
       setCharts(statisticData.charts || []);
       setIsSetupDone(true);
+      hasInitialized.current = true;
     }
   }, [statisticData, saveStatus]);
 
@@ -154,7 +158,10 @@ export default function StatisticPage() {
 
   const addChart = (type: ChartType) => {
       const newChart: ChartItem = {
-          id: Date.now().toString(), type, design: 0,
+          id: Date.now().toString(), 
+          type, 
+          title: `Diagramm ${charts.length + 1}`,
+          design: 0,
           data: [
               { name: 'Punkt 1', value: 30, value2: 15, value3: 10 },
               { name: 'Punkt 2', value: 55, value2: 40, value3: 20 },
@@ -162,7 +169,6 @@ export default function StatisticPage() {
           ]
       };
       setCharts([...charts, newChart]);
-      // Delay opening the dialog slightly to ensure the dropdown closes cleanly
       setTimeout(() => {
           setEditingChartId(newChart.id);
       }, 100);
@@ -406,11 +412,16 @@ export default function StatisticPage() {
                     {charts.map((chart) => (
                         <Card key={chart.id} className="group border-2 hover:border-primary/40 transition-all shadow-xl overflow-hidden rounded-3xl bg-card">
                             <CardHeader className="pb-2 border-b bg-muted/20 flex flex-row justify-between items-center space-y-0 px-6">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className="uppercase text-[9px] font-black tracking-widest">{chart.type}</Badge>
-                                    <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-60">Design {chart.design + 1}</Badge>
+                                <div className="flex items-center gap-2 flex-1 mr-4">
+                                    <Input 
+                                        value={chart.title || ''} 
+                                        placeholder="Name des Diagramms..."
+                                        onChange={e => updateChart(chart.id, { title: e.target.value })}
+                                        className="h-7 text-xs font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1"
+                                    />
+                                    <Badge variant="secondary" className="uppercase text-[8px] font-black tracking-widest hidden sm:inline-flex">{chart.type}</Badge>
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1 transition-opacity">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setEditingChartId(chart.id)}><Settings className="h-4 w-4" /></Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10" onClick={() => deleteChart(chart.id)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
@@ -529,4 +540,3 @@ export default function StatisticPage() {
     </div>
   );
 }
-
