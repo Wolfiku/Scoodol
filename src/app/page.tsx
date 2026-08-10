@@ -13,7 +13,7 @@ import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 type TimetableEntry = {
@@ -96,15 +96,15 @@ export default function Page() {
         return;
     }
 
-    // Set initial view once user is loaded
-    if (!view) {
+    // Set initial view once user and data are loaded
+    if (!view && !isUserDataLoading) {
         if (userData?.settings?.startView) {
             setView(userData.settings.startView);
         } else {
             setView('daily');
         }
     }
-  }, [user, isUserLoading, userData, router, pathname, view]);
+  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     if (!userDocRef) return;
@@ -135,7 +135,7 @@ export default function Page() {
     setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
   };
 
-  if (isUserLoading || (user && isUserDataLoading)) {
+  if (isUserLoading || (user && isUserDataLoading && !view)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
