@@ -13,8 +13,9 @@ import SettingsView from './components/settings-view';
 import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { signInAnonymously } from '@/firebase/non-blocking-login';
 
 type TimetableEntry = {
   id: string;
@@ -57,6 +58,7 @@ type UserData = {
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
+  const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { startView } = useTheme();
@@ -88,40 +90,59 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    // 1. Warte auf Auth-Status
     if (isUserLoading) return;
 
-    // 2. Kein User oder Gast-User -> Ab zum Login
-    if (!user || user.isAnonymous) {
-        if (!pathname.includes('/login') && !pathname.includes('/register') && !pathname.includes('/groups/join')) {
-            router.replace('/login');
-        }
+    // Trigger anonymous sign-in if no user exists at all
+    if (!user) {
+        signInAnonymously(auth);
         return;
     }
 
-    // 3. User ist da, warte auf Profil-Daten
-    if (isUserDataLoading) return;
+    // Wait for permanent profile data if logged in
+    if (!user.isAnonymous && isUserDataLoading) return;
 
-    // 4. Prüfe ob Setup nötig ist (kein Stundenplan vorhanden)
-    const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
-    setIsSetupComplete(hasCloudData);
+    // Check setup state
+    let setupDone = false;
+    if (!user.isAnonymous) {
+        // Registered users: check cloud data
+        setupDone = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
+    } else {
+        // Guests: check local storage
+        try {
+            const localTimetable = localStorage.getItem('timetable');
+            setupDone = !!(localTimetable && localTimetable !== '{}');
+        } catch (e) {
+            setupDone = false;
+        }
+    }
     
-    // 5. Initial-Ansicht setzen
+    setIsSetupComplete(setupDone);
+    
+    // Set initial view
     if (!view) {
-        if (userData?.settings?.startView) {
+        if (!user.isAnonymous && userData?.settings?.startView) {
             setView(userData.settings.startView);
         } else {
-            setView('daily');
+            const localStartView = localStorage.getItem('startView');
+            setView(localStartView || 'daily');
         }
     }
 
     setAppIsReady(true);
-  }, [user, isUserLoading, userData, isUserDataLoading, pathname, router, view]);
+  }, [user, isUserLoading, userData, isUserDataLoading, auth, view]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     const cleaned = cleanData(data);
     if (userDocRef) {
         await setDoc(userDocRef, cleaned, { merge: true });
+    } else {
+        // Guest mode: save locally
+        if (data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
+        if (data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
+        if (data.settings) {
+            if (data.settings.theme) localStorage.setItem('theme', data.settings.theme);
+            if (data.settings.startView) localStorage.setItem('startView', data.settings.startView);
+        }
     }
   };
 
@@ -129,6 +150,10 @@ export default function Page() {
     const cleaned = cleanData(newUserData);
     if (userDocRef) {
       await setDoc(userDocRef, cleaned, { merge: true });
+    } else {
+        // Save locally for guests
+        if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+        if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
     }
     setIsSetupComplete(true);
     setView(startView || 'daily');
@@ -149,11 +174,15 @@ export default function Page() {
     
     if (userDocRef) {
         setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
+    } else {
+        // Local import
+        localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
+        localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
+        window.location.reload();
     }
   };
 
-  // Zentraler Lade-Screen
-  if (isUserLoading || (user && !user.isAnonymous && isUserDataLoading) || (!appIsReady && user && !user.isAnonymous)) {
+  if (isUserLoading || (!appIsReady && user)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -162,8 +191,8 @@ export default function Page() {
     );
   }
 
-  // Wenn eingeloggt aber kein Profil
-  if (user && !user.isAnonymous && isSetupComplete === false) {
+  // Show Setup if not complete (works for both guests and members)
+  if (isSetupComplete === false) {
     return <SetupView 
         onSetupComplete={handleSetupComplete} 
         onTimetableImport={handleTimetableImport} 
@@ -171,8 +200,16 @@ export default function Page() {
     />;
   }
 
-  const currentTimetable = userData?.timetable || {};
-  const currentSettings = userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+  // Get effective data (Cloud for members, Local for guests)
+  const getLocalData = (key: string, fallback: any) => {
+      try {
+          const item = localStorage.getItem(key);
+          return item ? JSON.parse(item) : fallback;
+      } catch (e) { return fallback; }
+  }
+
+  const currentTimetable = !user?.isAnonymous ? (userData?.timetable || {}) : getLocalData('timetable', {});
+  const currentSettings = !user?.isAnonymous ? (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 }) : getLocalData('timetableSettings', { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
 
   const renderView = () => {
     const effectiveTimetable = isPreviewMode ? previewTimetableData : currentTimetable;

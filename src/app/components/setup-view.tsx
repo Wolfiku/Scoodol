@@ -364,7 +364,6 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
     }
 
     if (mode === 'welcome') {
-        const isLoggedIn = user && !user.isAnonymous;
         return (
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
@@ -381,13 +380,14 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                         {isLoggedIn ? (
-                             <div className="space-y-4">
-                                <p className="text-sm font-bold text-primary">Angemeldet als {user.email}</p>
-                                <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Jetzt einrichten!</Button>
-                             </div>
-                         ) : (
+                         <Button size="lg" className="w-full" onClick={() => setMode('time-setup')}>Jetzt einrichten!</Button>
+                         
+                         {(!user || user.isAnonymous) && (
                              <>
+                                <div className="relative py-4">
+                                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t"></span></div>
+                                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">oder bereits ein Nutzer?</span></div>
+                                </div>
                                 <Button size="lg" variant="outline" className="w-full" asChild>
                                     <Link href="/login">Anmelden</Link>
                                 </Button>

@@ -31,7 +31,7 @@ function LoginForm() {
   const redirectPath = searchParams.get('redirect') || '/';
 
   useEffect(() => {
-    // Nur weiterleiten, wenn wirklich ein permanenter User angemeldet ist
+    // Nur weiterleiten, wenn ein permanenter User angemeldet ist
     if (!isUserLoading && user && !user.isAnonymous) {
       router.replace(redirectPath);
     }
