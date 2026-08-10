@@ -39,17 +39,17 @@ export default function LoginPage() {
     if (!auth) return;
     setIsLoading(true);
     try {
-      // Non-blocking sign-in. The onAuthStateChanged listener will handle the redirect.
-      initiateEmailSignIn(auth, values.email, values.password);
+      await initiateEmailSignIn(auth, values.email, values.password);
       toast({
-        title: "Anmeldung...",
+        title: "Anmeldung erfolgreich",
         description: "Du wirst gleich weitergeleitet.",
       });
+      // Redirection is handled by the useEffect watching the user state
     } catch (error: any) {
        toast({
         variant: "destructive",
         title: "Login fehlgeschlagen",
-        description: "E-Mail oder Passwort ist falsch.",
+        description: "E-Mail oder Passwort ist falsch oder der Account existiert nicht.",
       });
       setIsLoading(false);
     }
@@ -135,5 +135,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

@@ -191,6 +191,31 @@
             }
         },
         "required": ["title", "ownerId", "createdAt", "updatedAt", "tasks"]
+    },
+    "Statistic": {
+      "title": "Statistic",
+      "type": "object",
+      "description": "A statistics document containing chart data.",
+      "properties": {
+        "title": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "mode": { "type": "string", "enum": ["simple", "complex", "fast"] },
+        "charts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string" },
+              "design": { "type": "number" },
+              "data": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["title", "ownerId", "mode", "createdAt", "updatedAt"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -219,6 +244,10 @@
       {
         "path": "/users/{userId}/todoLists/{listId}",
         "definition": { "schema": { "$ref": "#/entities/TodoList" }, "description": "Stores to-do lists for a specific user." }
+      },
+      {
+        "path": "/users/{userId}/statistics/{statId}",
+        "definition": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Stores statistics and charts for a specific user." }
       },
       {
         "path": "/groups/{groupId}",
