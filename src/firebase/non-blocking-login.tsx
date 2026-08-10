@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Auth,
@@ -10,7 +9,6 @@ import {
 
 /** Initiate anonymous sign-in (non-blocking). */
 export function initiateAnonymousSignIn(authInstance: Auth): Promise<UserCredential> {
-  // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
   return signInAnonymously(authInstance);
 }
 

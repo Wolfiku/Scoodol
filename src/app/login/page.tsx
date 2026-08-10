@@ -1,11 +1,10 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,12 +19,15 @@ const loginSchema = z.object({
   password: z.string().min(1, { message: "Passwort wird benötigt." }),
 });
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
+
+  const redirectPath = searchParams.get('redirect') || '/';
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -42,14 +44,19 @@ export default function LoginPage() {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({
         title: "Anmeldung erfolgreich",
-        description: "Du wirst gleich weitergeleitet.",
+        description: "Willkommen zurück!",
       });
-      // Redirection is handled by the useEffect watching the user state
+      // The useEffect below will handle the redirect once the auth state updates
     } catch (error: any) {
+       console.error("Login error:", error);
+       let message = "E-Mail oder Passwort ist falsch.";
+       if (error.code === 'auth/user-not-found') message = "Account nicht gefunden.";
+       if (error.code === 'auth/wrong-password') message = "Falsches Passwort.";
+       
        toast({
         variant: "destructive",
         title: "Login fehlgeschlagen",
-        description: "E-Mail oder Passwort ist falsch oder der Account existiert nicht.",
+        description: message,
       });
       setIsLoading(false);
     }
@@ -58,80 +65,82 @@ export default function LoginPage() {
   useEffect(() => {
     // Redirect if user is logged in (and not anonymous)
     if (!isUserLoading && user && !user.isAnonymous) {
-      router.push('/');
+      router.push(redirectPath);
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, redirectPath]);
 
-  if (isUserLoading || (user && !user.isAnonymous)) {
-     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Card className="w-full max-w-md text-center">
-            <CardHeader>
-                <CardTitle>Einen Moment...</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4">
-                <p>Du wirst angemeldet und weitergeleitet.</p>
-                <Loader2 className="animate-spin text-primary" />
-            </CardContent>
-        </Card>
-      </div>
+  if (isUserLoading) {
+    return (
+        <div className="flex flex-col items-center gap-4 py-8">
+            <Loader2 className="animate-spin text-primary h-8 w-8" />
+            <p className="text-sm text-muted-foreground">Prüfe Anmeldung...</p>
+        </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Willkommen zurück!</CardTitle>
-          <CardDescription>Melde dich bei deinem Scoodol Account an.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>E-Mail</FormLabel>
-                    <FormControl>
-                      <Input placeholder="deine@email.de" {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Passwort</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="******" {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Anmelden'}
-              </Button>
-            </form>
-          </Form>
-          <div className="mt-4 text-center text-sm">
-            Noch keinen Account?{" "}
-            <Button variant="link" asChild className="p-0 h-auto">
-                <Link href="/register">Jetzt registrieren</Link>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle>Willkommen zurück!</CardTitle>
+        <CardDescription>Melde dich bei deinem Scoodol Account an.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>E-Mail</FormLabel>
+                  <FormControl>
+                    <Input placeholder="deine@email.de" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Passwort</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="******" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
+              {isLoading ? 'Anmeldung...' : 'Anmelden'}
             </Button>
-          </div>
-           <div className="mt-6 text-center">
-             <Button variant="ghost" asChild>
-                <Link href="/">Zurück zur App</Link>
-            </Button>
-           </div>
-        </CardContent>
-      </Card>
-    </div>
+          </form>
+        </Form>
+        <div className="mt-4 text-center text-sm">
+          Noch keinen Account?{" "}
+          <Button variant="link" asChild className="p-0 h-auto">
+              <Link href={`/register${redirectPath !== '/' ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`}>Jetzt registrieren</Link>
+          </Button>
+        </div>
+         <div className="mt-6 text-center">
+           <Button variant="ghost" asChild>
+              <Link href="/">Zurück zur App</Link>
+          </Button>
+         </div>
+      </CardContent>
+    </Card>
   );
+}
+
+export default function LoginPage() {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background p-4">
+            <Suspense fallback={<Loader2 className="animate-spin" />}>
+                <LoginForm />
+            </Suspense>
+        </div>
+    );
 }
