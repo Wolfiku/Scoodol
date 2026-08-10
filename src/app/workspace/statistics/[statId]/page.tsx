@@ -114,15 +114,15 @@ export default function StatisticPage() {
   const { data: statisticData, isLoading: isLoadingStat } = useDoc<StatisticDoc>(docRef);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Synchronize with Firestore data only if we are idle
   useEffect(() => {
-    if (statisticData) {
+    if (statisticData && saveStatus === 'idle') {
       setTitle(statisticData.title);
       setMode(statisticData.mode);
       setCharts(statisticData.charts || []);
       setIsSetupDone(true);
-      setSaveStatus('idle');
     }
-  }, [statisticData]);
+  }, [statisticData, saveStatus]);
 
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim()) return;
@@ -412,7 +412,7 @@ export default function StatisticPage() {
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setEditingChartId(chart.id)}><Settings className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10" onClick={() => deleteChart(chart.id)}><X className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10" onClick={() => deleteChart(chart.id)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-8 px-6 pb-6 h-[350px] flex items-center justify-center">
@@ -490,7 +490,7 @@ export default function StatisticPage() {
                                                     />
                                                 )}
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10" onClick={() => { const newData = editingChart.data.filter((_, idx) => idx !== i); updateChart(editingChart.id, { data: newData }); }}><X className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10" onClick={() => { const newData = editingChart.data.filter((_, idx) => idx !== i); updateChart(editingChart.id, { data: newData }); }}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     ))}
                                     <Button variant="outline" className="w-full border-dashed border-2 py-6 rounded-2xl hover:bg-secondary/50 font-bold" onClick={() => { const newData = [...editingChart.data, { name: `Punkt ${editingChart.data.length + 1}`, value: 10, value2: 5, value3: 0 }]; updateChart(editingChart.id, { data: newData }); }}>
@@ -529,3 +529,4 @@ export default function StatisticPage() {
     </div>
   );
 }
+
