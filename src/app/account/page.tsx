@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { Loader2, ArrowLeft, Lock, WifiOff, School, User as UserIcon, Mail, ShieldCheck } from 'lucide-react';
+import { Loader2, ArrowLeft, Lock, Ghost, School, User as UserIcon, Mail, ShieldCheck } from 'lucide-react';
 import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -267,10 +267,10 @@ export default function AccountPage() {
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-secondary/20">
                                     <div className="space-y-0.5">
                                         <FormLabel className="text-base flex items-center gap-2">
-                                            <WifiOff className="h-4 w-4" /> Offline-Modus
+                                            <Ghost className="h-4 w-4" /> Anonymer Modus
                                         </FormLabel>
                                         <FormDescription>
-                                            Dein Konto wird auf „Offline“ gestellt (betrifft aktuell noch keine Dokumente).
+                                            In diesem Modus wirst du online nicht gefunden, zum Beispiel in Chats oder Blog- und Foren-Beiträgen.
                                         </FormDescription>
                                     </div>
                                     <FormControl>
