@@ -176,6 +176,12 @@ export default function StatisticPage() {
       triggerAutoSave();
   };
 
+  const DESIGN_MAP = [
+    { outer: 80, inner: 0 },
+    { outer: 80, inner: 40 },
+    { outer: 80, inner: 60 }
+  ];
+
   const renderChartContent = (chart: ChartItem) => {
       const design = DESIGNS[chart.design];
       const colors = design.colors;
@@ -310,12 +316,6 @@ export default function StatisticPage() {
               return <div className="flex items-center justify-center h-[300px] text-muted-foreground">Typ nicht unterstützt</div>;
       }
   };
-
-  const DESIGN_MAP = [
-    { outer: 80, inner: 0 },
-    { outer: 80, inner: 40 },
-    { outer: 80, inner: 60 }
-  ];
 
   const editingChart = useMemo(() => charts.find(c => c.id === editingChartId), [charts, editingChartId]);
 

@@ -96,9 +96,13 @@ export default function Page() {
       // 1. Wait for Auth to settle
       if (isUserLoading) return;
 
-      // 2. Handle missing user (Auto-Gast)
-      // WICHTIG: Nur anmelden, wenn wir nicht auf einer Auth-Seite sind
-      if (!user && !pathname.includes('/login') && !pathname.includes('/register')) {
+      // 2. Prevent interference on auth pages
+      if (pathname.includes('/login') || pathname.includes('/register')) {
+          return;
+      }
+
+      // 3. Handle missing user (Anonymous auto-login)
+      if (!user) {
         try {
             await initiateAnonymousSignIn(auth);
         } catch (err) {
@@ -107,10 +111,9 @@ export default function Page() {
         return;
       }
 
-      if (!user) return; // Wait for anonymous sign-in to complete if it was triggered
-
-      // 3. Handle logged in users (Permanent or Anonymous)
+      // 4. Handle Authenticated State
       if (!user.isAnonymous) {
+        // Wait for profile to load
         if (isUserDataLoading) return;
         
         const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
@@ -122,6 +125,7 @@ export default function Page() {
             setView(userData.settings.startView);
         }
       } else {
+        // Guest user
         const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
         if (localSetupDone) {
             const tt = localStorage.getItem('timetable');

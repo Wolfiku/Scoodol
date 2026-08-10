@@ -2,199 +2,85 @@
 {
   "entities": {
     "Subject": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Subject",
       "type": "object",
       "description": "Represents a school subject with its associated details.",
       "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the subject." },
-        "name": { "type": "string", "description": "Name of the subject (e.g., Math, English)." },
-        "room": { "type": "string", "description": "The room where the subject is taught." },
-        "teacher": { "type": "string", "description": "Name of the teacher for the subject." },
-        "startTime": { "type": "string", "description": "Start time of the subject (e.g., 08:00).", "format": "string" },
-        "endTime": { "type": "string", "description": "End time of the subject (e.g., 09:00).", "format": "string" },
-        "isMainSubject": { "type": "boolean", "description": "Indicates whether the subject is a main subject." },
-        "notes": { "type": "string", "description": "Additional notes or information about the subject." },
-        "materialsLink": { "type": "string", "description": "Link to online materials for the subject.", "format": "uri" }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "room": { "type": "string" },
+        "teacher": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "isMainSubject": { "type": "boolean" }
       },
-      "required": ["id", "name", "room", "teacher", "startTime", "endTime", "isMainSubject"]
+      "required": ["id", "name", "startTime", "endTime"]
     },
     "Homework": {
       "title": "Homework",
       "type": "object",
       "description": "A single homework task.",
       "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the homework task." },
-        "subject": { "type": "string", "description": "The subject of the homework." },
-        "task": { "type": "string", "description": "The description of the task." },
-        "dueDate": { "type": "string", "format": "date", "description": "The due date for the task." },
-        "done": { "type": "boolean", "description": "Whether the task is completed." },
-        "completedAt": { "type": "number", "description": "Timestamp when the task was marked as done." }
+        "id": { "type": "string" },
+        "subject": { "type": "string" },
+        "task": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "done": { "type": "boolean" },
+        "completedAt": { "type": "number" }
       },
       "required": ["id", "task", "done"]
     },
     "UserProfile": {
       "title": "User Profile",
       "type": "object",
-      "description": "Stores user-specific application data like timetable and settings.",
       "properties": {
         "email": { "type": "string", "format": "email" },
-        "shareId": { "type": "string", "description": "The user's unique and shareable ID (UID)." },
-        "role": { "type": "string", "enum": ["user", "admin", "workspace_plus_user"], "description": "The user's role in the application." },
-        "groupId": { "type": "string", "description": "The ID of the group the user belongs to." },
-        "groupSettings": {
-            "type": "object",
-            "description": "User's settings related to their group membership.",
-            "properties": {
-                "syncTimetable": { "type": "boolean", "description": "If true, user's timetable is synced with the group's." },
-                "showInGroup": { "type": "boolean", "description": "If true, the user is visible to other group members." },
-                "shareHomework": { "type": "boolean", "description": "If true, homework is shared with the group." }
-            }
-        },
-        "timetable": { "type": "object", "description": "The user's personal timetable data." },
-        "timetableSettings": { "type": "object", "description": "Settings for the user's personal timetable." },
+        "displayName": { "type": "string" },
+        "shareId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin", "workspace_plus_user"] },
+        "groupId": { "type": "string" },
         "settings": {
           "type": "object",
           "properties": {
             "theme": { "type": "string" },
             "startView": { "type": "string" },
             "aiLanguage": { "type": "string" },
-            "betaFeaturesEnabled": { "type": "boolean" },
-            "profilePicture": { "type": "string", "format": "uri" },
-            "notesSlots": { 
-              "type": "object", 
-              "description": "15 slots for personal notes in tools.",
-              "additionalProperties": { "type": "string" }
-            }
+            "notesSlots": { "type": "object", "additionalProperties": { "type": "string" } }
           }
-        }
+        },
+        "timetable": { "type": "object" },
+        "timetableSettings": { "type": "object" }
       }
-    },
-    "Group": {
-      "title": "Group",
-      "type": "object",
-      "description": "Represents a student group or class.",
-      "properties": {
-        "name": { "type": "string", "description": "Name of the group or class." },
-        "schoolName": { "type": "string", "description": "Name of the school." },
-        "motto": { "type": "string", "description": "A fun motto for the group." },
-        "admin": { "type": "string", "description": "The UID of the user who created and manages the group." },
-        "timetable": { "type": "object", "description": "The shared timetable for the group." },
-        "timetableSettings": { "type": "object", "description": "The shared timetable settings for the group." },
-        "members": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "A list of user UIDs who are members of this group."
-        }
-      },
-      "required": ["name", "schoolName", "admin", "timetable", "timetableSettings"]
     },
     "QuickNote": {
       "title": "Quick Note",
       "type": "object",
-      "description": "A quick note created in the workspace.",
       "properties": {
-        "title": { "type": "string", "description": "The title of the note." },
-        "content": { "type": "string", "description": "The markdown content of the note." },
-        "ownerId": { "type": "string", "description": "The UID of the user who owns the note." },
-        "createdAt": { "type": "object", "description": "Timestamp of when the note was created." },
-        "updatedAt": { "type": "object", "description": "Timestamp of when the note was last updated." },
-        "isLocked": { "type": "boolean", "description": "Indicates if the note is locked for editing." }
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" },
+        "isLocked": { "type": "boolean" }
       },
-      "required": ["title", "ownerId", "createdAt", "updatedAt"]
+      "required": ["title", "ownerId"]
     },
     "TextDocument": {
       "title": "Text Document",
       "type": "object",
-      "description": "A rich-text document similar to a Word file.",
       "properties": {
-        "title": { "type": "string", "description": "The title of the document." },
-        "content": { "type": "string", "description": "The HTML content of the document." },
-        "ownerId": { "type": "string", "description": "The UID of the user who owns the document." },
-        "isPublished": { "type": "boolean", "description": "Whether the document is publicly accessible." },
-        "createdAt": { "type": "object", "description": "Timestamp of when the document was created." },
-        "updatedAt": { "type": "object", "description": "Timestamp of when the document was last updated." }
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
       },
-      "required": ["title", "ownerId", "createdAt", "updatedAt"]
-    },
-    "Quiz": {
-      "title": "Quiz",
-      "type": "object",
-      "description": "A quiz document consisting of multiple slides.",
-      "properties": {
-        "title": { "type": "string", "description": "The title or theme of the quiz." },
-        "creator": { "type": "string", "description": "The name of the quiz creator." },
-        "ownerId": { "type": "string", "description": "The UID of the user who owns the quiz." },
-        "createdAt": { "type": "object", "description": "Timestamp of when the quiz was created." },
-        "updatedAt": { "type": "object", "description": "Timestamp of when the quiz was last updated." },
-        "slides": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "type": { "type": "string", "enum": ["welcome", "multiple-choice", "short-answer", "long-answer", "vocabulary", "text"] },
-              "content": { "type": "object" }
-            }
-          }
-        }
-      },
-      "required": ["title", "creator", "ownerId", "createdAt", "updatedAt", "slides"]
-    },
-    "TodoItem": {
-        "title": "Todo Item",
-        "type": "object",
-        "description": "A single item in a to-do list.",
-        "properties": {
-            "id": { "type": "string", "description": "Unique client-side generated ID for the item." },
-            "text": { "type": "string", "description": "The content of the to-do item." },
-            "done": { "type": "boolean", "description": "Whether the to-do item is completed." },
-            "dueDate": { "type": "string", "format": "date", "description": "The due date for the item." },
-            "priority": { "type": "number", "description": "Priority of the item (e.g., 1, 2, 3)." },
-            "note": { "type": "string", "description": "Additional notes for the item." },
-            "group": { "type": "string", "description": "The group this task belongs to." },
-            "subtasks": {
-                "type": "array",
-                "description": "A list of sub-tasks for this item.",
-                "items": { "$ref": "#/entities/TodoItem" }
-            }
-        },
-        "required": ["id", "text", "done"]
-    },
-    "TodoList": {
-        "title": "To-Do List",
-        "type": "object",
-        "description": "A to-do list document.",
-        "properties": {
-            "title": { "type": "string", "description": "The title of the to-do list." },
-            "ownerId": { "type": "string", "description": "The UID of the user who owns the list." },
-            "createdAt": { "type": "object", "description": "Timestamp of when the list was created." },
-            "updatedAt": { "type": "object", "description": "Timestamp of when the list was last updated." },
-            "tasks": {
-                "type": "array",
-                "description": "The list of to-do items.",
-                "items": { "$ref": "#/entities/TodoItem" }
-            },
-            "settings": {
-                "type": "object",
-                "description": "Settings for this specific to-do list.",
-                "properties": {
-                    "advancedMode": { "type": "boolean" },
-                    "enableSubtasks": { "type": "boolean" },
-                    "enableGroups": { "type": "boolean" },
-                    "enableColorGroups": { "type": "boolean" },
-                    "sortBy": { "type": "string", "enum": ["default", "dueDate", "priority", "alphabetical"] },
-                    "weeklyReset": { "type": "boolean" },
-                    "enableNumericPriority": { "type": "boolean" }
-                }
-            }
-        },
-        "required": ["title", "ownerId", "createdAt", "updatedAt", "tasks"]
+      "required": ["title", "ownerId"]
     },
     "Statistic": {
       "title": "Statistic",
       "type": "object",
-      "description": "A statistics document containing chart data.",
       "properties": {
         "title": { "type": "string" },
         "ownerId": { "type": "string" },
@@ -214,44 +100,17 @@
         "createdAt": { "type": "object" },
         "updatedAt": { "type": "object" }
       },
-      "required": ["title", "ownerId", "mode", "createdAt", "updatedAt"]
+      "required": ["title", "ownerId", "mode"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
   "firestore": {
     "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "Stores user profile data. The userId is the document ID." }
-      },
-      {
-        "path": "/users/{userId}/homeworks/{homeworkId}",
-        "definition": { "schema": { "$ref": "#/entities/Homework" }, "description": "Stores homework tasks for a specific user." }
-      },
-      {
-        "path": "/users/{userId}/quickNotes/{noteId}",
-        "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Stores quick notes for a specific user." }
-      },
-      {
-        "path": "/users/{userId}/documents/{docId}",
-        "definition": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Stores rich-text documents for a specific user." }
-      },
-      {
-        "path": "/users/{userId}/quizzes/{quizId}",
-        "definition": { "schema": { "$ref": "#/entities/Quiz" }, "description": "Stores quizzes for a specific user." }
-      },
-      {
-        "path": "/users/{userId}/todoLists/{listId}",
-        "definition": { "schema": { "$ref": "#/entities/TodoList" }, "description": "Stores to-do lists for a specific user." }
-      },
-      {
-        "path": "/users/{userId}/statistics/{statId}",
-        "definition": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Stores statistics and charts for a specific user." }
-      },
-      {
-        "path": "/groups/{groupId}",
-        "definition": { "schema": { "$ref": "#/entities/Group" }, "description": "Stores data for a student group or class." }
-      }
+      { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" } },
+      { "path": "/users/{userId}/homeworks/{hwId}", "definition": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" } },
+      { "path": "/users/{userId}/quickNotes/{noteId}", "definition": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" } },
+      { "path": "/users/{userId}/documents/{docId}", "definition": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" } },
+      { "path": "/users/{userId}/statistics/{statId}", "definition": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Stats" } }
     ]
   }
 }

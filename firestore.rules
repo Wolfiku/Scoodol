@@ -1,63 +1,14 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if the user has an 'admin' role in their profile.
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Helper function to check if a user is a member of a specific group
-    function isGroupMember(groupId) {
-        return get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
-    }
-    
-    // Helper function to check if a user is the admin of a specific group
-    function isGroupAdmin(groupId) {
-        return get(/databases/$(database)/documents/groups/$(groupId)).data.admin == request.auth.uid;
-    }
-
     match /users/{userId} {
-      // Allow reading user profile publicly so the author name can be displayed on public documents
-      allow read: if true;
-      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
-
-      match /homeworks/{homeworkId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /quickNotes/{noteId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /documents/{docId} {
-        allow read: if resource.data.isPublished == true || (request.auth != null && request.auth.uid == userId);
-        allow write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /quizzes/{quizId} {
-        // Anyone can read a quiz if it's published
-        allow read: if resource.data.isPublished == true || (request.auth != null && request.auth.uid == userId);
-        allow write, delete: if request.auth != null && request.auth.uid == userId;
-
-        // Responses subcollection
-        match /responses/{responseId} {
-          // Public users can create responses
-          allow create: if true;
-          // Only the quiz owner can read the results
-          allow read: if request.auth != null && request.auth.uid == userId;
-        }
-      }
-
-      match /todoLists/{listId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-
-    match /groups/{groupId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null && (isGroupAdmin(groupId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']));
-        allow delete: if request.auth != null && isGroupAdmin(groupId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /homeworks/{id} { allow read, write: if request.auth.uid == userId; }
+      match /quickNotes/{id} { allow read, write: if request.auth.uid == userId; }
+      match /documents/{id} { allow read: if resource.data.isPublished == true || request.auth.uid == userId; allow write: if request.auth.uid == userId; }
+      match /statistics/{id} { allow read, write: if request.auth.uid == userId; }
     }
   }
 }
