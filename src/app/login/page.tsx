@@ -41,12 +41,13 @@ function LoginForm() {
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({ title: "Anmeldung erfolgreich", description: "Willkommen zurück!" });
-      // The useEffect below handles the redirect
+      // Redirect happens in useEffect below when user state is stable
     } catch (error: any) {
        console.error("Login error:", error);
        let message = "E-Mail oder Passwort ist falsch.";
        if (error.code === 'auth/user-not-found') message = "Account nicht gefunden.";
        if (error.code === 'auth/wrong-password') message = "Falsches Passwort.";
+       if (error.code === 'auth/invalid-credential') message = "Ungültige Anmeldedaten.";
        
        toast({ variant: "destructive", title: "Login fehlgeschlagen", description: message });
        setIsLoading(false);
@@ -54,71 +55,72 @@ function LoginForm() {
   };
   
   useEffect(() => {
+    // Nur weiterleiten, wenn wir wirklich eingeloggt sind und der Ladezustand fertig ist
     if (!isUserLoading && user && !user.isAnonymous) {
       router.push(redirectPath);
     }
   }, [user, isUserLoading, router, redirectPath]);
 
-  if (isUserLoading) {
-    return (
-        <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="animate-spin text-primary h-8 w-8" />
-            <p className="text-sm text-muted-foreground">Prüfe Anmeldung...</p>
-        </div>
-    );
-  }
-
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
       <CardHeader>
-        <CardTitle>Willkommen zurück!</CardTitle>
+        <CardTitle className="text-2xl font-black">Willkommen zurück!</CardTitle>
         <CardDescription>Melde dich bei deinem Scoodol Account an.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>E-Mail</FormLabel>
-                  <FormControl>
-                    <Input placeholder="deine@email.de" {...field} disabled={isLoading} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Passwort</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="******" {...field} disabled={isLoading} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : 'Anmelden'}
-            </Button>
-          </form>
-        </Form>
-        <div className="mt-4 text-center text-sm">
-          Noch keinen Account?{" "}
-          <Button variant="link" asChild className="p-0 h-auto">
-              <Link href={`/register${redirectPath !== '/' ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`}>Jetzt registrieren</Link>
-          </Button>
-        </div>
-         <div className="mt-6 text-center">
-           <Button variant="ghost" asChild>
-              <Link href="/">Zurück zur App</Link>
-          </Button>
-         </div>
+        {isUserLoading && !user ? (
+            <div className="flex flex-col items-center gap-4 py-8">
+                <Loader2 className="animate-spin text-primary h-8 w-8" />
+                <p className="text-sm text-muted-foreground">Prüfe Anmeldung...</p>
+            </div>
+        ) : (
+            <>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>E-Mail</FormLabel>
+                          <FormControl>
+                            <Input placeholder="deine@email.de" {...field} disabled={isLoading} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Passwort</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="******" {...field} disabled={isLoading} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : 'Anmelden'}
+                    </Button>
+                  </form>
+                </Form>
+                <div className="mt-6 text-center text-sm">
+                  Noch keinen Account?{" "}
+                  <Button variant="link" asChild className="p-0 h-auto font-bold">
+                      <Link href={`/register${redirectPath !== '/' ? `?redirect=${encodeURIComponent(redirectPath)}` : ''}`}>Jetzt registrieren</Link>
+                  </Button>
+                </div>
+                 <div className="mt-8 text-center">
+                   <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
+                      <Link href="/">Abbrechen & Zurück</Link>
+                  </Button>
+                 </div>
+            </>
+        )}
       </CardContent>
     </Card>
   );
@@ -126,7 +128,7 @@ function LoginForm() {
 
 export default function LoginPage() {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background p-4">
+        <div className="flex items-center justify-center min-h-screen bg-secondary/20 p-4">
             <Suspense fallback={<Loader2 className="animate-spin" />}><LoginForm /></Suspense>
         </div>
     );

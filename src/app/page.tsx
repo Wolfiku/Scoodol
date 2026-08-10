@@ -76,7 +76,6 @@ export default function Page() {
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
   const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
-  // Clean data for Firestore
   const cleanData = useCallback((data: any): any => {
     if (data === undefined) return null;
     if (data !== null && typeof data === 'object') {
@@ -92,14 +91,14 @@ export default function Page() {
     return data;
   }, []);
 
-  // Main evaluation logic
   useEffect(() => {
     const evaluateState = async () => {
       // 1. Wait for Auth to settle
       if (isUserLoading) return;
 
       // 2. Handle missing user (Auto-Gast)
-      if (!user) {
+      // WICHTIG: Nur anmelden, wenn wir nicht auf einer Auth-Seite sind
+      if (!user && !pathname.includes('/login') && !pathname.includes('/register')) {
         try {
             await initiateAnonymousSignIn(auth);
         } catch (err) {
@@ -108,9 +107,10 @@ export default function Page() {
         return;
       }
 
-      // 3. Handle logged in users
+      if (!user) return; // Wait for anonymous sign-in to complete if it was triggered
+
+      // 3. Handle logged in users (Permanent or Anonymous)
       if (!user.isAnonymous) {
-        // Wait for profile data
         if (isUserDataLoading) return;
         
         const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
@@ -118,11 +118,10 @@ export default function Page() {
         
         setIsSetupComplete(hasCloudData || hasLocalFlag);
         
-        if (userData?.settings?.startView) {
+        if (userData?.settings?.startView && !view) {
             setView(userData.settings.startView);
         }
       } else {
-        // Handle anonymous users
         const localSetupDone = localStorage.getItem('isSetupComplete') === 'true';
         if (localSetupDone) {
             const tt = localStorage.getItem('timetable');
@@ -133,14 +132,14 @@ export default function Page() {
         setIsSetupComplete(localSetupDone);
         
         const savedStartView = localStorage.getItem('startView');
-        if (savedStartView) setView(savedStartView);
+        if (savedStartView && !view) setView(savedStartView);
       }
 
       setAppIsReady(true);
     };
 
     evaluateState();
-  }, [user, isUserLoading, userData, isUserDataLoading, auth]);
+  }, [user, isUserLoading, userData, isUserDataLoading, auth, pathname]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     const cleaned = cleanData(data);
