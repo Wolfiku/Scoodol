@@ -15,6 +15,15 @@ service cloud.firestore {
       match /quizzes/{id} { 
         allow read: if (resource != null && resource.data.isPublished == true) || request.auth.uid == userId;
         allow write: if request.auth.uid == userId; 
+        
+        match /responses/{responseId} {
+          // Nur der Besitzer des Quizzes darf alle Antworten sehen oder löschen
+          allow read, delete: if request.auth != null && request.auth.uid == userId;
+          // Jeder darf eine Antwort erstellen (um am Quiz teilzunehmen)
+          allow create: if true;
+          // Aktualisierungen sind dem Besitzer vorbehalten (falls nötig)
+          allow update: if request.auth != null && request.auth.uid == userId;
+        }
       }
     }
     
