@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -65,7 +66,7 @@ export default function Page() {
   const [view, setView] = useState('');
 
   const userDocRef = useMemoFirebase(() => 
-    user && !user.isAnonymous ? doc(firestore, `users/${user.uid}`) : null
+    user ? doc(firestore, `users/${user.uid}`) : null
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
@@ -87,28 +88,31 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    // 1. Wait for Firebase Auth to determine if a user exists
     if (isUserLoading) return;
 
-    if (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/groups/join')) {
-        return;
-    }
-
-    // REDIRECT IF NO USER (No more Guest Mode)
+    // 2. If no user is logged in, send to login (unless already there)
     if (!user) {
-        router.push('/login');
+        if (!pathname.includes('/login') && !pathname.includes('/register') && !pathname.includes('/groups/join')) {
+            router.replace('/login');
+        }
         return;
     }
 
+    // 3. If user exists, wait for Firestore profile to load
     if (isUserDataLoading) return;
 
-    // Evaluate setup state
+    // 4. Evaluate setup state based on presence of timetable
     const hasCloudData = !!(userData?.timetable && Object.keys(userData.timetable).length > 0);
     setIsSetupComplete(hasCloudData);
     
-    if (userData?.settings?.startView && !view) {
-        setView(userData.settings.startView);
-    } else if (!view) {
-        setView('daily');
+    // 5. Set initial view if not already set
+    if (!view) {
+        if (userData?.settings?.startView) {
+            setView(userData.settings.startView);
+        } else {
+            setView('daily');
+        }
     }
 
     setAppIsReady(true);
@@ -148,7 +152,8 @@ export default function Page() {
     }
   };
 
-  if (!appIsReady || isUserLoading || (user && isUserDataLoading)) {
+  // Central Loading Screen
+  if (isUserLoading || (user && isUserDataLoading) || (!appIsReady && user)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background text-foreground p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -157,7 +162,8 @@ export default function Page() {
     );
   }
 
-  if (isSetupComplete === false) {
+  // If logged in but no profile data found
+  if (user && isSetupComplete === false) {
     return <SetupView 
         onSetupComplete={handleSetupComplete} 
         onTimetableImport={handleTimetableImport} 

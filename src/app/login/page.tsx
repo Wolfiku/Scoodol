@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
@@ -24,16 +25,17 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const auth = useAuth();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [isLoading, setIsLoading] = useState(false);
 
   const redirectPath = searchParams.get('redirect') || '/';
 
   useEffect(() => {
-    if (user && !user.isAnonymous) {
-      router.push(redirectPath);
+    // Only redirect if loading is finished AND we have a verified user session
+    if (!isUserLoading && user) {
+      router.replace(redirectPath);
     }
-  }, [user, router, redirectPath]);
+  }, [user, isUserLoading, router, redirectPath]);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -47,7 +49,7 @@ function LoginForm() {
     try {
       await initiateEmailSignIn(auth, values.email, values.password);
       toast({ title: "Willkommen zurück!", description: "Du hast dich erfolgreich angemeldet." });
-      router.push(redirectPath);
+      // The useEffect will handle the redirection after auth state change
     } catch (error: any) {
       let message = "Anmeldung fehlgeschlagen. Bitte prüfe deine Daten.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -57,6 +59,14 @@ function LoginForm() {
       setIsLoading(false);
     }
   };
+
+  if (isUserLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="animate-spin text-primary w-12 h-12" />
+        </div>
+      );
+  }
 
   return (
     <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
