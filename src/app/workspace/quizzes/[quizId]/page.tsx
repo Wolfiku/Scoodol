@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -468,7 +469,7 @@ export default function QuizEditorPage() {
                         <div className="space-y-6"><Label className="font-bold flex items-center gap-2"><Sparkles className="w-4 h-4" /> Frage</Label><Input placeholder="Frage..." value={slide.content.question || ''} onChange={(e) => updateSlideContent(slide.id, { question: e.target.value })} /><div className="grid md:grid-cols-2 gap-4"><div className="space-y-2"><Label>Musterlösung</Label><Textarea value={slide.content.referenceAnswer || ''} onChange={(e) => updateSlideContent(slide.id, { referenceAnswer: e.target.value })} className="min-h-[120px]" /></div><div className="space-y-2"><Label>Kriterien</Label><Textarea value={slide.content.criteria || ''} onChange={(e) => updateSlideContent(slide.id, { criteria: e.target.value })} className="min-h-[120px]" /></div></div></div>
                     )}
                     {slide.type === 'vocabulary' && (
-                        <div className="space-y-6"><div className="grid gap-3">{(slide.content.pairs || []).map((pair: any, pIndex: number) => (<div key={pair.id} className="grid grid-cols-[1fr_1fr_40px] gap-2"><Input placeholder="Fremd..." value={pair.foreign} onChange={(e) => { const newPairs = [...slide.content.pairs]; newPairs[pIndex].foreign = e.target.value; updateSlideContent(slide.id, { pairs: newPairs }); }} /><Input placeholder="Deutsch..." value={pair.german} onChange={(e) => { const newPairs = [...slide.content.pairs]; newPairs[pIndex].german = e.target.value; updateSlideContent(slide.id, { pairs: newPairs }); }} /><Button variant="ghost" size="icon" disabled={slide.content.pairs.length <= 1} onClick={() => { const newPairs = slide.content.pairs.filter((_: any, i: number) => i !== pIndex); updateSlideContent(slide.id, { pairs: newPairs }); }}><Trash2 className="h-4 w-4" /></Button></div>))}<Button variant="outline" onClick={() => { const newPairs = [...slide.content.pairs, { id: Date.now().toString(), foreign: '', german: '' }]; updateSlideContent(slide.id, { pairs: newPairs }); }}><Plus className="h-4 w-4 mr-2" /> Vokabel hinzufügen</Button></div></div>
+                        <div className="space-y-6"><div className="grid gap-3">{(slide.content.pairs || []).map((pair: any, pIndex: number) => (<div key={pair.id || Math.random()} className="grid grid-cols-[1fr_1fr_40px] gap-2"><Input placeholder="Fremd..." value={pair.foreign} onChange={(e) => { const newPairs = [...slide.content.pairs]; newPairs[pIndex].foreign = e.target.value; updateSlideContent(slide.id, { pairs: newPairs }); }} /><Input placeholder="Deutsch..." value={pair.german} onChange={(e) => { const newPairs = [...slide.content.pairs]; newPairs[pIndex].german = e.target.value; updateSlideContent(slide.id, { pairs: newPairs }); }} /><Button variant="ghost" size="icon" disabled={slide.content.pairs.length <= 1} onClick={() => { const newPairs = slide.content.pairs.filter((_: any, i: number) => i !== pIndex); updateSlideContent(slide.id, { pairs: newPairs }); }}><Trash2 className="h-4 w-4" /></Button></div>))}<Button variant="outline" onClick={() => { const newPairs = [...slide.content.pairs, { id: Date.now().toString(), foreign: '', german: '' }]; updateSlideContent(slide.id, { pairs: newPairs }); }}><Plus className="h-4 w-4 mr-2" /> Vokabel hinzufügen</Button></div></div>
                     )}
                     {slide.type === 'text' && (
                       <div className="space-y-6"><Label>Überschrift</Label><Input value={slide.content.title || ''} onChange={(e) => updateSlideContent(slide.id, { title: e.target.value })} /><Label>Text Folientext</Label><Textarea value={slide.content.text || ''} onChange={(e) => updateSlideContent(slide.id, { text: e.target.value })} className="min-h-[200px]" /></div>
@@ -551,7 +552,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         const { answer, checkMode, question } = currentSlide.content;
         
         // Zuerst lokale Prüfung
-        if (userAnswer.trim().toLowerCase() === answer.trim().toLowerCase()) {
+        if (userAnswer.trim().toLowerCase() === (answer || "").trim().toLowerCase()) {
             setCorrectCount(prev => prev + 1);
             setAnswerStatus('correct');
             return;
@@ -582,8 +583,8 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         if (answerStatus !== 'none') return;
         setSelectedMcOption(optionId);
         const option = currentSlide.content.options.find((o: any) => o.id === optionId);
-        if (option.isCorrect) setCorrectCount(prev => prev + 1);
-        setAnswerStatus(option.isCorrect ? 'correct' : 'incorrect');
+        if (option?.isCorrect) setCorrectCount(prev => prev + 1);
+        setAnswerStatus(option?.isCorrect ? 'correct' : 'incorrect');
     }
 
     const checkVocab = () => {
@@ -591,7 +592,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         const results: Record<string, boolean> = {};
         let allCorrect = true;
         pairs.forEach((p: any) => {
-            const isCorrect = (vocabAnswers[p.id] || '').trim().toLowerCase() === p.german.trim().toLowerCase();
+            const isCorrect = (vocabAnswers[p.id] || '').trim().toLowerCase() === (p.german || "").trim().toLowerCase();
             results[p.id] = isCorrect;
             if (!isCorrect) allCorrect = false;
         });
@@ -638,7 +639,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
                             <h2 className="text-2xl font-bold mb-4 text-center">Vokabel-Check</h2>
                             <div className="grid gap-4">
                                 {(currentSlide.content.pairs || []).map((pair: any) => (
-                                    <div key={pair.id} className="grid grid-cols-[1fr_1fr] gap-4 items-center">
+                                    <div key={pair.id || Math.random()} className="grid grid-cols-[1fr_1fr] gap-4 items-center">
                                         <div className="text-right font-medium">{pair.foreign}</div>
                                         <Input 
                                             placeholder="Übersetzung..." 
