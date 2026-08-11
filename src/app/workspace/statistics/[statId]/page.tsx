@@ -106,7 +106,7 @@ export default function StatisticPage() {
   const [editingChartId, setEditingChartId] = useState<string | null>(null);
 
   const hasInitialized = useRef(false);
-  const lastSavedData = useRef<string>('');
+  const lastSavedAt = useRef<number>(0);
 
   const docRef = useMemoFirebase(() => 
     !isNewStat && user && typeof statId === 'string'
@@ -125,16 +125,22 @@ export default function StatisticPage() {
       setCharts(statisticData.charts || []);
       setIsSetupDone(true);
       hasInitialized.current = true;
-      lastSavedData.current = JSON.stringify({ title: statisticData.title, mode: statisticData.mode, charts: statisticData.charts });
     }
-  }, [statisticData]);
+    
+    // Safety check: if data comes in while we are IDLE, we can update.
+    // If we are DIRTY or SAVING, we ignore server updates to prevent flickering.
+    if (statisticData && saveStatus === 'idle') {
+        setTitle(statisticData.title);
+        setMode(statisticData.mode);
+        setCharts(statisticData.charts || []);
+    }
+  }, [statisticData, saveStatus]);
 
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim() || saveStatus === 'idle') return;
     
     setSaveStatus('saving');
     const dataToSave = { title, mode, charts };
-    const dataString = JSON.stringify(dataToSave);
 
     try {
       if (isNewStat) {
@@ -145,12 +151,12 @@ export default function StatisticPage() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        lastSavedData.current = dataString;
+        lastSavedAt.current = Date.now();
         router.replace(`/workspace/statistics/${newDocRef.id}`);
       } else {
         if (!docRef) return;
         await setDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() }, { merge: true });
-        lastSavedData.current = dataString;
+        lastSavedAt.current = Date.now();
       }
       setSaveStatus('idle');
     } catch (error) {
@@ -211,21 +217,23 @@ export default function StatisticPage() {
 
       switch(chart.type) {
           case 'bar':
+              // BALKEN: Horizontal (links nach rechts)
               return (
                 <ResponsiveContainer {...commonProps}>
-                    <BarChart data={data}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                        <XAxis dataKey="name" fontSize={11} />
-                        <YAxis fontSize={11} />
+                    <BarChart data={data} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
+                        <XAxis type="number" fontSize={11} />
+                        <YAxis dataKey="name" type="category" fontSize={11} width={80} />
                         <Tooltip />
-                        <Bar dataKey="value" fill={colors[0]} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" fill={colors[0]} radius={[0, 4, 4, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
               );
           case 'stacked-bar':
+              // TURM: Vertikal (unten nach oben) + Gestapelt
               return (
                 <ResponsiveContainer {...commonProps}>
-                    <BarChart data={data}>
+                    <BarChart data={data} layout="horizontal">
                         <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                         <XAxis dataKey="name" fontSize={11} />
                         <YAxis fontSize={11} />
