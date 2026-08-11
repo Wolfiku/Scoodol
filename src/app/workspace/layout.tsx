@@ -26,7 +26,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
               <MonitorOff className="w-10 h-10 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-black">Workspace gesperrt</CardTitle>
+            <CardTitle className="text-2xl font-black">Größerer Bildschirm benötigt</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pb-8">
             <div className="space-y-2">
