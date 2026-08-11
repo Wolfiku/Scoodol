@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo, BrainCircuit, Type } from 'lucide-react';
+import { Plus, StickyNote, FileText, BarChart3, MoreHorizontal, Loader2, Edit, Share2, Trash2, ListTodo, BrainCircuit, Type, Presentation } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, collection, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
@@ -25,7 +25,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
@@ -67,6 +66,10 @@ type Statistic = DocumentBase & {
     charts: any[];
 }
 
+type PresentationDoc = DocumentBase & {
+    slides: any[];
+}
+
 export default function WorkspacePage() {
     const { user, isUserLoading } = useUser();
     const router = useRouter();
@@ -105,6 +108,11 @@ export default function WorkspacePage() {
         user ? query(collection(firestore, `users/${user.uid}/statistics`), orderBy('updatedAt', 'desc'), limit(5)) : null
     , [firestore, user]);
     const { data: recentStats, isLoading: isLoadingStats } = useCollection<Statistic>(statsQuery);
+
+    const presentationsQuery = useMemoFirebase(() =>
+        user ? query(collection(firestore, `users/${user.uid}/presentations`), orderBy('updatedAt', 'desc'), limit(5)) : null
+    , [firestore, user]);
+    const { data: recentPresentations, isLoading: isLoadingPresentations } = useCollection<PresentationDoc>(presentationsQuery);
     
     useEffect(() => {
       if (isUserLoading || isProfileLoading) return;
@@ -120,8 +128,9 @@ export default function WorkspacePage() {
         const todosWithType = (recentTodoLists || []).map(todo => ({ ...todo, type: 'todo' as const }));
         const quizzesWithType = (recentQuizzes || []).map(quiz => ({ ...quiz, type: 'quiz' as const }));
         const statsWithType = (recentStats || []).map(stat => ({ ...stat, type: 'statistic' as const }));
+        const presWithType = (recentPresentations || []).map(pres => ({ ...pres, type: 'presentation' as const }));
 
-        const allItems = [...notesWithType, ...docsWithType, ...todosWithType, ...quizzesWithType, ...statsWithType];
+        const allItems = [...notesWithType, ...docsWithType, ...todosWithType, ...quizzesWithType, ...statsWithType, ...presWithType];
         allItems.sort((a, b) => {
             const timeA = a.updatedAt?.seconds || 0;
             const timeB = b.updatedAt?.seconds || 0;
@@ -130,7 +139,7 @@ export default function WorkspacePage() {
         
         return allItems.slice(0, 12);
 
-    }, [recentNotes, recentDocs, recentTodoLists, recentQuizzes, recentStats]);
+    }, [recentNotes, recentDocs, recentTodoLists, recentQuizzes, recentStats, recentPresentations]);
 
     
     if (isUserLoading || isProfileLoading) {
@@ -151,7 +160,7 @@ export default function WorkspacePage() {
       return formatDistanceToNow(date, { addSuffix: true, locale: de });
     }
 
-    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'document' | 'todo' | 'quiz' | 'statistic'}) => {
+    const handleDelete = async (item: {id: string, title: string, type: 'note' | 'document' | 'todo' | 'quiz' | 'statistic' | 'presentation'}) => {
       if (!user) return;
       let collectionName = '';
       switch(item.type) {
@@ -160,6 +169,7 @@ export default function WorkspacePage() {
           case 'todo': collectionName = 'todoLists'; break;
           case 'quiz': collectionName = 'quizzes'; break;
           case 'statistic': collectionName = 'statistics'; break;
+          case 'presentation': collectionName = 'presentations'; break;
       }
       const docRef = doc(firestore, `users/${user.uid}/${collectionName}`, item.id);
       
@@ -204,6 +214,12 @@ export default function WorkspacePage() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
+                          <Link href="/workspace/presentations/new">
+                            <Presentation className="mr-2 h-4 w-4" />
+                            <span>Präsentation</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
                           <Link href="/workspace/statistics/new">
                             <BarChart3 className="mr-2 h-4 w-4" />
                             <span>Statistik</span>
@@ -235,7 +251,7 @@ export default function WorkspacePage() {
 
             <div>
                 <h2 className="text-xl font-semibold mb-4">Zuletzt geöffnet</h2>
-                {(isLoadingNotes || isLoadingDocs || isLoadingTodos || isLoadingQuizzes || isLoadingStats) ? (
+                {(isLoadingNotes || isLoadingDocs || isLoadingTodos || isLoadingQuizzes || isLoadingStats || isLoadingPresentations) ? (
                     <div className="p-8 text-center text-muted-foreground bg-secondary rounded-lg">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                     </div>
@@ -252,7 +268,8 @@ export default function WorkspacePage() {
                                   {item.type === 'todo' && <ListTodo className="w-3 h-3" />}
                                   {item.type === 'quiz' && <BrainCircuit className="w-3 h-3" />}
                                   {item.type === 'statistic' && <BarChart3 className="w-3 h-3" />}
-                                  {item.type === 'note' ? 'Quick Note' : item.type === 'document' ? 'Dokument' : item.type === 'todo' ? 'To-Do-Liste' : item.type === 'quiz' ? 'Quiz' : 'Statistik'}
+                                  {item.type === 'presentation' && <Presentation className="w-3 h-3" />}
+                                  {item.type === 'note' ? 'Quick Note' : item.type === 'document' ? 'Dokument' : item.type === 'todo' ? 'To-Do-Liste' : item.type === 'quiz' ? 'Quiz' : item.type === 'statistic' ? 'Statistik' : 'Präsentation'}
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground">
@@ -261,7 +278,7 @@ export default function WorkspacePage() {
                            </div>
                            <div className="p-2 border-t flex justify-end items-center gap-1">
                                 <Button asChild variant="ghost" size="icon">
-                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'document' ? 'documents' : item.type === 'todo' ? 'todos' : item.type === 'quiz' ? 'quizzes' : 'statistics'}/${item.id}`} >
+                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'document' ? 'documents' : item.type === 'todo' ? 'todos' : item.type === 'quiz' ? 'quizzes' : item.type === 'statistic' ? 'statistics' : 'presentations'}/${item.id}`} >
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>

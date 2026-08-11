@@ -111,6 +111,19 @@
         "updatedAt": { "type": "object" }
       },
       "required": ["title", "ownerId"]
+    },
+    "Presentation": {
+      "title": "Presentation",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "slides": { "type": "array" },
+        "theme": { "type": "string" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["title", "ownerId"]
     }
   },
   "auth": { "providers": ["password", "anonymous"] },
@@ -122,6 +135,7 @@
     "/users/{userId}/todoLists/{listId}": { "schema": { "$ref": "#/entities/TodoList" }, "description": "To-Do Lists" },
     "/users/{userId}/quizzes/{quizId}": { "schema": { "$ref": "#/entities/Quiz" }, "description": "Quizzes" },
     "/users/{userId}/quizzes/{quizId}/responses/{responseId}": { "schema": { "$ref": "#/entities/QuizResponse" }, "description": "Quiz submissions" },
-    "/users/{userId}/statistics/{statId}": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Data visualizations" }
+    "/users/{userId}/statistics/{statId}": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Data visualizations" },
+    "/users/{userId}/presentations/{presId}": { "schema": { "$ref": "#/entities/Presentation" }, "description": "Presentations" }
   }
 }

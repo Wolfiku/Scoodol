@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Type, BarChart3 } from "lucide-react";
+import { ListTodo, Search, StickyNote, ArrowLeft, BrainCircuit, BookOpen, FileText, Link2, Type, BarChart3, Presentation } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -28,6 +28,14 @@ const items: ExploreItem[] = [
         icon: <Type className="w-8 h-8" />,
         href: "/workspace/documents/new",
         category: "Basic",
+        kind: "type"
+    },
+    {
+        title: "Präsentation",
+        description: "Erstelle Folien für deine Referate mit Vollbild-Modus.",
+        icon: <Presentation className="w-8 h-8" />,
+        href: "/workspace/presentations/new",
+        category: "Unterricht",
         kind: "type"
     },
     {
