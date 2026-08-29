@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle, ArrowLeft, Download } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle, ArrowLeft, Download, CheckCircle2 } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -26,6 +26,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 type TimetableEntry = {
@@ -540,25 +543,24 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
 
                  <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h2 className="text-3xl font-bold">Stundenplan-Editor</h2>
-                        <p className="text-muted-foreground">Trage deine Fächer, Lehrer und Räume ein.</p>
+                        <h2 className="text-2xl md:text-3xl font-black">Stundenplan-Editor</h2>
+                        <p className="text-sm text-muted-foreground">Trage deine Fächer, Lehrer und Räume ein.</p>
                     </div>
                      {isCreatorMode && (
-                        <Button variant="ghost" onClick={() => window.history.back()}>
-                            <ArrowLeft className="mr-2" /> Zurück zur App
+                        <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Zurück
                         </Button>
                     )}
                  </div>
 
                 {isEditing && (
-                     <Card className="mb-6">
-                        <CardHeader><CardTitle>Import / Export</CardTitle></CardHeader>
-                        <CardContent className="flex gap-2">
-                             <Button variant="outline" onClick={() => importFileInputRef.current?.click()}>
-                                <Upload className="mr-2" /> Importieren
+                     <Card className="mb-6 border-dashed">
+                        <CardContent className="flex flex-wrap gap-2 p-4">
+                             <Button variant="outline" size="sm" onClick={() => importFileInputRef.current?.click()}>
+                                <Upload className="mr-2 h-4 w-4" /> Import
                             </Button>
-                             <Button variant="outline" onClick={handleExport}>
-                                <Download className="mr-2" /> Exportieren
+                             <Button variant="outline" size="sm" onClick={handleExport}>
+                                <Download className="mr-2 h-4 w-4" /> Export
                             </Button>
                              <input 
                                 type="file" 
@@ -572,67 +574,155 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                 )}
 
 
-                 <div className="overflow-x-auto pb-20">
-                     <Table className="border min-w-[800px]">
-                         <TableHeader>
-                             <TableRow>
-                                 <TableHead className="w-[150px]">Stunde</TableHead>
-                                 {weekDays.map(day => <TableHead key={day}>{day}</TableHead>)}
-                             </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                             {timeSlots.map((slot, slotIndex) => (
-                                 <TableRow key={`${slot.start}-${slot.ende}`}>
-                                     <TableCell className="font-medium">
-                                        <div className="flex flex-col">
-                                            <span>{slotIndex + 1}. Stunde</span>
-                                            <span className="text-xs text-muted-foreground">{slot.start} - {slot.ende}</span>
-                                        </div>
-                                     </TableCell>
-                                     {weekDays.map(day => {
+                 <div className="pb-24">
+                     {/* Mobile View: Tabs per Day */}
+                     <div className="md:hidden">
+                        <Tabs defaultValue="Montag" className="w-full">
+                            <TabsList className="grid grid-cols-5 w-full bg-secondary/50 rounded-xl">
+                                {weekDays.map(day => (
+                                    <TabsTrigger key={day} value={day} className="text-xs px-0 rounded-lg">
+                                        {day.slice(0, 2)}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                            {weekDays.map(day => (
+                                <TabsContent key={day} value={day} className="space-y-4 pt-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                                    <h3 className="font-bold text-lg px-2 flex items-center gap-2">
+                                        <Badge variant="outline">{day}</Badge>
+                                        <span className="text-muted-foreground text-sm font-normal">Tagesplan bearbeiten</span>
+                                    </h3>
+                                    {timeSlots.map((slot, slotIndex) => {
                                         const entry = timetable[day]?.[slotIndex];
-                                        if(!entry) return <TableCell key={day}></TableCell>;
-                                        
+                                        if(!entry) return null;
                                         return (
-                                            <TableCell key={day} className="p-1">
-                                                <div className="flex flex-col gap-1">
-                                                    <Input 
-                                                        placeholder="Fach" 
-                                                        value={entry.fach || ''} 
-                                                        onChange={e => handleInputChange(day, slotIndex, 'fach', e.target.value)}
-                                                    />
-                                                    <Input 
-                                                        placeholder="Lehrer" 
-                                                        value={entry.lehrer || ''} 
-                                                        onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
+                                            <Card key={entry.id} className="p-4 shadow-sm border-2">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">{slotIndex + 1}. Stunde</span>
+                                                    <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded">{slot.start} - {slot.ende}</span>
+                                                </div>
+                                                <div className="grid gap-3">
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fach</Label>
+                                                        <Input 
+                                                            placeholder="z.B. Mathematik" 
+                                                            value={entry.fach || ''} 
+                                                            onChange={e => handleInputChange(day, slotIndex, 'fach', e.target.value)}
+                                                            className="h-11 rounded-xl"
                                                         />
-                                                     <Input 
-                                                        placeholder="Raum" 
-                                                        value={entry.room || ''} 
-                                                        onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)}
-                                                        />
-                                                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer p-1">
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Lehrer</Label>
+                                                            <Input 
+                                                                placeholder="Name" 
+                                                                value={entry.lehrer || ''} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
+                                                                className="h-10 rounded-xl"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Raum</Label>
+                                                            <Input 
+                                                                placeholder="Nr." 
+                                                                value={entry.room || ''} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)}
+                                                                className="h-10 rounded-xl"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 pt-1">
                                                         <input 
                                                             type="checkbox" 
+                                                            id={`hf-${entry.id}`}
                                                             checked={!!entry.hauptfach} 
                                                             onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
-                                                            className="rounded border-gray-300"
+                                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                                         />
-                                                        Hauptfach
-                                                    </label>
+                                                        <Label htmlFor={`hf-${entry.id}`} className="text-xs cursor-pointer select-none">Dieses Fach ist ein <strong>Hauptfach</strong></Label>
+                                                    </div>
                                                 </div>
-                                            </TableCell>
+                                            </Card>
                                         )
-                                     })}
-                                 </TableRow>
-                             ))}
-                         </TableBody>
-                     </Table>
+                                    })}
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                     </div>
+
+                     {/* Desktop View: Full Table */}
+                     <div className="hidden md:block overflow-x-auto">
+                        <Table className="border min-w-[800px]">
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[150px]">Stunde</TableHead>
+                                    {weekDays.map(day => <TableHead key={day}>{day}</TableHead>)}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {timeSlots.map((slot, slotIndex) => (
+                                    <TableRow key={`${slot.start}-${slot.ende}`}>
+                                        <TableCell className="font-medium bg-muted/20">
+                                            <div className="flex flex-col">
+                                                <span className="font-black">{slotIndex + 1}. Stunde</span>
+                                                <span className="text-[10px] text-muted-foreground">{slot.start} - {slot.ende}</span>
+                                            </div>
+                                        </TableCell>
+                                        {weekDays.map(day => {
+                                            const entry = timetable[day]?.[slotIndex];
+                                            if(!entry) return <TableCell key={day}></TableCell>;
+                                            
+                                            return (
+                                                <TableCell key={day} className="p-2 align-top">
+                                                    <div className={cn(
+                                                        "flex flex-col gap-2 p-2 rounded-lg border bg-card transition-all",
+                                                        entry.fach && "border-primary/20 shadow-sm"
+                                                    )}>
+                                                        <Input 
+                                                            placeholder="Fach" 
+                                                            value={entry.fach || ''} 
+                                                            onChange={e => handleInputChange(day, slotIndex, 'fach', e.target.value)}
+                                                            className="h-8 text-xs font-bold"
+                                                        />
+                                                        <div className="grid grid-cols-2 gap-1">
+                                                            <Input 
+                                                                placeholder="Lehrer" 
+                                                                value={entry.lehrer || ''} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)}
+                                                                className="h-7 text-[10px]"
+                                                                />
+                                                            <Input 
+                                                                placeholder="Raum" 
+                                                                value={entry.room || ''} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)}
+                                                                className="h-7 text-[10px]"
+                                                                />
+                                                        </div>
+                                                        <label className="flex items-center gap-2 text-[9px] uppercase font-black text-muted-foreground cursor-pointer pt-1 hover:text-primary transition-colors">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={!!entry.hauptfach} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
+                                                                className="rounded-sm h-3 w-3 border-gray-300"
+                                                            />
+                                                            Hauptfach
+                                                        </label>
+                                                    </div>
+                                                </TableCell>
+                                            )
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                     </div>
                  </div>
-                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
-                    <div className="container mx-auto flex justify-end">
-                         <Button size="lg" onClick={handleSave}>
-                            <Save className="mr-2"/> Stundenplan speichern
+
+                 {/* Sticky Save Bar */}
+                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t z-40 shadow-2xl">
+                    <div className="container mx-auto flex justify-between items-center gap-4">
+                        <p className="hidden sm:block text-xs text-muted-foreground italic">Änderungen werden erst beim Speichern übernommen.</p>
+                         <Button size="lg" onClick={handleSave} className="w-full sm:w-auto font-black text-lg h-14 sm:h-12 rounded-2xl shadow-lg">
+                            <CheckCircle2 className="mr-2 h-5 w-5"/> Plan speichern
                         </Button>
                     </div>
                 </div>
