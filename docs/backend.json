@@ -8,6 +8,15 @@
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
         "role": { "type": "string" },
+        "groupId": { "type": "string" },
+        "groupSettings": {
+          "type": "object",
+          "properties": {
+            "syncTimetable": { "type": "boolean" },
+            "showInGroup": { "type": "boolean" },
+            "shareHomework": { "type": "boolean" }
+          }
+        },
         "settings": {
           "type": "object",
           "properties": {
@@ -21,6 +30,20 @@
         "timetableSettings": { "type": "object" }
       }
     },
+    "Group": {
+      "title": "Group",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "motto": { "type": "string" },
+        "admin": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "timetable": { "type": "object" },
+        "timetableSettings": { "type": "object" }
+      },
+      "required": ["name", "schoolName", "admin", "members"]
+    },
     "Homework": {
       "title": "Homework",
       "type": "object",
@@ -30,7 +53,8 @@
         "task": { "type": "string" },
         "dueDate": { "type": "string", "format": "date" },
         "done": { "type": "boolean" },
-        "completedAt": { "type": "number" }
+        "completedAt": { "type": "number" },
+        "createdBy": { "type": "string" }
       },
       "required": ["id", "task", "done"]
     },
@@ -136,6 +160,8 @@
     "/users/{userId}/quizzes/{quizId}": { "schema": { "$ref": "#/entities/Quiz" }, "description": "Quizzes" },
     "/users/{userId}/quizzes/{quizId}/responses/{responseId}": { "schema": { "$ref": "#/entities/QuizResponse" }, "description": "Quiz submissions" },
     "/users/{userId}/statistics/{statId}": { "schema": { "$ref": "#/entities/Statistic" }, "description": "Data visualizations" },
-    "/users/{userId}/presentations/{presId}": { "schema": { "$ref": "#/entities/Presentation" }, "description": "Presentations" }
+    "/users/{userId}/presentations/{presId}": { "schema": { "$ref": "#/entities/Presentation" }, "description": "Presentations" },
+    "/groups/{groupId}": { "schema": { "$ref": "#/entities/Group" }, "description": "Group data" },
+    "/groups/{groupId}/homeworks/{hwId}": { "schema": { "$ref": "#/entities/Homework" }, "description": "Shared group homework" }
   }
 }

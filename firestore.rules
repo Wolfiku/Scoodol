@@ -19,20 +19,22 @@ service cloud.firestore {
         allow write: if request.auth.uid == userId; 
         
         match /responses/{responseId} {
-          // Nur der Besitzer des Quizzes darf alle Antworten sehen oder löschen
           allow read, delete: if request.auth != null && request.auth.uid == userId;
-          // Jeder darf eine Antwort erstellen (um am Quiz teilzunehmen)
           allow create: if true;
-          // Aktualisierungen sind dem Besitzer vorbehalten (falls nötig)
           allow update: if request.auth != null && request.auth.uid == userId;
         }
       }
     }
     
     match /groups/{groupId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (request.auth.uid in resource.data.members);
       allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.admin || request.auth.uid in resource.data.members);
+      
+      match /homeworks/{hwId} {
+        allow read: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+        allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+      }
     }
   }
 }
