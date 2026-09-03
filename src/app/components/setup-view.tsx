@@ -193,7 +193,6 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importFileInputRef = useRef<HTMLInputElement>(null);
-    const profilePicInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
     const [showValidationDialog, setShowValidationDialog] = useState(false);
     const [calculatedDuration, setCalculatedDuration] = useState(0);
@@ -211,7 +210,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                 toast({ title: "Plan für Woche B kopiert", description: "Woche B ist jetzt erst einmal identisch mit Woche A." });
             }
         }
-    }, [timetableSettings.isABWeekActive]);
+    }, [timetableSettings.isABWeekActive, timetableA, timetableB, toast]);
 
     const activeTimetable = activeWeekTab === 'A' ? timetableA : timetableB;
     const setActiveTimetable = activeWeekTab === 'A' ? setTimetableA : setTimetableB;
@@ -276,12 +275,17 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                 const scannedTimeSlots = generateTimeSlots(timetableSettings);
                 Object.keys(result.timetable).forEach(day => {
                     const dayName = day as keyof typeof result.timetable;
+                    // @ts-ignore
                     if(newTimetable[dayName]) {
+                        // @ts-ignore
                         const daySchedule = result.timetable[dayName] || [];
-                        daySchedule.forEach(aiEntry => {
+                        daySchedule.forEach((aiEntry: any) => {
                             const slotIndex = scannedTimeSlots.findIndex(slot => slot.start === aiEntry.start);
+                            // @ts-ignore
                             if(slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
+                                // @ts-ignore
                                 newTimetable[dayName][slotIndex] = {
+                                    // @ts-ignore
                                     ...newTimetable[dayName][slotIndex],
                                     fach: aiEntry.subject,
                                     lehrer: aiEntry.teacher || '',
@@ -387,18 +391,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
              <div className="flex flex-col items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-lg text-center">
                     <CardHeader className="items-center">
-                        <Avatar className="h-24 w-24 mb-4 cursor-pointer" onClick={() => profilePicInputRef.current?.click()}>
+                        <Avatar className="h-24 w-24 mb-4">
                            <AvatarImage src={profilePicture || undefined} />
                             <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
                         </Avatar>
-                        <input type="file" accept="image/*" ref={profilePicInputRef} onChange={(e) => {
-                             const file = e.target.files?.[0];
-                             if (file) {
-                                 const reader = new FileReader();
-                                 reader.readAsDataURL(file);
-                                 reader.onload = () => setProfilePicture(reader.result as string);
-                             }
-                        }} className="hidden" />
                         <CardTitle className="text-3xl">Willkommen bei Scoodol!</CardTitle>
                         <CardDescription>Dein smarter Begleiter für den Schulalltag.</CardDescription>
                     </CardHeader>
@@ -414,6 +410,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                              </>
                          )}
                     </CardContent>
+                    <CardFooter className="flex justify-start gap-4 text-[10px] text-muted-foreground">
+                        <Link href="/impressum" className="hover:underline">Impressum</Link>
+                        <Link href="/datenschutz" className="hover:underline">Datenschutz</Link>
+                    </CardFooter>
                 </Card>
             </div>
         )
@@ -494,6 +494,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                         </div>
                         <Separator orientation="vertical" className="h-6 hidden sm:block" />
                         <Button variant="ghost" size="sm" onClick={() => importFileInputRef.current?.click()}><Upload className="mr-2 h-3 w-3" /> Import</Button>
+                        <input type="file" accept=".json" ref={importFileInputRef} onChange={handleImportFileChange} className="hidden" />
                         <Button variant="ghost" size="sm" onClick={handleExport}><Download className="mr-2 h-3 w-3" /> Export</Button>
                     </CardContent>
                 </Card>
