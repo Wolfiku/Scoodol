@@ -9,12 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-    Loader2, ArrowLeft, Plus, Trash2, Presentation, Play, Save, Check, 
-    ChevronLeft, ChevronRight, X, Monitor, Type, Layout, Palette, 
-    MoveUp, MoveDown, Maximize2, MoreHorizontal, Settings,
-    Bold, Italic, Underline, Link as LinkIcon, Image as ImageIcon, Video, 
-    AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Code, Library, 
-    BookmarkPlus, CornerUpRight, ExternalLink, ChevronDown, FontCursor, Eraser, Palette as PaletteIcon, Highlighter
+    Loader2, ArrowLeft, Plus, Trash2, Play, Save, Check, 
+    ChevronLeft, ChevronRight, X, Palette, 
+    MoveUp, MoveDown, MoreHorizontal,
+    Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
+    Square, Circle, Minus, Type, Copy, Layers, 
+    ChevronDown, Eraser, Type as FontIcon, Maximize2,
+    BringToFront, SendToBack, GripHorizontal
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -34,18 +35,44 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
+
+interface SlideElement {
+    id: string;
+    type: 'text' | 'rect' | 'circle' | 'line';
+    x: number; // percentage 0-100
+    y: number; // percentage 0-100
+    width: number; // percentage 0-100
+    height: number; // percentage 0-100
+    content?: string;
+    rotate?: number;
+    styles: {
+        backgroundColor?: string;
+        borderColor?: string;
+        borderWidth?: number;
+        borderRadius?: number;
+        color?: string;
+        fontSize?: number;
+        fontFamily?: string;
+        textAlign?: 'left' | 'center' | 'right';
+        fontWeight?: string;
+        fontStyle?: string;
+        textDecoration?: string;
+        opacity?: number;
+        zIndex: number;
+    }
+}
 
 interface Slide {
     id: string;
     title: string;
-    content: string;
+    elements: SlideElement[];
 }
 
 interface PresentationDoc {
@@ -62,6 +89,7 @@ const FONTS = [
     { name: 'Montserrat', family: 'Montserrat, sans-serif' },
     { name: 'Fira Code', family: 'Fira Code, monospace' },
     { name: 'Dancing Script', family: 'Dancing Script, cursive' },
+    { name: 'Bangers', family: 'Bangers, cursive' },
 ];
 
 const THEMES = [
@@ -70,6 +98,8 @@ const THEMES = [
     { id: 'ocean', name: 'Ozean-Blau', bg: 'bg-blue-900', text: 'text-blue-50', accent: 'bg-cyan-400' },
     { id: 'forest', name: 'Wald-Grün', bg: 'bg-emerald-950', text: 'text-emerald-50', accent: 'bg-lime-500' },
 ];
+
+const COLORS = ['transparent', '#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
 
 export default function PresentationPage() {
     const router = useRouter();
@@ -83,18 +113,37 @@ export default function PresentationPage() {
 
     const [title, setTitle] = useState('');
     const [slides, setSlides] = useState<Slide[]>([
-        { id: 's1', title: 'Meine Präsentation', content: '<div>Willkommen zu meinem Referat.</div>' }
+        { 
+            id: 's1', 
+            title: 'Titel-Folie', 
+            elements: [
+                { 
+                    id: 'e1', 
+                    type: 'text', 
+                    x: 10, y: 30, width: 80, height: 20, 
+                    content: 'Meine Präsentation', 
+                    styles: { fontSize: 48, fontWeight: '900', textAlign: 'center', zIndex: 1, color: '#000000', fontFamily: 'var(--font-pt-sans), sans-serif' } 
+                },
+                { 
+                    id: 'e2', 
+                    type: 'text', 
+                    x: 20, y: 55, width: 60, height: 10, 
+                    content: 'Untertitel hier einfügen', 
+                    styles: { fontSize: 24, textAlign: 'center', zIndex: 2, color: '#64748b', fontFamily: 'var(--font-pt-sans), sans-serif' } 
+                }
+            ] 
+        }
     ]);
     const [theme, setTheme] = useState<PresentationDoc['theme']>('default');
     const [saveStatus, setSaveStatus] = useState<'idle' | 'dirty' | 'saving'>('idle');
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isPresenting, setIsPresenting] = useState(false);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-    const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link', open: boolean}>({type: 'link', open: false});
-    const [mediaUrl, setMediaUrl] = useState('');
+    const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
     
-    const editorRefs = useRef<Record<string, HTMLDivElement | null>>({});
-    const savedRange = useRef<Range | null>(null);
+    const canvasRef = useRef<HTMLDivElement>(null);
+    const dragOffset = useRef({ x: 0, y: 0 });
 
     const docRef = useMemoFirebase(() => 
         !isNewPres && user && typeof presId === 'string'
@@ -117,13 +166,7 @@ export default function PresentationPage() {
         if (!firestore || !user || !title.trim() || saveStatus === 'idle') return;
         setSaveStatus('saving');
 
-        // Sync contents from DOM before saving
-        const syncedSlides = slides.map(s => ({
-            ...s,
-            content: editorRefs.current[s.id]?.innerHTML || s.content
-        }));
-
-        const dataToSave = { title, slides: syncedSlides, theme };
+        const dataToSave = { title, slides, theme };
 
         try {
             if (isNewPres) {
@@ -154,76 +197,129 @@ export default function PresentationPage() {
         const newSlide: Slide = {
             id: Date.now().toString(),
             title: 'Neue Folie',
-            content: '<div>Inhalt hier eingeben...</div>',
+            elements: [],
         };
         setSlides([...slides, newSlide]);
-        triggerAutoSave();
-    };
-
-    const updateSlideTitle = (id: string, newTitle: string) => {
-        setSlides(slides.map(s => s.id === id ? { ...s, title: newTitle } : s));
+        setCurrentSlideIndex(slides.length);
         triggerAutoSave();
     };
 
     const deleteSlide = (id: string) => {
         if (slides.length <= 1) return;
-        setSlides(slides.filter(s => s.id !== id));
-        triggerAutoSave();
-    };
-
-    const moveSlide = (index: number, direction: 'up' | 'down') => {
-        const newIndex = direction === 'up' ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= slides.length) return;
-        const newSlides = [...slides];
-        [newSlides[index], newSlides[newIndex]] = [newSlides[newIndex], newSlides[index]];
+        const newSlides = slides.filter(s => s.id !== id);
         setSlides(newSlides);
+        if (currentSlideIndex >= newSlides.length) setCurrentSlideIndex(newSlides.length - 1);
         triggerAutoSave();
     };
 
-    const execCommand = (command: string, value: string = '') => {
-        document.execCommand('styleWithCSS', false, 'true');
-        document.execCommand(command, false, value);
+    const addElement = (type: SlideElement['type']) => {
+        const newElement: SlideElement = {
+            id: 'e' + Date.now(),
+            type,
+            x: 40,
+            y: 40,
+            width: type === 'line' ? 20 : 20,
+            height: type === 'line' ? 1 : 20,
+            content: type === 'text' ? 'Neuer Text' : undefined,
+            styles: {
+                backgroundColor: type === 'text' ? 'transparent' : '#3b82f6',
+                color: type === 'text' ? '#000000' : undefined,
+                fontSize: 24,
+                fontFamily: 'var(--font-pt-sans), sans-serif',
+                textAlign: 'center',
+                zIndex: (slides[currentSlideIndex].elements.length || 0) + 1,
+                borderWidth: type === 'line' ? 0 : 0,
+                borderColor: '#000000',
+                borderRadius: type === 'circle' ? 9999 : 0,
+                opacity: 1
+            }
+        };
+
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements.push(newElement);
+        setSlides(newSlides);
+        setSelectedElementId(newElement.id);
         triggerAutoSave();
     };
 
-    const applyStyle = (styleKey: 'fontSize' | 'fontFamily', value: string) => {
-        const selection = window.getSelection();
-        if (!selection || !selection.rangeCount) return;
-        document.execCommand('styleWithCSS', false, 'true');
-        if (styleKey === 'fontFamily') {
-            document.execCommand('fontName', false, value);
+    const updateElement = (elementId: string, updates: Partial<SlideElement>) => {
+        const newSlides = [...slides];
+        const elements = newSlides[currentSlideIndex].elements;
+        const index = elements.findIndex(e => e.id === elementId);
+        if (index !== -1) {
+            elements[index] = { ...elements[index], ...updates };
+            setSlides(newSlides);
+            triggerAutoSave();
         }
+    };
+
+    const updateElementStyle = (elementId: string, styleUpdates: Partial<SlideElement['styles']>) => {
+        const newSlides = [...slides];
+        const elements = newSlides[currentSlideIndex].elements;
+        const index = elements.findIndex(e => e.id === elementId);
+        if (index !== -1) {
+            elements[index].styles = { ...elements[index].styles, ...styleUpdates };
+            setSlides(newSlides);
+            triggerAutoSave();
+        }
+    };
+
+    const deleteElement = (elementId: string) => {
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements = newSlides[currentSlideIndex].elements.filter(e => e.id !== elementId);
+        setSlides(newSlides);
+        setSelectedElementId(null);
         triggerAutoSave();
     };
 
-    const openMediaDialog = (type: 'image' | 'video' | 'link') => {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) savedRange.current = selection.getRangeAt(0).cloneRange();
-        setIsMediaDialogOpen({ type, open: true });
-    };
-
-    const handleMediaInsert = () => {
-        const selection = window.getSelection();
-        if (savedRange.current) {
-            selection?.removeAllRanges();
-            selection?.addRange(savedRange.current);
-        }
+    const changeZIndex = (direction: 'front' | 'back') => {
+        if (!selectedElementId) return;
+        const elements = slides[currentSlideIndex].elements;
+        const currentZ = elements.find(e => e.id === selectedElementId)?.styles.zIndex || 0;
         
-        if (isMediaDialogOpen.type === 'link') {
-            execCommand('createLink', mediaUrl);
-        } else if (isMediaDialogOpen.type === 'image') {
-            const html = `<div style="text-align:center;"><img src="${mediaUrl}" style="max-width:100%; border-radius:12px;" /></div><p><br></p>`;
-            execCommand('insertHTML', html);
-        } else if (isMediaDialogOpen.type === 'video') {
-             let embedUrl = mediaUrl;
-             if (mediaUrl.includes('youtube.com/watch?v=')) embedUrl = mediaUrl.replace('watch?v=', 'embed/');
-             else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
-             const html = `<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;"><iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;" frameborder="0" allowfullscreen></iframe></div><p><br></p>`;
-             execCommand('insertHTML', html);
-        }
+        if (direction === 'front') updateElementStyle(selectedElementId, { zIndex: currentZ + 1 });
+        else updateElementStyle(selectedElementId, { zIndex: Math.max(0, currentZ - 1) });
+    };
+
+    // Drag Logic
+    const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
+        if (isPresenting) return;
+        setSelectedElementId(element.id);
+        setIsDragging(true);
         
-        setMediaUrl('');
-        setIsMediaDialogOpen({ ...isMediaDialogOpen, open: false });
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
+        const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        dragOffset.current = {
+            x: mouseX - element.x,
+            y: mouseY - element.y
+        };
+    };
+
+    const onMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || !selectedElementId || isPresenting) return;
+
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
+        const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        let newX = mouseX - dragOffset.current.x;
+        let newY = mouseY - dragOffset.current.y;
+
+        // Snapping / Bounds
+        newX = Math.max(0, Math.min(100 - 5, newX));
+        newY = Math.max(0, Math.min(100 - 5, newY));
+
+        updateElement(selectedElementId, { x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+        setIsDragging(false);
     };
 
     useEffect(() => {
@@ -237,31 +333,81 @@ export default function PresentationPage() {
         return () => window.removeEventListener('keydown', handleKeys);
     }, [isPresenting, slides.length]);
 
+    const selectedElement = useMemo(() => 
+        slides[currentSlideIndex]?.elements.find(e => e.id === selectedElementId),
+    [slides, currentSlideIndex, selectedElementId]);
+
     const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0];
 
     if (isUserLoading || (isLoadingPres && !isNewPres)) {
         return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
     }
 
+    const renderElement = (el: SlideElement, isPreview: boolean = false) => {
+        const isSelected = !isPreview && selectedElementId === el.id;
+        const style: React.CSSProperties = {
+            position: 'absolute',
+            left: `${el.x}%`,
+            top: `${el.y}%`,
+            width: `${el.width}%`,
+            height: el.type === 'line' ? 'auto' : `${el.height}%`,
+            zIndex: el.styles.zIndex,
+            backgroundColor: el.styles.backgroundColor,
+            borderColor: el.styles.borderColor,
+            borderWidth: `${el.styles.borderWidth}px`,
+            borderStyle: el.styles.borderWidth ? 'solid' : 'none',
+            borderRadius: `${el.styles.borderRadius}px`,
+            opacity: el.styles.opacity,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: isDragging ? 'none' : 'all 0.2s',
+            cursor: isPreview ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+            boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
+            overflow: 'hidden'
+        };
+
+        if (el.type === 'line') {
+            style.height = `${el.styles.borderWidth || 2}px`;
+            style.backgroundColor = el.styles.borderColor;
+        }
+
+        return (
+            <div 
+                key={el.id} 
+                style={style}
+                onMouseDown={(e) => onMouseDown(e, el)}
+                className={cn(
+                    "group select-none",
+                    el.type === 'text' && "p-2"
+                )}
+            >
+                {el.type === 'text' && (
+                    <div 
+                        style={{
+                            fontSize: `${el.styles.fontSize}px`,
+                            fontFamily: el.styles.fontFamily,
+                            textAlign: el.styles.textAlign,
+                            fontWeight: el.styles.fontWeight,
+                            fontStyle: el.styles.fontStyle,
+                            textDecoration: el.styles.textDecoration,
+                            color: el.styles.color,
+                            width: '100%',
+                            outline: 'none'
+                        }}
+                        contentEditable={isSelected}
+                        suppressContentEditableWarning
+                        onBlur={(e) => updateElement(el.id, { content: e.currentTarget.innerText })}
+                    >
+                        {el.content}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
-        <div className="flex flex-col h-screen bg-background overflow-hidden">
-            <style jsx global>{`
-                .slide-editor [contenteditable]:empty:before { content: 'Inhalt schreiben...'; color: #a1a1aa; font-style: italic; }
-                .slide-editor table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-                .slide-editor td { border: 1px solid #ddd; padding: 8px; }
-            `}</style>
-
-            <Dialog open={isMediaDialogOpen.open} onOpenChange={(o) => setIsMediaDialogOpen({...isMediaDialogOpen, open: o})}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{isMediaDialogOpen.type === 'link' ? 'Link einfügen' : isMediaDialogOpen.type === 'image' ? 'Bild einfügen' : 'Video einfügen'}</DialogTitle>
-                        <DialogDescription>Gib die URL für dein Element ein.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4"><Input placeholder="https://..." value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus /></div>
-                    <DialogFooter><Button onClick={handleMediaInsert}>Einfügen</Button></DialogFooter>
-                </DialogContent>
-            </Dialog>
-
+        <div className="flex flex-col h-screen bg-background overflow-hidden" onMouseUp={onMouseUp}>
             <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center gap-4 flex-1">
                     <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
@@ -304,118 +450,170 @@ export default function PresentationPage() {
                 </div>
             </header>
 
-            {/* Toolbar for formatting */}
-            <div className="bg-secondary/20 border-b p-1 flex items-center gap-1 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold"><Type className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="max-h-60 overflow-y-auto">
-                            {FONTS.map(font => (<DropdownMenuItem key={font.name} onClick={() => applyStyle('fontFamily', font.family)} style={{ fontFamily: font.family }}>{font.name}</DropdownMenuItem>))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+            {/* Toolbar for Formatting & Elements */}
+            <div className="bg-secondary/20 border-b p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-inner">
+                <div className="flex items-center gap-1 border-r pr-2">
+                    <Button variant="ghost" size="sm" onClick={() => addElement('text')} className="h-8 gap-1.5 px-3"><Type className="h-4 w-4"/> Text</Button>
+                    <Button variant="ghost" size="sm" onClick={() => addElement('rect')} className="h-8 gap-1.5 px-3"><Square className="h-4 w-4"/> Rechteck</Button>
+                    <Button variant="ghost" size="sm" onClick={() => addElement('circle')} className="h-8 gap-1.5 px-3"><Circle className="h-4 w-4"/> Kreis</Button>
+                    <Button variant="ghost" size="sm" onClick={() => addElement('line')} className="h-8 gap-1.5 px-3"><Minus className="h-4 w-4"/> Linie</Button>
                 </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="Formatierung löschen" onClick={() => execCommand('removeFormat')}><Eraser className="h-3.5 w-3.5" /></Button>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe"><PaletteIcon className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">{['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />))}</DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" title="Marker"><Highlighter className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
-                            <button className="w-5 h-5 rounded-full border border-border flex items-center justify-center bg-background" onClick={() => execCommand('hiliteColor', 'transparent')} title="Keine Markierung"><X className="w-3 h-3 text-destructive" /></button>
-                            {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
-                </div>
-                <div className="flex items-center gap-0.5 shrink-0 pl-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openMediaDialog('link')}><LinkIcon className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openMediaDialog('image')}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openMediaDialog('video')}><Video className="h-3.5 w-3.5" /></Button>
-                    <Separator orientation="vertical" className="h-4 mx-1" />
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-primary ml-1"><Library className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => { execCommand('insertHTML', '<pre style="background:#121212;color:#e0e0e0;padding:1rem;border-radius:0.75rem;font-family:monospace;"><code>Code hier...</code></pre><p><br></p>'); }}><Code className="mr-2 h-4 w-4" /> Codefeld</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { execCommand('insertHTML', '<div style="border:2px dashed hsla(var(--accent),0.3);background:hsl(var(--secondary));padding:1rem;border-radius:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;"><div><div style="font-size:9px;text-transform:uppercase;font-weight:900;color:hsl(var(--accent));">Hausaufgabe</div><div style="font-weight:700;">Aufgabe hier schreiben...</div></div><button class="add-hw-btn" style="background:hsl(var(--accent));color:white;border:none;padding:0.5rem 1rem;border-radius:0.5rem;font-weight:700;cursor:pointer;">➕ Planen</button></div><p><br></p>'); }}><BookmarkPlus className="mr-2 h-4 w-4" /> Hausivorlage</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+
+                {selectedElement ? (
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1">
+                        <Badge className="bg-primary/10 text-primary border-primary/20 mr-2">{selectedElement.type.toUpperCase()}</Badge>
+                        
+                        {/* Text Styling */}
+                        {selectedElement.type === 'text' && (
+                            <div className="flex items-center gap-1 border-r pr-2">
+                                <Select value={selectedElement.styles.fontFamily} onValueChange={(v) => updateElementStyle(selectedElement.id, { fontFamily: v })}>
+                                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>{FONTS.map(f => <SelectItem key={f.name} value={f.family} style={{fontFamily: f.family}}>{f.name}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-0.5 ml-1">
+                                    <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.textDecoration === 'underline' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration === 'underline' ? 'none' : 'underline' })}><Underline className="h-3.5 w-3.5" /></Button>
+                                </div>
+                                <div className="flex items-center gap-0.5 ml-1 border-l pl-1">
+                                    <Button variant={selectedElement.styles.textAlign === 'left' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'left' })}><AlignLeft className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.textAlign === 'center' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'center' })}><AlignCenter className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.textAlign === 'right' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'right' })}><AlignRight className="h-3.5 w-3.5" /></Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Common Styling: Colors, Opacity, Layers */}
+                        <div className="flex items-center gap-2">
+                             <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] font-bold uppercase opacity-50">Farbe</Label>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-8 h-8 rounded-full p-0 overflow-hidden border-2" style={{backgroundColor: selectedElement.type === 'text' ? selectedElement.styles.color : selectedElement.styles.backgroundColor}} /></DropdownMenuTrigger>
+                                    <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
+                                        {COLORS.map(c => (
+                                            <button 
+                                                key={c} 
+                                                className="w-6 h-6 rounded-full border border-border shadow-sm hover:scale-110 transition-transform" 
+                                                style={{backgroundColor: c}} 
+                                                onClick={() => updateElementStyle(selectedElement.id, selectedElement.type === 'text' ? { color: c } : { backgroundColor: c })}
+                                            />
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                             </div>
+
+                             <div className="flex flex-col gap-1 border-l pl-2">
+                                <Label className="text-[10px] font-bold uppercase opacity-50">Größe / Rahmen</Label>
+                                <div className="flex items-center gap-2">
+                                     <Input 
+                                        type="number" 
+                                        className="h-8 w-16 text-xs" 
+                                        value={selectedElement.type === 'text' ? selectedElement.styles.fontSize : (selectedElement.type === 'line' ? selectedElement.styles.borderWidth : selectedElement.width)} 
+                                        onChange={(e) => {
+                                            const v = parseInt(e.target.value);
+                                            if (selectedElement.type === 'text') updateElementStyle(selectedElement.id, { fontSize: v });
+                                            else if (selectedElement.type === 'line') updateElementStyle(selectedElement.id, { borderWidth: v });
+                                            else updateElement(selectedElement.id, { width: v, height: v });
+                                        }}
+                                    />
+                                    {selectedElement.type !== 'text' && selectedElement.type !== 'line' && (
+                                        <div className="flex items-center gap-1 border-l pl-2">
+                                            <Label className="text-[10px]">Ecke</Label>
+                                            <Input type="number" className="h-8 w-14 text-xs" value={selectedElement.styles.borderRadius} onChange={(e) => updateElementStyle(selectedElement.id, { borderRadius: parseInt(e.target.value) })} />
+                                        </div>
+                                    )}
+                                </div>
+                             </div>
+
+                             <div className="flex flex-col gap-1 border-l pl-2">
+                                <Label className="text-[10px] font-bold uppercase opacity-50">Ebene</Label>
+                                <div className="flex gap-0.5">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZIndex('front')} title="Nach vorne"><BringToFront className="h-4 w-4"/></Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZIndex('back')} title="Nach hinten"><SendToBack className="h-4 w-4"/></Button>
+                                </div>
+                             </div>
+
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-2" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-xs text-muted-foreground italic flex items-center gap-2 px-4 h-8 animate-pulse">
+                        <GripHorizontal className="h-3 w-3" /> Wähle ein Element zum Bearbeiten oder füge ein neues hinzu.
+                    </div>
+                )}
             </div>
 
             <main className="flex-1 flex overflow-hidden bg-secondary/10">
                 {/* Thumbnails Sidebar */}
                 <aside className="w-64 border-r bg-background overflow-y-auto p-4 space-y-4 no-scrollbar">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Übersicht</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Folien</h3>
                     {slides.map((slide, idx) => (
-                        <div key={slide.id} className="space-y-1">
+                        <div key={slide.id} className="relative group">
                             <div 
                                 className={cn(
-                                    "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden flex flex-col items-center justify-center p-2 text-center bg-card",
-                                    currentSlideIndex === idx ? "border-primary ring-2 ring-primary/20 scale-[1.02]" : "hover:border-primary/40 border-muted"
+                                    "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm",
+                                    currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted"
                                 )}
                                 onClick={() => {
-                                    const syncedSlides = [...slides];
-                                    syncedSlides[currentSlideIndex].content = editorRefs.current[slides[currentSlideIndex].id]?.innerHTML || syncedSlides[currentSlideIndex].content;
-                                    setSlides(syncedSlides);
                                     setCurrentSlideIndex(idx);
+                                    setSelectedElementId(null);
                                 }}
                             >
-                                <p className="text-[8px] font-bold line-clamp-1">{slide.title || 'Leere Folie'}</p>
-                                <div className="w-full h-1 bg-muted mt-2 rounded-full" />
-                                <div className="w-2/3 h-1 bg-muted mt-1 rounded-full" />
+                                <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
+                                    {slide.elements.map(el => renderElement(el, true))}
+                                </div>
+                                <div className="absolute bottom-1 right-2 text-[10px] font-black opacity-30">{idx + 1}</div>
                             </div>
+                            <Button 
+                                variant="destructive" 
+                                size="icon" 
+                                className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" 
+                                onClick={(e) => { e.stopPropagation(); deleteSlide(slide.id); }}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
                         </div>
                     ))}
-                    <Button variant="outline" className="w-full border-dashed border-2 py-8 rounded-xl flex flex-col gap-1" onClick={addSlide}>
-                        <Plus className="h-4 w-4" />
-                        <span className="text-[10px] font-black uppercase">Neu</span>
+                    <Button variant="outline" className="w-full border-dashed border-2 py-8 rounded-xl flex flex-col gap-2 hover:bg-primary/5 transition-all" onClick={addSlide}>
+                        <Plus className="h-5 w-5" />
+                        <span className="text-[10px] font-black uppercase">Folie hinzufügen</span>
                     </Button>
                 </aside>
 
-                {/* Main Editor */}
-                <section className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
-                    <div className="w-full max-w-4xl space-y-8 pb-20">
-                        {slides.map((slide, idx) => (
-                            <Card key={slide.id} className={cn(
-                                "border-2 overflow-hidden rounded-3xl transition-all shadow-xl bg-card slide-editor",
-                                currentSlideIndex === idx ? "border-primary ring-4 ring-primary/5" : "opacity-60 grayscale-[0.5] scale-95"
-                            )}>
-                                <CardHeader className="p-4 border-b bg-muted/20 flex flex-row justify-between items-center space-y-0">
-                                    <Badge variant="secondary" className="h-6 w-6 rounded-full p-0 flex items-center justify-center font-black">{idx + 1}</Badge>
-                                    <div className="flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={idx === 0} onClick={() => moveSlide(idx, 'up')}><MoveUp className="h-4 w-4"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={idx === slides.length - 1} onClick={() => moveSlide(idx, 'down')}><MoveDown className="h-4 w-4"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteSlide(slide.id)}><Trash2 className="h-4 w-4"/></Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-10 min-h-[500px] flex flex-col gap-6">
-                                    <Input 
-                                        value={slide.title} 
-                                        placeholder="Titel der Folie..."
-                                        onChange={e => updateSlideTitle(slide.id, e.target.value)}
-                                        className="text-4xl font-black border-0 shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent"
-                                    />
-                                    <Separator />
-                                    <div 
-                                        ref={el => { editorRefs.current[slide.id] = el; }}
-                                        contentEditable={currentSlideIndex === idx}
-                                        dangerouslySetInnerHTML={{ __html: slide.content }}
-                                        onInput={triggerAutoSave}
-                                        className="outline-none min-h-[350px] text-lg leading-relaxed prose dark:prose-invert max-w-none"
-                                    />
-                                </CardContent>
-                            </Card>
-                        ))}
+                {/* Main Design Area */}
+                <section className="flex-1 overflow-auto p-12 flex flex-col items-center">
+                    <div className="w-full max-w-5xl space-y-4">
+                        <div className="flex justify-between items-end">
+                            <div className="flex flex-col">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Folientitel</Label>
+                                <Input 
+                                    value={slides[currentSlideIndex].title} 
+                                    onChange={(e) => {
+                                        const ns = [...slides];
+                                        ns[currentSlideIndex].title = e.target.value;
+                                        setSlides(ns);
+                                        triggerAutoSave();
+                                    }}
+                                    className="h-8 text-xl font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent"
+                                />
+                            </div>
+                            <Badge variant="secondary" className="font-bold">Folie {currentSlideIndex + 1} / {slides.length}</Badge>
+                        </div>
+
+                        {/* Canvas */}
+                        <div 
+                            ref={canvasRef}
+                            onMouseMove={onMouseMove}
+                            className={cn(
+                                "aspect-video w-full bg-card shadow-2xl rounded-2xl relative overflow-hidden transition-colors border-4",
+                                theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-white'
+                            )}
+                            onClick={(e) => {
+                                if (e.target === canvasRef.current) setSelectedElementId(null);
+                            }}
+                        >
+                            {slides[currentSlideIndex]?.elements.map(el => renderElement(el))}
+                        </div>
                     </div>
                 </section>
             </main>
@@ -423,23 +621,22 @@ export default function PresentationPage() {
             {/* Presentation Overlay */}
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
-                    <div className={cn("w-full h-full flex flex-col items-center justify-center relative p-12 transition-all duration-500", currentTheme.bg, currentTheme.text)}>
-                        <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-12 w-12 hover:bg-black/10" onClick={() => setIsPresenting(false)}>
+                    <div className={cn("w-full h-full flex flex-col items-center justify-center relative p-0 transition-all duration-500", currentTheme.bg, currentTheme.text)}>
+                        <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-12 w-12 hover:bg-black/10 z-50 text-white mix-blend-difference" onClick={() => setIsPresenting(false)}>
                             <X className="h-6 w-6" />
                         </Button>
 
-                        <div className="w-full max-w-6xl animate-in fade-in zoom-in duration-500">
-                             <h1 className="text-7xl md:text-9xl font-black tracking-tighter leading-tight mb-8 border-b-8 pb-4" style={{borderColor:'hsl(var(--primary))'}}>{slides[currentSlideIndex].title}</h1>
-                             <div className="text-2xl md:text-4xl leading-relaxed prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: slides[currentSlideIndex].content }} />
+                        <div className="w-full h-full max-w-[177.78vh] max-h-[56.25vw] relative overflow-hidden">
+                             {slides[currentSlideIndex]?.elements.map(el => renderElement(el, true))}
                         </div>
 
-                        <div className="absolute bottom-8 left-0 right-0 px-12 flex justify-between items-center opacity-0 hover:opacity-100 transition-opacity duration-300">
-                            <div className="flex gap-4">
-                                <Button variant="ghost" size="icon" className="rounded-full h-12 w-12" disabled={currentSlideIndex === 0} onClick={() => setCurrentSlideIndex(p => p - 1)}><ChevronLeft className="h-8 w-8"/></Button>
-                                <Button variant="ghost" size="icon" className="rounded-full h-12 w-12" disabled={currentSlideIndex === slides.length - 1} onClick={() => setCurrentSlideIndex(p => p + 1)}><ChevronRight className="h-8 w-8"/></Button>
+                        <div className="absolute bottom-8 left-0 right-0 px-12 flex justify-between items-center opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                            <div className="flex gap-4 pointer-events-auto">
+                                <Button variant="ghost" size="icon" className="rounded-full h-12 w-12 bg-black/10 backdrop-blur-md" disabled={currentSlideIndex === 0} onClick={() => setCurrentSlideIndex(p => p - 1)}><ChevronLeft className="h-8 w-8"/></Button>
+                                <Button variant="ghost" size="icon" className="rounded-full h-12 w-12 bg-black/10 backdrop-blur-md" disabled={currentSlideIndex === slides.length - 1} onClick={() => setCurrentSlideIndex(p => p + 1)}><ChevronRight className="h-8 w-8"/></Button>
                             </div>
-                            <div className="text-xs font-black uppercase tracking-widest opacity-50">
-                                {currentSlideIndex + 1} / {slides.length} • Scoodol Presentation
+                            <div className="text-xs font-black uppercase tracking-widest opacity-50 bg-black/10 px-4 py-2 rounded-full backdrop-blur-md">
+                                {currentSlideIndex + 1} / {slides.length} • Scoodol Design
                             </div>
                         </div>
                     </div>
