@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -292,6 +293,8 @@ export default function PresentationPage() {
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
+        const wasSelected = selectedElementId === element.id;
+
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
@@ -436,7 +439,7 @@ export default function PresentationPage() {
         <div className="flex flex-col h-screen bg-background overflow-hidden" onMouseUp={onMouseUp}>
             <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center gap-4 flex-1">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
                     <div className="flex flex-col">
                         <Input 
                             value={title} 
@@ -477,11 +480,22 @@ export default function PresentationPage() {
             </header>
 
             <div className="bg-secondary/20 border-b p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-inner">
-                <div className="flex items-center gap-1 border-r pr-2">
-                    <Button variant="ghost" size="sm" onClick={() => addElement('text')} className="h-8 gap-1.5 px-3"><Type className="h-4 w-4"/> Text</Button>
-                    <Button variant="ghost" size="sm" onClick={() => addElement('rect')} className="h-8 gap-1.5 px-3"><Square className="h-4 w-4"/> Rechteck</Button>
-                    <Button variant="ghost" size="sm" onClick={() => addElement('circle')} className="h-8 gap-1.5 px-3"><Circle className="h-4 w-4"/> Kreis</Button>
-                    <Button variant="ghost" size="sm" onClick={() => addElement('line')} className="h-8 gap-1.5 px-3"><Minus className="h-4 w-4"/> Linie</Button>
+                <div className="flex items-center gap-1 border-r pr-2 pl-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="sm" className="h-8 font-black gap-2 rounded-full px-4">
+                                <Plus className="h-4 w-4" /> Element
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Hinzufügen</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => addElement('text')} className="gap-2"><Type className="h-4 w-4"/> Textfeld</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('rect')} className="gap-2"><Square className="h-4 w-4"/> Rechteck</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('circle')} className="gap-2"><Circle className="h-4 w-4"/> Kreis</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('line')} className="gap-2"><Minus className="h-4 w-4"/> Linie</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {selectedElement ? (
