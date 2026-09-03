@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -63,7 +64,7 @@ type GroupHomework = {
 export default function GroupDetailsPage() {
   const router = useRouter();
   const params = useParams();
-  const { groupId } = params;
+  const groupId = params?.groupId as string;
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -139,7 +140,7 @@ export default function GroupDetailsPage() {
   }
 
   const deleteHw = (id: string) => {
-      if (!groupDocRef) return;
+      if (!groupDocRef || !firestore) return;
       const hwRef = doc(firestore, `groups/${groupId}/homeworks`, id);
       deleteDocumentNonBlocking(hwRef);
   }
@@ -310,7 +311,7 @@ export default function GroupDetailsPage() {
                         <CardDescription>Dieser Plan gilt für alle Mitglieder der Gruppe.</CardDescription>
                     </div>
                     {isGroupAdmin && (
-                        <Button variant="outline" onClick={() => router.push('/edit/timetable')} className="font-bold">
+                        <Button variant="outline" onClick={() => router.push(`/edit/timetable?groupId=${groupId}`)} className="font-bold">
                             Plan bearbeiten
                         </Button>
                     )}
@@ -391,6 +392,7 @@ export default function GroupDetailsPage() {
                                             </Button>
                                         )}
                                         <Button variant="secondary" size="sm" className="font-bold rounded-xl" onClick={() => {
+                                             if (!firestore) return;
                                              const userHwRef = collection(firestore, `users/${user.uid}/homeworks`);
                                              addDocumentNonBlocking(userHwRef, {
                                                  subject: hw.subject,
