@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 interface SlideElement {
@@ -453,35 +454,29 @@ export default function PresentationPage() {
 
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden" onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
-            <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-                <div className="flex items-center gap-4 flex-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
+            <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-4 shrink-0 px-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
                     <div className="flex flex-col">
                         <Input 
                             value={title} 
-                            placeholder="Titel der Präsentation..."
+                            placeholder="Titel..."
                             onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} 
-                            className="h-7 text-lg font-bold border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent flex-1" 
+                            className="h-6 text-sm font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent w-40" 
                         />
-                        <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 h-4">Folien: {slides.length}</Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                • {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin"/> : <Check className="h-2.5 w-2.5"/>}
-                                <span className="ml-1 uppercase text-[9px] font-bold">{saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] uppercase font-black opacity-40">Folien: {slides.length}</span>
+                            <span className="text-[9px] font-black uppercase flex items-center gap-1 opacity-40">
+                                • {saveStatus === 'saving' ? <Loader2 className="h-2 w-2 animate-spin"/> : <Check className="h-2 w-2"/>}
+                                {saveStatus === 'saving' ? 'Speichert' : 'Gespeichert'}
                             </span>
                         </div>
                     </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-9 rounded-full px-5">
-                        <Play className="h-4 w-4 fill-current" /> Präsentieren
-                    </Button>
-                </div>
-            </header>
 
-            <div className="bg-secondary/20 border-b p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-inner">
-                <div className="flex items-center gap-1 border-r pr-2 pl-2">
+                <Separator orientation="vertical" className="h-8 mx-2" />
+
+                <div className="flex items-center gap-1 shrink-0">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button size="sm" className="h-8 font-black gap-2 rounded-full px-4">
@@ -505,44 +500,35 @@ export default function PresentationPage() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
-                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Präsentation</DropdownMenuLabel>
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Aktionen</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" /> Löschen
+                                <Trash2 className="mr-2 h-4 w-4" /> Präsentation löschen
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
 
-                {selectedElement ? (
-                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 flex-nowrap shrink-0">
-                        <Badge className="bg-primary/10 text-primary border-primary/20 mr-2 uppercase text-[10px]">{selectedElement.type}</Badge>
-                        
-                        {selectedElement.type === 'text' && (
-                            <div className="flex items-center gap-1 border-r pr-2 shrink-0">
-                                <Select value={selectedElement.styles.fontFamily} onValueChange={(v) => updateElementStyle(selectedElement.id, { fontFamily: v })}>
-                                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>{FONTS.map(f => <SelectItem key={f.name} value={f.family} style={{fontFamily: f.family}}>{f.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <div className="flex items-center gap-0.5 ml-1">
-                                    <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.textDecoration?.includes('underline') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration?.includes('underline') ? selectedElement.styles.textDecoration.replace('underline', '').trim() : `${selectedElement.styles.textDecoration || ''} underline`.trim() })}><Underline className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.textDecoration?.includes('line-through') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration?.includes('line-through') ? selectedElement.styles.textDecoration.replace('line-through', '').trim() : `${selectedElement.styles.textDecoration || ''} line-through`.trim() })}><Strikethrough className="h-3.5 w-3.5" /></Button>
+                <div className="flex-1 min-w-[20px] max-w-full overflow-hidden flex items-center justify-center px-4">
+                    {selectedElement ? (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 flex-nowrap overflow-x-auto no-scrollbar">
+                            {selectedElement.type === 'text' && (
+                                <div className="flex items-center gap-1 border-r pr-2 shrink-0">
+                                    <Select value={selectedElement.styles.fontFamily} onValueChange={(v) => updateElementStyle(selectedElement.id, { fontFamily: v })}>
+                                        <SelectTrigger className="h-7 w-28 text-[10px]"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{FONTS.map(f => <SelectItem key={f.name} value={f.family} style={{fontFamily: f.family}}>{f.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-0.5 ml-1">
+                                        <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3 w-3" /></Button>
+                                        <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3 w-3" /></Button>
+                                        <Button variant={selectedElement.styles.textAlign === 'center' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'center' })}><AlignCenter className="h-3 w-3" /></Button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-0.5 ml-1 border-l pl-1">
-                                    <Button variant={selectedElement.styles.textAlign === 'left' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'left' })}><AlignLeft className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.textAlign === 'center' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'center' })}><AlignCenter className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.textAlign === 'right' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'right' })}><AlignRight className="h-3.5 w-3.5" /></Button>
-                                </div>
-                            </div>
-                        )}
+                            )}
 
-                        <div className="flex items-center gap-3 shrink-0">
-                             <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] font-bold uppercase opacity-50">Farbe</Label>
+                            <div className="flex items-center gap-2 shrink-0">
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-8 h-8 rounded-full p-0 overflow-hidden border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || 'transparent')}} /></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-6 h-6 rounded-full p-0 overflow-hidden border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || 'transparent')}} /></DropdownMenuTrigger>
                                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                                         {COLORS.map(c => (
                                             <button 
@@ -554,14 +540,11 @@ export default function PresentationPage() {
                                         ))}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                             </div>
 
-                             <div className="flex flex-col gap-1 border-l pl-2">
-                                <Label className="text-[10px] font-bold uppercase opacity-50">Format</Label>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 border-l pl-2">
                                      <Input 
                                         type="number" 
-                                        className="h-8 w-16 text-xs" 
+                                        className="h-7 w-12 text-[10px] p-1 text-center" 
                                         value={selectedElement.type === 'text' ? selectedElement.styles.fontSize : (selectedElement.type === 'line' ? selectedElement.styles.borderWidth : selectedElement.width)} 
                                         onChange={(e) => {
                                             const v = parseInt(e.target.value) || 0;
@@ -570,51 +553,35 @@ export default function PresentationPage() {
                                             else updateElement(selectedElement.id, { width: v, height: v });
                                         }}
                                     />
-                                    {selectedElement.type !== 'text' && selectedElement.type !== 'line' && (
-                                        <div className="flex items-center gap-1 border-l pl-2">
-                                            <Label className="text-[10px]">Ecke</Label>
-                                            <Input type="number" className="h-8 w-14 text-xs" value={selectedElement.styles.borderRadius || 0} onChange={(e) => updateElementStyle(selectedElement.id, { borderRadius: parseInt(e.target.value) || 0 })} />
-                                        </div>
-                                    )}
                                 </div>
-                             </div>
 
-                             <div className="flex flex-col gap-1 border-l pl-2">
-                                <Label className="text-[10px] font-bold uppercase opacity-50">Deckkraft</Label>
-                                <div className="w-24 px-1">
-                                    <Slider 
-                                        value={[(selectedElement.styles.opacity ?? 1) * 100]} 
-                                        min={0} 
-                                        max={100} 
-                                        step={1} 
-                                        onValueChange={(v) => updateElementStyle(selectedElement.id, { opacity: v[0] / 100 })} 
-                                    />
+                                <div className="flex items-center gap-0.5 border-l pl-2">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeZIndex('front')} title="Nach vorne"><BringToFront className="h-3 w-3"/></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => changeZIndex('back')} title="Nach hinten"><SendToBack className="h-3 w-3"/></Button>
                                 </div>
-                             </div>
 
-                             <div className="flex flex-col gap-1 border-l pl-2">
-                                <Label className="text-[10px] font-bold uppercase opacity-50">Ebene</Label>
-                                <div className="flex gap-0.5">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZIndex('front')} title="Nach vorne"><BringToFront className="h-4 w-4"/></Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZIndex('back')} title="Nach hinten"><SendToBack className="h-4 w-4"/></Button>
+                                <div className="flex items-center gap-0.5 border-l pl-2">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={duplicateElement} title="Duplizieren"><Copy className="h-3 w-3"/></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive rounded-full hover:bg-destructive/10" onClick={() => deleteElement(selectedElement.id)} title="Löschen"><Trash2 className="h-3 w-3"/></Button>
                                 </div>
-                             </div>
-
-                             <div className="flex items-center gap-1 border-l pl-2">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={duplicateElement} title="Duplizieren"><Copy className="h-4 w-4"/></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-full hover:bg-destructive/10" onClick={() => deleteElement(selectedElement.id)} title="Löschen"><Trash2 className="h-4 w-4"/></Button>
-                             </div>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-xs text-muted-foreground italic flex items-center gap-2 px-4 h-8 animate-pulse">
-                        <GripHorizontal className="h-3 w-3" /> Wähle ein Element zum Bearbeiten.
-                    </div>
-                )}
+                    ) : (
+                        <div className="text-[10px] text-muted-foreground italic flex items-center gap-2 opacity-50">
+                            <GripHorizontal className="h-3 w-3" /> Wähle ein Element
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 px-2">
+                    <Button size="sm" variant="default" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-8 rounded-full px-4 text-xs bg-primary hover:bg-primary/90">
+                        <Play className="h-3 w-3 fill-current" /> Präsentieren
+                    </Button>
+                </div>
             </div>
 
             <main className="flex-1 flex overflow-hidden bg-secondary/10">
-                <aside className="w-64 border-r bg-background overflow-y-auto p-4 space-y-4 no-scrollbar shrink-0">
+                <aside className="w-56 border-r bg-background overflow-y-auto p-3 space-y-3 no-scrollbar shrink-0">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Folien</h3>
                     {slides.map((slide, idx) => (
                         <div key={slide.id} className="relative group">
@@ -644,18 +611,18 @@ export default function PresentationPage() {
                             </Button>
                         </div>
                     ))}
-                    <Button variant="outline" className="w-full border-dashed border-2 py-8 rounded-xl flex flex-col gap-2 hover:bg-primary/5 transition-all" onClick={addSlide}>
-                        <Plus className="h-5 w-5" />
-                        <span className="text-[10px] font-black uppercase">Folie hinzufügen</span>
+                    <Button variant="outline" className="w-full border-dashed border-2 py-6 rounded-xl flex flex-col gap-2 hover:bg-primary/5 transition-all" onClick={addSlide}>
+                        <Plus className="h-4 w-4" />
+                        <span className="text-[9px] font-black uppercase">Neue Folie</span>
                     </Button>
                 </aside>
 
-                <section className="flex-1 overflow-auto p-4 md:p-12 flex flex-col items-center">
+                <section className="flex-1 overflow-auto p-4 md:p-8 flex flex-col items-center">
                     {currentSlide ? (
                         <div className="w-full max-w-5xl space-y-4">
                             <div className="flex justify-between items-end">
                                 <div className="flex flex-col">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Folientitel</Label>
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Folientitel</Label>
                                     <Input 
                                         value={currentSlide.title || ''} 
                                         onChange={(e) => {
@@ -664,10 +631,10 @@ export default function PresentationPage() {
                                             setSlides(ns);
                                             triggerAutoSave();
                                         }}
-                                        className="h-8 text-xl font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent"
+                                        className="h-7 text-lg font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent"
                                     />
                                 </div>
-                                <Badge variant="secondary" className="font-bold">Folie {currentSlideIndex + 1} / {slides.length}</Badge>
+                                <Badge variant="secondary" className="text-[10px] font-black">FOLIE {currentSlideIndex + 1} / {slides.length}</Badge>
                             </div>
 
                             <div 
