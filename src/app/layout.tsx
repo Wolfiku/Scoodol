@@ -1,4 +1,3 @@
-
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
@@ -10,7 +9,6 @@ import { APP_VERSION } from '@/app/lib/version';
 export const metadata: Metadata = {
   title: 'Scoodol',
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
-  manifest: '/site.webmanifest',
 };
 
 export const viewport: Viewport = {
