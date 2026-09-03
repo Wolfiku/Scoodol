@@ -160,7 +160,16 @@ export default function HomeworkPlanner() {
         });
     }
     
-    return combined;
+    // Filter out homeworks that are past their due date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return combined.filter(hw => {
+        if (!hw.dueDate) return true;
+        const dueDate = new Date(hw.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate >= today;
+    });
   }, [personalHomeworks, groupHomeworks, userProfile?.settings?.deletedGroupHwIds]);
 
   const activeHomeworks = allHomeworks.filter(hw => {
@@ -199,14 +208,62 @@ export default function HomeworkPlanner() {
       setIsDialogOpen(false);
   }
 
+  // Helper to find the next class date for a subject
+  const getNextClassDate = (subject: string): string => {
+    if (!subject || subject === "Allgemein" || !userProfile?.timetable) return "";
+    
+    const ttDaysOrder = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+    const now = new Date();
+    
+    // Check next 7 days starting from tomorrow
+    for (let i = 1; i <= 7; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(now.getDate() + i);
+        const checkDayIndex = checkDate.getDay(); // 0-6 (Sun-Sat)
+        
+        if (checkDayIndex === 0 || checkDayIndex === 6) continue; // Skip weekend
+        
+        const dayName = ttDaysOrder[checkDayIndex - 1];
+        
+        let daySchedule: any[] = [];
+        const tt = userProfile.timetable;
+
+        if (tt.weekA && tt.weekB) {
+            const getWeekNumber = (date: Date) => {
+              const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+              const dayNum = d.getUTCDay() || 7;
+              d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+              const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+              return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+            };
+            const weekType = getWeekNumber(checkDate) % 2 !== 0 ? 'A' : 'B';
+            daySchedule = (tt[`week${weekType}`] || {})[dayName] || [];
+        } else {
+            daySchedule = tt[dayName] || [];
+        }
+        
+        const hasClass = daySchedule.some((e: any) => e.fach === subject && e.fach.trim() !== "");
+        if (hasClass) {
+            return checkDate.toISOString().split('T')[0];
+        }
+    }
+    
+    return "";
+  };
+
   const handleSaveHomework = async () => {
     if (!newTask.trim() || !user) return;
+
+    let finalDueDate = newDueDate;
+    if (!finalDueDate && newSubject && newSubject !== "Allgemein") {
+        finalDueDate = getNextClassDate(newSubject);
+    }
 
     const homeworkData = {
         subject: newSubject || "Allgemein",
         task: newTask,
         description: newDescription,
-        dueDate: newDueDate || "",
+        dueDate: finalDueDate || "",
     };
 
     if (editingHomework) {
@@ -515,6 +572,9 @@ export default function HomeworkPlanner() {
                         value={newDueDate}
                         onChange={(e) => setNewDueDate(e.target.value)}
                     />
+                    {!newDueDate && newSubject && newSubject !== "Allgemein" && (
+                        <p className="text-[10px] text-muted-foreground italic">Wird automatisch auf den nächsten Termin für "{newSubject}" gesetzt.</p>
+                    )}
                   </div>
                   
                   {userProfile?.groupId && !editingHomework && (
