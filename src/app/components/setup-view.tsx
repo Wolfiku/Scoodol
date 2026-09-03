@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -40,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 
 type TimetableEntry = {
@@ -729,7 +729,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                                         
                                                         {timetableSettings.isABWeekActive && (
                                                             <div className="flex items-center gap-2">
-                                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Rotation:</Label>
+                                                                <Label className="text-9px] uppercase font-bold text-muted-foreground">Rotation:</Label>
                                                                 <Select value={entry.rotation || 'both'} onValueChange={(v: any) => handleInputChange(day, slotIndex, 'rotation', v)}>
                                                                     <SelectTrigger className="h-7 text-[10px] w-28 bg-secondary/30">
                                                                         <SelectValue />
