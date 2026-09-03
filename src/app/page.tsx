@@ -15,7 +15,7 @@ import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { APP_VERSION } from '@/lib/version';
+import { APP_VERSION } from '@/app/lib/version';
 
 type TimetableEntry = {
   id: string;
@@ -254,9 +254,17 @@ export default function Page() {
   // Initial Loader to match server during hydration
   if (!isMounted || ((isUserLoading || isUserDataLoading) && !hasLocalData && !view)) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
-        <Loader2 className="w-12 h-12 animate-spin text-primary"/>
-        <p className="text-muted-foreground mt-4 font-bold uppercase text-[10px]">Scoodol wird geladen...</p>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4 relative">
+        <div className="flex flex-col items-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary"/>
+            <p className="text-muted-foreground mt-4 font-bold uppercase text-[10px]">Scoodol wird geladen...</p>
+        </div>
+
+        {/* Branding Footer */}
+        <div className="absolute bottom-8 left-8 right-8 flex justify-between items-center text-[10px] text-muted-foreground/60 font-black uppercase tracking-widest pointer-events-none">
+          <span>Version {APP_VERSION}</span>
+          <span>@wolfikuproduction</span>
+        </div>
       </div>
     );
   }
