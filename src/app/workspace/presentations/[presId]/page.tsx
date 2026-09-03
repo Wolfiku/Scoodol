@@ -14,7 +14,7 @@ import {
     MoreHorizontal,
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
     Square, Circle, Minus, Type, 
-    BringToFront, SendToBack, GripHorizontal, Copy
+    BringToFront, SendToBack, GripHorizontal, Copy, Strikethrough
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
 interface SlideElement {
@@ -139,6 +140,7 @@ export default function PresentationPage() {
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [isEditingText, setIsEditingText] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [hasMovedDuringDrag, setHasMovedAtLeastOnce] = useState(false);
     
     const canvasRef = useRef<HTMLDivElement>(null);
     const dragOffset = useRef({ x: 0, y: 0 });
@@ -314,19 +316,24 @@ export default function PresentationPage() {
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
+        // If we are already editing text, let the browser handle clicks for cursor placement
+        if (isEditingText && selectedElementId === element.id && element.type === 'text') {
+            return;
+        }
+
+        // Prevent browser default behavior to allow custom dragging and prevent accidental text selection
+        e.preventDefault();
+        e.stopPropagation();
+
         const wasSelected = selectedElementId === element.id;
 
-        if (selectedElementId !== element.id) {
+        if (!wasSelected) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
         }
 
-        // If we are already editing text, don't start dragging
-        if (isEditingText && element.type === 'text') {
-            return;
-        }
-        
         setIsDragging(true);
+        setHasMovedAtLeastOnce(false);
         
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -357,11 +364,21 @@ export default function PresentationPage() {
         newY = Math.max(-10, Math.min(110, newY));
 
         updateElement(selectedElementId, { x: newX, y: newY });
+        setHasMovedAtLeastOnce(true);
     };
 
     const onMouseUp = () => {
         setIsDragging(false);
     };
+
+    const handleElementAction = (e: React.MouseEvent, element: SlideElement) => {
+        if (isPresenting) return;
+        
+        // If it was just a click (no significant movement) on an already selected text element, enter edit mode
+        if (!hasMovedDuringDrag && selectedElementId === element.id && element.type === 'text') {
+            setIsEditingText(true);
+        }
+    }
 
     useEffect(() => {
         if (!isPresenting) return;
@@ -397,7 +414,7 @@ export default function PresentationPage() {
             borderWidth: `${el.styles.borderWidth || 0}px`,
             borderStyle: el.styles.borderWidth ? 'solid' : 'none',
             borderRadius: `${el.styles.borderRadius || 0}px`,
-            opacity: el.styles.opacity || 1,
+            opacity: el.styles.opacity ?? 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -417,12 +434,7 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onMouseDown={(e) => onMouseDown(e, el)}
-                onClick={(e) => {
-                    if (!isPreview && isSelected && el.type === 'text') {
-                        e.stopPropagation();
-                        setIsEditingText(true);
-                    }
-                }}
+                onClick={(e) => handleElementAction(e, el)}
                 className={cn("group select-none", el.type === 'text' && "p-2")}
             >
                 {el.type === 'text' && (
@@ -533,7 +545,8 @@ export default function PresentationPage() {
                                 <div className="flex items-center gap-0.5 ml-1">
                                     <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3.5 w-3.5" /></Button>
                                     <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3.5 w-3.5" /></Button>
-                                    <Button variant={selectedElement.styles.textDecoration === 'underline' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration === 'underline' ? 'none' : 'underline' })}><Underline className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.textDecoration?.includes('underline') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration?.includes('underline') ? selectedElement.styles.textDecoration.replace('underline', '').trim() : `${selectedElement.styles.textDecoration || ''} underline`.trim() })}><Underline className="h-3.5 w-3.5" /></Button>
+                                    <Button variant={selectedElement.styles.textDecoration?.includes('line-through') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textDecoration: selectedElement.styles.textDecoration?.includes('line-through') ? selectedElement.styles.textDecoration.replace('line-through', '').trim() : `${selectedElement.styles.textDecoration || ''} line-through`.trim() })}><Strikethrough className="h-3.5 w-3.5" /></Button>
                                 </div>
                                 <div className="flex items-center gap-0.5 ml-1 border-l pl-1">
                                     <Button variant={selectedElement.styles.textAlign === 'left' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => updateElementStyle(selectedElement.id, { textAlign: 'left' })}><AlignLeft className="h-3.5 w-3.5" /></Button>
@@ -547,7 +560,7 @@ export default function PresentationPage() {
                              <div className="flex flex-col gap-1">
                                 <Label className="text-[10px] font-bold uppercase opacity-50">Farbe</Label>
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-8 h-8 rounded-full p-0 overflow-hidden border-2" style={{backgroundColor: selectedElement.type === 'text' ? selectedElement.styles.color : selectedElement.styles.backgroundColor}} /></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-8 h-8 rounded-full p-0 overflow-hidden border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || 'transparent')}} /></DropdownMenuTrigger>
                                     <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                                         {COLORS.map(c => (
                                             <button 
@@ -562,7 +575,7 @@ export default function PresentationPage() {
                              </div>
 
                              <div className="flex flex-col gap-1 border-l pl-2">
-                                <Label className="text-[10px] font-bold uppercase opacity-50">Größe / Rahmen</Label>
+                                <Label className="text-[10px] font-bold uppercase opacity-50">Format</Label>
                                 <div className="flex items-center gap-2">
                                      <Input 
                                         type="number" 
@@ -581,6 +594,19 @@ export default function PresentationPage() {
                                             <Input type="number" className="h-8 w-14 text-xs" value={selectedElement.styles.borderRadius || 0} onChange={(e) => updateElementStyle(selectedElement.id, { borderRadius: parseInt(e.target.value) || 0 })} />
                                         </div>
                                     )}
+                                </div>
+                             </div>
+
+                             <div className="flex flex-col gap-1 border-l pl-2">
+                                <Label className="text-[10px] font-bold uppercase opacity-50">Deckkraft</Label>
+                                <div className="w-24 px-1">
+                                    <Slider 
+                                        value={[(selectedElement.styles.opacity ?? 1) * 100]} 
+                                        min={0} 
+                                        max={100} 
+                                        step={1} 
+                                        onValueChange={(v) => updateElementStyle(selectedElement.id, { opacity: v[0] / 100 })} 
+                                    />
                                 </div>
                              </div>
 
@@ -677,7 +703,6 @@ export default function PresentationPage() {
                             >
                                 {(currentSlide.elements || []).map(el => renderElement(el))}
                             </div>
-                            <p className="text-[10px] text-muted-foreground text-center italic">Auswählen: 1 Klick • Bearbeiten: 2 Klicks • Verschieben: Ziehen</p>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full opacity-50"><Loader2 className="animate-spin w-10 h-10 mb-4"/><p>Lade Folie...</p></div>
