@@ -42,7 +42,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useTheme } from "@/hooks/use-theme";
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -211,19 +211,28 @@ export default function HomeworkPlanner() {
         updateDocumentNonBlocking(docRef, homeworkData);
         toast({ title: 'Aufgabe aktualisiert!' });
     } else {
-        const newHomework = {
-            ...homeworkData,
-            done: false,
-        };
-        addDocumentNonBlocking(homeworksRef!, newHomework);
-        
+        let groupHwId: string | undefined = undefined;
+
         // Share with group if toggled
         if (shareWithGroup && groupHomeworksRef) {
-            addDocumentNonBlocking(groupHomeworksRef, {
+            const newGroupHwRef = doc(groupHomeworksRef);
+            groupHwId = newGroupHwRef.id;
+
+            setDocumentNonBlocking(newGroupHwRef, {
                 ...homeworkData,
                 createdBy: user.uid,
                 createdByName: user.displayName || user.email?.split('@')[0] || "Anonym"
-            });
+            }, { merge: true });
+        }
+
+        const newHomework = {
+            ...homeworkData,
+            done: false,
+            groupHwId: groupHwId || null
+        };
+        addDocumentNonBlocking(homeworksRef!, newHomework);
+        
+        if (groupHwId) {
             toast({ title: 'Aufgabe hinzugefügt und geteilt!' });
         } else {
             toast({ title: 'Neue Aufgabe hinzugefügt!' });
