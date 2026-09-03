@@ -42,7 +42,7 @@ type Group = {
   motto?: string;
   admin: string;
   members: string[];
-  roles: Record<string, GroupRole>;
+  roles?: Record<string, GroupRole>;
   timetable: TimetableData;
   timetableSettings: any;
 }
@@ -189,7 +189,7 @@ export default function GroupDetailsPage() {
     );
   }
 
-  const userRole = group.roles[user.uid] || 'nutzer';
+  const userRole = (group.roles && group.roles[user.uid]) || 'nutzer';
   const isGroupAdmin = userRole === 'admin';
   const canEditTimetable = userRole === 'admin' || userRole === 'bearbeiter';
   const canManageHomework = userRole === 'admin' || userRole === 'bearbeiter' || userRole === 'berechtigt';
@@ -316,7 +316,7 @@ export default function GroupDetailsPage() {
                         <ScrollArea className="h-64 pr-4">
                             <div className="space-y-4">
                                 {members.map((member) => {
-                                    const mRole = group.roles[member.id] || 'nutzer';
+                                    const mRole = (group.roles && group.roles[member.id]) || 'nutzer';
                                     return (
                                         <div key={member.id} className="flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
