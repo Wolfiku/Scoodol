@@ -14,7 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { APP_VERSION } from '@/lib/version';
 
 type TimetableEntry = {
@@ -109,21 +109,6 @@ export default function Page() {
     setHasLocalData(!!tt && tt !== '{}');
   }, []);
 
-  const cleanData = useCallback((data: any): any => {
-    if (data === undefined) return null;
-    if (data !== null && typeof data === 'object') {
-        if (data.constructor?.name === 'FieldValue' || data.constructor?.name === 'Timestamp') {
-            return data;
-        }
-        const clean: any = Array.isArray(data) ? [] : {};
-        for (const key in data) {
-            clean[key] = cleanData(data[key]);
-        }
-        return clean;
-    }
-    return data;
-  }, []);
-
   useEffect(() => {
     if (!isMounted || isUserLoading) return;
     
@@ -158,8 +143,22 @@ export default function Page() {
     }
 
     if (!userDocRef) return;
-    const cleaned = cleanData(data);
-    await setDoc(userDocRef, cleaned, { merge: true });
+    
+    // Safely update nested fields without overwriting everything
+    const updates: any = {};
+    if (data.timetable) updates.timetable = data.timetable;
+    if (data.timetableSettings) updates.timetableSettings = data.timetableSettings;
+    if (data.settings) {
+        Object.keys(data.settings).forEach(key => {
+            updates[`settings.${key}`] = (data.settings as any)[key];
+        });
+    }
+    if (data.displayName) updates.displayName = data.displayName;
+    if (data.groupId) updates.groupId = data.groupId;
+    
+    if (Object.keys(updates).length > 0) {
+        await updateDoc(userDocRef, updates);
+    }
   };
 
   const handleSetupComplete = async (newUserData: Partial<UserData>) => {
@@ -172,8 +171,15 @@ export default function Page() {
     }
 
     if (userDocRef) {
-        const cleaned = cleanData(newUserData);
-        await setDoc(userDocRef, cleaned, { merge: true });
+        const updates: any = {};
+        if (newUserData.timetable) updates.timetable = newUserData.timetable;
+        if (newUserData.timetableSettings) updates.timetableSettings = newUserData.timetableSettings;
+        if (newUserData.settings) {
+            Object.keys(newUserData.settings).forEach(key => {
+                updates[`settings.${key}`] = (newUserData.settings as any)[key];
+            });
+        }
+        await updateDoc(userDocRef, updates);
     }
     setView(newUserData.settings?.startView || themeStartView || 'daily');
   };
@@ -188,18 +194,18 @@ export default function Page() {
         window.location.reload();
         return;
     }
-    const dataToSave = cleanData({
-      timetable: importedData.timetable,
-      timetableSettings: importedData.timetableSettings,
-      settings: {
-        theme: importedData.theme,
-        startView: importedData.startView,
-        aiLanguage: importedData.aiLanguage,
-        betaFeaturesEnabled: importedData.betaFeaturesEnabled === 'true',
-        profilePicture: importedData.profilePicture,
-      }
-    });
-    setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
+    
+    const updates: any = {
+        timetable: importedData.timetable,
+        timetableSettings: importedData.timetableSettings,
+        'settings.theme': importedData.theme,
+        'settings.startView': importedData.startView,
+        'settings.aiLanguage': importedData.aiLanguage,
+        'settings.betaFeaturesEnabled': importedData.betaFeaturesEnabled === 'true',
+        'settings.profilePicture': importedData.profilePicture,
+    };
+    
+    updateDoc(userDocRef, updates).then(() => window.location.reload());
   };
 
   const isTimetableSynced = !!(userData?.groupSettings?.syncTimetable && groupData);

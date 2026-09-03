@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 type Theme = 'light' | 'dark' | string;
 type ColorTheme = 'default' | 'ocean' | 'sunset' | 'forest';
@@ -100,9 +100,16 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Sync with Firestore if logged in
       if (user && !user.isAnonymous && settingsDocRef) {
-          const currentSettings = userSettingsDoc?.settings || {};
-          const settingsToUpdate = { settings: { ...currentSettings, ...newSettings }};
-          setDoc(settingsDocRef, settingsToUpdate, { merge: true });
+          const updates: any = {};
+          if (newSettings.theme) updates['settings.theme'] = newSettings.theme;
+          if (newSettings.colorTheme) updates['settings.colorTheme'] = newSettings.colorTheme;
+          if (newSettings.startView) updates['settings.startView'] = newSettings.startView;
+          if (newSettings.aiLanguage) updates['settings.aiLanguage'] = newSettings.aiLanguage;
+          if (newSettings.betaFeaturesEnabled !== undefined) updates['settings.betaFeaturesEnabled'] = newSettings.betaFeaturesEnabled;
+          
+          if (Object.keys(updates).length > 0) {
+            updateDoc(settingsDocRef, updates).catch(e => console.error("Error syncing settings to Firestore:", e));
+          }
       }
   }
 
