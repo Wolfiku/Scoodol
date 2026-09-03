@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -10,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
     Loader2, ArrowLeft, Plus, Trash2, Play, Save, Check, 
-    ChevronLeft, ChevronRight, X, Palette, 
+    ChevronLeft, ChevronRight, X, 
     MoreHorizontal,
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
     Square, Circle, Minus, Type, 
@@ -37,7 +36,6 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
@@ -77,7 +75,6 @@ interface PresentationDoc {
     title: string;
     ownerId: string;
     slides: Slide[];
-    theme: 'default' | 'dark' | 'ocean' | 'forest';
     updatedAt: any;
 }
 
@@ -88,13 +85,6 @@ const FONTS = [
     { name: 'Fira Code', family: 'Fira Code, monospace' },
     { name: 'Dancing Script', family: 'Dancing Script, cursive' },
     { name: 'Bangers', family: 'Bangers, cursive' },
-];
-
-const THEMES = [
-    { id: 'default', name: 'Standard (Hell)', bg: 'bg-white', text: 'text-slate-900', accent: 'bg-primary' },
-    { id: 'dark', name: 'Nacht-Modus', bg: 'bg-slate-950', text: 'text-slate-50', accent: 'bg-blue-600' },
-    { id: 'ocean', name: 'Ozean-Blau', bg: 'bg-blue-900', text: 'text-blue-50', accent: 'bg-cyan-400' },
-    { id: 'forest', name: 'Wald-Grün', bg: 'bg-emerald-950', text: 'text-emerald-50', accent: 'bg-lime-500' },
 ];
 
 const COLORS = ['transparent', '#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
@@ -132,7 +122,6 @@ export default function PresentationPage() {
             ] 
         }
     ]);
-    const [theme, setTheme] = useState<PresentationDoc['theme']>('default');
     const [saveStatus, setSaveStatus] = useState<'idle' | 'dirty' | 'saving'>('idle');
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isPresenting, setIsPresenting] = useState(false);
@@ -158,7 +147,6 @@ export default function PresentationPage() {
         if (presentationData) {
             setTitle(presentationData.title || '');
             setSlides(presentationData.slides || []);
-            setTheme(presentationData.theme || 'default');
             setSaveStatus('idle');
         }
     }, [presentationData]);
@@ -167,7 +155,7 @@ export default function PresentationPage() {
         if (!firestore || !user || !title.trim() || saveStatus === 'idle') return;
         setSaveStatus('saving');
 
-        const dataToSave = { title, slides, theme };
+        const dataToSave = { title, slides };
 
         try {
             if (isNewPres) {
@@ -186,7 +174,7 @@ export default function PresentationPage() {
         } catch (error) {
             setSaveStatus('dirty');
         }
-    }, [firestore, user, title, slides, theme, isNewPres, docRef, router, saveStatus]);
+    }, [firestore, user, title, slides, isNewPres, docRef, router, saveStatus]);
 
     const triggerAutoSave = () => {
         setSaveStatus('dirty');
@@ -316,12 +304,10 @@ export default function PresentationPage() {
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
-        // If we are already editing text, let the browser handle clicks for cursor placement
         if (isEditingText && selectedElementId === element.id && element.type === 'text') {
             return;
         }
 
-        // Prevent browser default behavior to allow custom dragging and prevent accidental text selection
         e.preventDefault();
         e.stopPropagation();
 
@@ -359,7 +345,6 @@ export default function PresentationPage() {
         let newX = mouseX - dragOffset.current.x;
         let newY = mouseY - dragOffset.current.y;
 
-        // Keep within bounds
         newX = Math.max(-10, Math.min(110, newX));
         newY = Math.max(-10, Math.min(110, newY));
 
@@ -374,7 +359,6 @@ export default function PresentationPage() {
     const handleElementAction = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
-        // If it was just a click (no significant movement) on an already selected text element, enter edit mode
         if (!hasMovedDuringDrag && selectedElementId === element.id && element.type === 'text') {
             setIsEditingText(true);
         }
@@ -395,8 +379,6 @@ export default function PresentationPage() {
     const selectedElement = useMemo(() => 
         currentSlide?.elements?.find(e => e.id === selectedElementId),
     [currentSlide, selectedElementId]);
-
-    const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0];
 
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
         const isSelected = !isPreview && selectedElementId === el.id;
@@ -492,24 +474,9 @@ export default function PresentationPage() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <Select value={theme} onValueChange={(v: any) => { setTheme(v); triggerAutoSave(); }}>
-                        <SelectTrigger className="w-40 h-9 rounded-full">
-                            <Palette className="w-4 h-4 mr-2" />
-                            <SelectValue placeholder="Design" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {THEMES.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
                     <Button size="sm" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-9 rounded-full px-5">
                         <Play className="h-4 w-4 fill-current" /> Präsentieren
                     </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
             </header>
 
@@ -528,6 +495,21 @@ export default function PresentationPage() {
                             <DropdownMenuItem onClick={() => addElement('rect')} className="gap-2"><Square className="h-4 w-4"/> Rechteck</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addElement('circle')} className="gap-2"><Circle className="h-4 w-4"/> Kreis</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addElement('line')} className="gap-2"><Minus className="h-4 w-4"/> Linie</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Präsentation</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Löschen
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -691,8 +673,7 @@ export default function PresentationPage() {
                             <div 
                                 ref={canvasRef}
                                 className={cn(
-                                    "aspect-video w-full bg-card shadow-2xl rounded-2xl relative overflow-hidden transition-colors border-4",
-                                    theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-white'
+                                    "aspect-video w-full bg-white shadow-2xl rounded-2xl relative overflow-hidden transition-colors border-4 border-white"
                                 )}
                                 onClick={(e) => {
                                     if (e.target === canvasRef.current) {
@@ -716,7 +697,7 @@ export default function PresentationPage() {
                         <DialogTitle>Präsentation Vollbild</DialogTitle>
                         <DialogDescription>Aktuelle Folie anzeigen</DialogDescription>
                     </DialogHeader>
-                    <div className={cn("w-full h-full flex flex-col items-center justify-center relative p-0 transition-all duration-500", currentTheme.bg, currentTheme.text)}>
+                    <div className={cn("w-full h-full flex flex-col items-center justify-center relative p-0 transition-all duration-500 bg-white text-slate-900")}>
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-12 w-12 hover:bg-black/10 z-50 text-white mix-blend-difference" onClick={() => setIsPresenting(false)}>
                             <X className="h-6 w-6" />
                         </Button>
