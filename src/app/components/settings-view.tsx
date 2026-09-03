@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -28,6 +29,7 @@ import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/fireb
 import { useRouter } from "next/navigation"
 import { doc, updateDoc } from "firebase/firestore"
 import { APP_VERSION } from "@/app/lib/version"
+import { Badge } from "@/components/ui/badge"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -96,7 +98,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
-    , [firestore, user]);
+  , [firestore, user]);
     
     const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
@@ -510,71 +512,91 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                         <CardDescription>Verwalte deinen Stundenplan und die Schul- und Pausenzeiten.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <Button onClick={onEditTimetable} disabled={isTimetableSynced}>
-                            <Edit className="mr-2"/> Stundenplan bearbeiten
-                        </Button>
-                        {isTimetableSynced && <p className="text-xs text-muted-foreground">Dein Stundenplan wird von deiner Gruppe verwaltet. Deaktiviere die Kopplung, um ihn zu bearbeiten.</p>}
-                        <Accordion type="single" collapsible>
-                             <AccordionItem value="item-1">
-                                <AccordionTrigger>
-                                    <h3 className="text-lg font-semibold flex items-center gap-2"><Clock /> Allgemeine Schul- & Pausenzeiten</h3>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="space-y-4 pt-4">
-                                         <div className="grid sm:grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
-                                                <Input 
-                                                    id="start-time"
-                                                    type="time" 
-                                                    value={localTimetableSettings.schoolStartTime} 
-                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
-                                                    className="w-full sm:w-auto"
-                                                    disabled={isTimetableSynced}
-                                                />
+                        {userProfile?.groupId && (
+                            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/20 mb-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-black flex items-center gap-2">
+                                        <Link2 className="h-4 w-4 text-primary" /> Gruppen-Synchronisation
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Kopple deinen Plan mit der Gruppe {userProfile.groupId}.
+                                    </p>
+                                </div>
+                                <Switch 
+                                    checked={!!userProfile.groupSettings?.syncTimetable} 
+                                    onCheckedChange={(v) => handleGroupSettingChange('syncTimetable', v)}
+                                />
+                            </div>
+                        )}
+
+                        <div className={cn("space-y-4 transition-all duration-300", isTimetableSynced && "opacity-40 grayscale pointer-events-none")}>
+                            {isTimetableSynced && (
+                                <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] mb-2">
+                                    <Check className="h-3 w-3" /> Gruppenplan aktiviert
+                                </div>
+                            )}
+                            
+                            <Button onClick={onEditTimetable} className="w-full sm:w-auto">
+                                <Edit className="mr-2"/> Stundenplan bearbeiten
+                            </Button>
+                            
+                            <Accordion type="single" collapsible>
+                                <AccordionItem value="item-1" className="border-none">
+                                    <AccordionTrigger className="bg-secondary/50 px-4 rounded-xl hover:no-underline">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2"><Clock className="w-4 h-4" /> Allgemeine Schul- & Pausenzeiten</h3>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4">
+                                        <div className="space-y-4 pt-4">
+                                            <div className="grid sm:grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="start-time">Schulstart (Vormittag)</Label>
+                                                    <Input 
+                                                        id="start-time"
+                                                        type="time" 
+                                                        value={localTimetableSettings.schoolStartTime} 
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="end-time">Schulende (Vormittag)</Label>
+                                                    <Input 
+                                                        id="end-time"
+                                                        type="time" 
+                                                        value={localTimetableSettings.schoolEndTime} 
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="break1">1. große Pause (in Min.)</Label>
+                                                    <Input 
+                                                        id="break1"
+                                                        type="number" 
+                                                        value={localTimetableSettings.firstBreakDuration || ''} 
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="break2">2. große Pause (in Min.)</Label>
+                                                    <Input 
+                                                        id="break2"
+                                                        type="number" 
+                                                        value={localTimetableSettings.secondBreakDuration || ''} 
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
+                                                        className="w-full"
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="end-time">Schulende (Vormittag)</Label>
-                                                <Input 
-                                                    id="end-time"
-                                                    type="time" 
-                                                    value={localTimetableSettings.schoolEndTime} 
-                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
-                                                    className="w-full sm:w-auto"
-                                                    disabled={isTimetableSynced}
-                                                />
-                                            </div>
-                                             <div className="space-y-1">
-                                                <Label htmlFor="break1">1. große Pause (in Min.)</Label>
-                                                <Input 
-                                                    id="break1"
-                                                    type="number" 
-                                                    value={localTimetableSettings.firstBreakDuration || ''} 
-                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
-                                                    className="w-full sm:w-auto"
-                                                    disabled={isTimetableSynced}
-                                                />
-                                            </div>
-                                             <div className="space-y-1">
-                                                <Label htmlFor="break2">2. große Pause (in Min.)</Label>
-                                                <Input 
-                                                    id="break2"
-                                                    type="number" 
-                                                    value={localTimetableSettings.secondBreakDuration || ''} 
-                                                    onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
-                                                    className="w-full sm:w-auto"
-                                                    disabled={isTimetableSynced}
-                                                />
-                                            </div>
+                                            <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged} className="w-full sm:w-auto">
+                                                <Save className="mr-2 h-4 w-4" /> Zeiten speichern
+                                            </Button>
                                         </div>
-                                        <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged || isTimetableSynced}>
-                                            <Save className="mr-2 h-4 w-4" /> Zeiten speichern
-                                        </Button>
-                                         {isTimetableSynced && <p className="text-xs text-muted-foreground mt-2">Zeiten werden von deiner Gruppe verwaltet.</p>}
-                                    </div>
-                                </AccordionContent>
-                             </AccordionItem>
-                        </Accordion>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -749,3 +771,4 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
+

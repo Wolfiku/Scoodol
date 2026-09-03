@@ -54,6 +54,10 @@ type UserData = {
     timetableSettings: TimetableSettings,
     settings: UserSettings,
     displayName?: string;
+    groupId?: string;
+    groupSettings?: {
+        syncTimetable?: boolean;
+    }
 }
 
 const getWeekNumber = (date: Date) => {
@@ -79,6 +83,12 @@ export default function Page() {
   , [firestore, user]);
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserData>(userDocRef);
+
+  const groupDocRef = useMemoFirebase(() => 
+    userData?.groupId ? doc(firestore, 'groups', userData.groupId) : null
+  , [firestore, userData?.groupId]);
+  const { data: groupData } = useDoc<any>(groupDocRef);
+
   const isPreviewMode = useMemo(() => pathname.startsWith('/creator/'), [pathname]);
 
   const currentWeekType = useMemo(() => {
@@ -145,18 +155,22 @@ export default function Page() {
     setDoc(userDocRef, dataToSave, { merge: true }).then(() => window.location.reload());
   };
 
+  const isTimetableSynced = !!(userData?.groupSettings?.syncTimetable && groupData);
+
   const effectiveTimetable = useMemo(() => {
-    const raw = isPreviewMode ? previewTimetableData : (userData?.timetable || {});
+    if (isPreviewMode) return previewTimetableData;
+    const raw = isTimetableSynced ? groupData?.timetable : (userData?.timetable || {});
     // @ts-ignore
-    if (raw.weekA) {
+    if (raw?.weekA) {
         return currentWeekType === 'A' ? (raw as any).weekA : (raw as any).weekB;
     }
     return raw as TimetableData;
-  }, [userData, isPreviewMode, currentWeekType]);
+  }, [userData, isPreviewMode, currentWeekType, isTimetableSynced, groupData]);
 
   const effectiveSettings = useMemo(() => {
-    return isPreviewMode ? { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 } : (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
-  }, [userData, isPreviewMode]);
+    if (isPreviewMode) return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
+    return isTimetableSynced ? groupData?.timetableSettings : (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+  }, [userData, isPreviewMode, isTimetableSynced, groupData]);
 
   if (isUserLoading || (user && isUserDataLoading && !view)) {
     return (
@@ -174,6 +188,7 @@ export default function Page() {
   const renderView = () => {
     switch(view) {
       case 'daily': return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} onTimetableUpdate={(nt) => {
+          if (isTimetableSynced) return; // Cannot manually update if synced
           if (userData?.timetableSettings?.isABWeekActive) {
               const fullTimetable = userData.timetable as any;
               const updated = currentWeekType === 'A' ? { ...fullTimetable, weekA: nt } : { ...fullTimetable, weekB: nt };
@@ -181,11 +196,11 @@ export default function Page() {
           } else {
               updateUserData({ timetable: nt });
           }
-      }} currentWeek={userData?.timetableSettings?.isABWeekActive ? currentWeekType : null} />;
-      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={userData?.timetableSettings?.isABWeekActive ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
+      }} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : userData?.timetableSettings?.isABWeekActive) ? currentWeekType : null} />;
+      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : userData?.timetableSettings?.isABWeekActive) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
       case 'homework': return <HomeworkPlanner />;
       case 'smart-tool': return <SmartToolsView />;
-      case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={false} />;
+      case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={isTimetableSynced} />;
       case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable, timetableSettings: userData?.timetableSettings }} isEditing={true} viewMode="edit" />;
       default: return null;
     }
@@ -207,3 +222,4 @@ export default function Page() {
     </main>
   );
 }
+
