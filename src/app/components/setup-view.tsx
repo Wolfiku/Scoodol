@@ -836,7 +836,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                  </div>
 
                  {/* Sticky Save Bar */}
-                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t z-40 shadow-2xl">
+                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t z-40 shadow-2xl">
                     <div className="container mx-auto flex justify-between items-center gap-4">
                         <p className="hidden sm:block text-xs text-muted-foreground italic">Änderungen werden erst beim Speichern übernommen.</p>
                          <Button size="lg" onClick={handleSave} className="w-full sm:w-auto font-black text-lg h-14 sm:h-12 rounded-2xl shadow-lg">
