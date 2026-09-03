@@ -4,13 +4,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, getDoc, collection, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, updateDoc, deleteDoc, query, orderBy, arrayRemove } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
+import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock, ShieldCheck, ShieldAlert, Shield, XCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type TimetableEntry = {
     id: string;
@@ -162,6 +173,23 @@ export default function GroupDetailsPage() {
       }
   }
 
+  const handleRemoveMember = async (uid: string) => {
+      if (!groupDocRef || !firestore) return;
+      try {
+          await updateDoc(groupDocRef, {
+              members: arrayRemove(uid)
+          });
+          // Also clear groupId in the removed user's doc (best effort)
+          const removedUserRef = doc(firestore, 'users', uid);
+          await updateDoc(removedUserRef, { groupId: null });
+          
+          toast({ title: "Mitglied entfernt" });
+          setMembers(prev => prev.filter(m => m.id !== uid));
+      } catch (e) {
+          toast({ variant: 'destructive', title: "Fehler beim Entfernen" });
+      }
+  }
+
   const isLoading = isUserLoading || isLoadingGroup || isLoadingMembers;
 
   if (isLoading) {
@@ -257,7 +285,7 @@ export default function GroupDetailsPage() {
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row items-center gap-4">
                         <div className="relative flex-1 w-full">
-                            <Input value={inviteLink} readOnly className="pr-10 bg-secondary/30" />
+                            <Input inviteLink readOnly value={inviteLink} className="pr-10 bg-secondary/30" />
                             <Users className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         </div>
                         <Button onClick={copyToClipboard} className="shrink-0 w-full sm:w-auto font-bold gap-2">
@@ -333,17 +361,39 @@ export default function GroupDetailsPage() {
                                                 </div>
                                             </div>
                                             {isGroupAdmin && member.id !== user.uid ? (
-                                                <Select value={mRole} onValueChange={(v: GroupRole) => handleRoleChange(member.id, v)}>
-                                                    <SelectTrigger className="h-7 text-[10px] w-32 font-bold uppercase rounded-full">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="admin">Admin</SelectItem>
-                                                        <SelectItem value="bearbeiter">Bearbeiter</SelectItem>
-                                                        <SelectItem value="berechtigt">Berechtigt</SelectItem>
-                                                        <SelectItem value="nutzer">Nutzer</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <div className="flex items-center gap-2">
+                                                    <Select value={mRole} onValueChange={(v: GroupRole) => handleRoleChange(member.id, v)}>
+                                                        <SelectTrigger className="h-7 text-[10px] w-28 font-bold uppercase rounded-full">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="admin">Admin</SelectItem>
+                                                            <SelectItem value="bearbeiter">Bearbeiter</SelectItem>
+                                                            <SelectItem value="berechtigt">Berechtigt</SelectItem>
+                                                            <SelectItem value="nutzer">Nutzer</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                                                                <XCircle className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Mitglied entfernen?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Möchtest du {member.displayName || 'diesen Nutzer'} wirklich aus der Gruppe entfernen?
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleRemoveMember(member.id)} className="bg-destructive text-white">Entfernen</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
                                             ) : (
                                                 <div className="h-2 w-2 rounded-full bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             )}
