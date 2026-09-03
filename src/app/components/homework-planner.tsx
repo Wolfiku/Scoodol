@@ -22,6 +22,7 @@ import {
   Info,
   Users,
   Star,
+  BookOpen,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +45,13 @@ import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestor
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Homework = {
   id: string; // Firestore document ID
@@ -100,6 +108,27 @@ export default function HomeworkPlanner() {
   const [showScanInfo, setShowScanInfo] = useState(false);
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
+
+  // Get subjects from timetable for the dropdown
+  const timetableSubjects = useMemo(() => {
+    if (!userProfile?.timetable) return [];
+    const subjects = new Set<string>();
+    
+    const tt = userProfile.timetable;
+    const days = tt.weekA ? [...Object.values(tt.weekA), ...Object.values(tt.weekB)] : Object.values(tt);
+    
+    days.forEach((day: any) => {
+        if (Array.isArray(day)) {
+            day.forEach((entry: any) => {
+                if (entry.fach && entry.fach.trim() !== "" && entry.fach !== "Pause") {
+                    subjects.add(entry.fach);
+                }
+            });
+        }
+    });
+    
+    return Array.from(subjects).sort();
+  }, [userProfile?.timetable]);
 
   // Combine personal and group homeworks
   const allHomeworks = useMemo(() => {
@@ -165,9 +194,9 @@ export default function HomeworkPlanner() {
     if (!newTask.trim() || !user) return;
 
     const homeworkData = {
-        subject: newSubject,
+        subject: newSubject || "Allgemein",
         task: newTask,
-        dueDate: newDueDate,
+        dueDate: newDueDate || "",
     };
 
     if (editingHomework) {
@@ -201,7 +230,7 @@ export default function HomeworkPlanner() {
       if (!user || !homeworksRef) return;
       tasks.forEach(t => {
           const newHomework = {
-              subject: t.subject,
+              subject: t.subject || "Allgemein",
               task: t.task,
               dueDate: t.dueDate || "",
               done: false,
@@ -400,25 +429,44 @@ export default function HomeworkPlanner() {
                 <DialogHeader>
                   <DialogTitle>{editingHomework ? 'Hausaufgabe bearbeiten' : 'Neue Hausaufgabe hinzufügen'}</DialogTitle>
                   <DialogDescription>
-                    {editingHomework ? 'Ändere die Details deiner Aufgabe.' : 'Fülle die Details für deine neue Aufgabe aus.'}
+                    {editingHomework ? 'Ändere die Details deiner Aufgabe.' : 'Gib den Titel deiner neuen Aufgabe ein.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <Input
-                    placeholder="Fach (z.B. Mathe)"
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
-                  />
-                  <Textarea
-                    placeholder="Aufgabe (z.B. Buch S. 55 Nr. 3)"
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                  />
-                  <Input
-                    type="date"
-                    value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="task-title">Titel / Aufgabe <span className="text-destructive">*</span></Label>
+                    <Input
+                        id="task-title"
+                        placeholder="z.B. Buch S. 55 Nr. 3"
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="task-subject">Fach (Optional)</Label>
+                    <Select value={newSubject} onValueChange={setNewSubject}>
+                        <SelectTrigger id="task-subject">
+                            <SelectValue placeholder="Fach wählen..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Allgemein">Allgemein</SelectItem>
+                            {timetableSubjects.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="task-date">Fälligkeitsdatum (Optional)</Label>
+                    <Input
+                        id="task-date"
+                        type="date"
+                        value={newDueDate}
+                        onChange={(e) => setNewDueDate(e.target.value)}
+                    />
+                  </div>
                   
                   {userProfile?.groupId && !editingHomework && (
                       <div className="flex items-center space-x-2 p-2 bg-secondary/50 rounded-lg">
@@ -436,7 +484,7 @@ export default function HomeworkPlanner() {
                 </div>
                 <DialogFooter className="pt-4 sm:pt-0">
                     <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
-                    <Button onClick={handleSaveHomework}>{editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}</Button>
+                    <Button onClick={handleSaveHomework} disabled={!newTask.trim()}>{editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -467,7 +515,11 @@ export default function HomeworkPlanner() {
           <h3 className="font-bold text-lg">Anstehend</h3>
           {upcomingHomeworks.length > 0 ? (
             upcomingHomeworks
-              .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .sort((a, b) => {
+                  if (!a.dueDate) return 1;
+                  if (!b.dueDate) return -1;
+                  return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+              })
               .map((hw) => (
               <div
                 key={hw.id}
