@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -34,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -649,6 +648,10 @@ export default function PresentationPage() {
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Präsentation Vollbild</DialogTitle>
+                        <DialogDescription>Aktuelle Folie anzeigen</DialogDescription>
+                    </DialogHeader>
                     <div className={cn("w-full h-full flex flex-col items-center justify-center relative p-0 transition-all duration-500", currentTheme.bg, currentTheme.text)}>
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-12 w-12 hover:bg-black/10 z-50 text-white mix-blend-difference" onClick={() => setIsPresenting(false)}>
                             <X className="h-6 w-6" />
