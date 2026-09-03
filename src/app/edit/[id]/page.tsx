@@ -100,7 +100,8 @@ function EditContent() {
                     settings: targetData?.settings
                 }} 
                 isEditing={true} 
-                viewMode="edit" 
+                viewMode="edit"
+                isGroupPlan={!!groupId}
             />
         </div>
       )

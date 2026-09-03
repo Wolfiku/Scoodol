@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle, ArrowLeft, Download, CheckCircle2 } from 'lucide-react';
+import { Camera, Edit, Info, Loader2, Save, Upload, ArrowRight, Sunrise, Sunset, AlertTriangle, ArrowLeft, Download, CheckCircle2, Clock, RefreshCcw, CalendarDays } from 'lucide-react';
 import { scanTimetableImage } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -24,11 +24,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type TimetableEntry = {
@@ -39,8 +50,7 @@ type TimetableEntry = {
     start: string;
     ende: string;
     hauptfach?: boolean;
-    notizen?: string;
-    materialien?: string;
+    rotation?: 'both' | 'a' | 'b';
 };
 
 type TimetableData = {
@@ -52,6 +62,7 @@ type TimetableSettings = {
     schoolEndTime: string;
     firstBreakDuration: number;
     secondBreakDuration: number;
+    isABWeekActive?: boolean;
 }
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
@@ -140,7 +151,8 @@ const createInitialTimetable = (settings: TimetableSettings): TimetableData => {
                 room: '',
                 start: slot.start,
                 ende: slot.ende,
-                hauptfach: false
+                hauptfach: false,
+                rotation: 'both'
             };
         });
     });
@@ -155,14 +167,16 @@ type UserData = {
     }
 }
 
-export default function SetupView({ onSetupComplete, onTimetableImport, initialData, isEditing = false, isCreatorMode = false, viewMode = 'setup' }: { onSetupComplete: (userData: Partial<UserData>) => void, onTimetableImport: (importedData: any) => void, initialData?: Partial<UserData>, isEditing?: boolean, isCreatorMode?: boolean, viewMode?: 'setup' | 'creator' | 'edit' }) {
+export default function SetupView({ onSetupComplete, onTimetableImport, initialData, isEditing = false, isCreatorMode = false, viewMode = 'setup', isGroupPlan = false }: { onSetupComplete: (userData: Partial<UserData>) => void, onTimetableImport: (importedData: any) => void, initialData?: Partial<UserData>, isEditing?: boolean, isCreatorMode?: boolean, viewMode?: 'setup' | 'creator' | 'edit', isGroupPlan?: boolean }) {
     const [mode, setMode] = useState<'welcome' | 'time-setup' | 'select' | 'manual' | 'scan'>(isEditing ? 'manual' : 'welcome');
     
-    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>(initialData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+    const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>(initialData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15, isABWeekActive: false });
     const [timetable, setTimetable] = useState<TimetableData>(initialData?.timetable && Object.keys(initialData.timetable).length > 0 ? initialData.timetable : createInitialTimetable(initialData?.timetableSettings || timetableSettings));
     const [profilePicture, setProfilePicture] = useState<string | null>(initialData?.settings?.profilePicture || null);
     
     const [isScanning, setIsScanning] = useState(false);
+    const [activeWeekTab, setActiveWeekTab] = useState<'A' | 'B'>('A');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importFileInputRef = useRef<HTMLInputElement>(null);
     const profilePicInputRef = useRef<HTMLInputElement>(null);
@@ -175,7 +189,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
 
     useEffect(() => {
         if (isEditing && initialData) {
-            setTimetableSettings(initialData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+            setTimetableSettings(initialData.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15, isABWeekActive: false });
             setTimetable(initialData.timetable || createInitialTimetable(initialData.timetableSettings || timetableSettings));
             setProfilePicture(initialData.settings?.profilePicture || null);
         }
@@ -204,11 +218,12 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                     start: slot.start,
                     ende: slot.ende,
                     hauptfach: existingEntry?.hauptfach || false,
+                    rotation: existingEntry?.rotation || 'both',
                 };
             });
         });
         setTimetable(updatedTimetable);
-    }, [timetableSettings]);
+    }, [timetableSettings.schoolStartTime, timetableSettings.schoolEndTime, timetableSettings.firstBreakDuration, timetableSettings.secondBreakDuration]);
 
     const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
@@ -254,6 +269,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                     lehrer: aiEntry.teacher || '',
                                     room: aiEntry.room || '',
                                     hauptfach: aiEntry.isMainSubject || false,
+                                    rotation: 'both'
                                 };
                             }
                         })
@@ -544,7 +560,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                  <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-2xl md:text-3xl font-black">Stundenplan-Editor</h2>
-                        <p className="text-sm text-muted-foreground">Trage deine Fächer, Lehrer und Räume ein.</p>
+                        <p className="text-sm text-muted-foreground">Verwalte Fächer, Rotation und Schulzeiten.</p>
                     </div>
                      {isCreatorMode && (
                         <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
@@ -554,13 +570,58 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                  </div>
 
                 {isEditing && (
-                     <Card className="mb-6 border-dashed">
-                        <CardContent className="flex flex-wrap gap-2 p-4">
-                             <Button variant="outline" size="sm" onClick={() => importFileInputRef.current?.click()}>
-                                <Upload className="mr-2 h-4 w-4" /> Import
+                     <Card className="mb-6 border-dashed bg-secondary/10">
+                        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+                            {/* KI Scan Action */}
+                            <Button variant="secondary" size="sm" className="font-bold gap-2" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
+                                {isScanning ? <Loader2 className="w-4 h-4 animate-spin"/> : <Camera className="w-4 h-4" />}
+                                KI-Scan
                             </Button>
-                             <Button variant="outline" size="sm" onClick={handleExport}>
-                                <Download className="mr-2 h-4 w-4" /> Export
+                            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                            
+                            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+                            {/* Rotation A/B Weeks */}
+                            <div className="flex items-center gap-2 bg-background border p-1 px-2 rounded-lg">
+                                <Label htmlFor="ab-weeks" className="text-[10px] uppercase font-black cursor-pointer">A/B Wochen</Label>
+                                <Switch 
+                                    id="ab-weeks" 
+                                    checked={timetableSettings.isABWeekActive} 
+                                    onCheckedChange={(c) => setTimetableSettings({...timetableSettings, isABWeekActive: c})}
+                                />
+                            </div>
+
+                            {/* Group Specific: Time Settings */}
+                            {isGroupPlan && (
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm" className="font-bold gap-2">
+                                            <Clock className="w-4 h-4" /> Zeiten
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Schul- & Pausenzeiten (Gruppe)</DialogTitle>
+                                            <DialogDescription>Diese Zeiten gelten für den gesamten Plan dieser Gruppe.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid grid-cols-2 gap-4 py-4">
+                                            <div className="space-y-1"><Label>Schulstart</Label><Input type="time" value={timetableSettings.schoolStartTime} onChange={e => setTimetableSettings({...timetableSettings, schoolStartTime: e.target.value})} /></div>
+                                            <div className="space-y-1"><Label>Schulende</Label><Input type="time" value={timetableSettings.schoolEndTime} onChange={e => setTimetableSettings({...timetableSettings, schoolEndTime: e.target.value})} /></div>
+                                            <div className="space-y-1"><Label>1. Pause (Min.)</Label><Input type="number" value={timetableSettings.firstBreakDuration} onChange={e => setTimetableSettings({...timetableSettings, firstBreakDuration: parseInt(e.target.value) || 0})} /></div>
+                                            <div className="space-y-1"><Label>2. Pause (Min.)</Label><Input type="number" value={timetableSettings.secondBreakDuration} onChange={e => setTimetableSettings({...timetableSettings, secondBreakDuration: parseInt(e.target.value) || 0})} /></div>
+                                        </div>
+                                        <DialogFooter><Button onClick={() => toast({title: "Zeiten temporär übernommen", description: "Speichere den Plan, um die Änderungen dauerhaft zu sichern."})}>OK</Button></DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
+
+                            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+                             <Button variant="ghost" size="sm" onClick={() => importFileInputRef.current?.click()}>
+                                <Upload className="mr-2 h-3 w-3" /> Import
+                            </Button>
+                             <Button variant="ghost" size="sm" onClick={handleExport}>
+                                <Download className="mr-2 h-3 w-3" /> Export
                             </Button>
                              <input 
                                 type="file" 
@@ -575,6 +636,18 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
 
 
                  <div className="pb-24">
+                     {/* Week Selection for A/B */}
+                     {timetableSettings.isABWeekActive && (
+                         <div className="flex justify-center mb-6">
+                            <Tabs value={activeWeekTab} onValueChange={(v: any) => setActiveWeekTab(v)} className="w-full max-w-xs">
+                                <TabsList className="grid grid-cols-2 w-full h-12 rounded-2xl p-1 bg-secondary/50">
+                                    <TabsTrigger value="A" className="rounded-xl font-black gap-2"><CalendarDays className="w-4 h-4"/> Woche A</TabsTrigger>
+                                    <TabsTrigger value="B" className="rounded-xl font-black gap-2"><RefreshCcw className="w-4 h-4"/> Woche B</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                         </div>
+                     )}
+
                      {/* Mobile View: Tabs per Day */}
                      <div className="md:hidden">
                         <Tabs defaultValue="Montag" className="w-full">
@@ -594,10 +667,23 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                     {timeSlots.map((slot, slotIndex) => {
                                         const entry = timetable[day]?.[slotIndex];
                                         if(!entry) return null;
+                                        
+                                        // Filter for A/B Weeks
+                                        if (timetableSettings.isABWeekActive && entry.rotation !== 'both' && entry.rotation !== activeWeekTab.toLowerCase()) {
+                                            // Show indicator that there is something else here? Or just show the input and let it handle rotation
+                                        }
+
                                         return (
                                             <Card key={entry.id} className="p-4 shadow-sm border-2">
                                                 <div className="flex justify-between items-center mb-3">
-                                                    <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">{slotIndex + 1}. Stunde</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">{slotIndex + 1}. Stunde</span>
+                                                        {timetableSettings.isABWeekActive && (
+                                                            <Badge variant={entry.rotation === 'both' ? 'secondary' : 'default'} className="text-[8px] h-4">
+                                                                {entry.rotation === 'both' ? 'Wöchentlich' : `Woche ${entry.rotation?.toUpperCase()}`}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                     <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded">{slot.start} - {slot.ende}</span>
                                                 </div>
                                                 <div className="grid gap-3">
@@ -630,15 +716,32 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                                             />
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2 pt-1">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            id={`hf-${entry.id}`}
-                                                            checked={!!entry.hauptfach} 
-                                                            onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
-                                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                                        />
-                                                        <Label htmlFor={`hf-${entry.id}`} className="text-xs cursor-pointer select-none">Dieses Fach ist ein <strong>Hauptfach</strong></Label>
+                                                    <div className="flex flex-wrap items-center justify-between gap-4 pt-1 border-t mt-1 pt-3">
+                                                        <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={!!entry.hauptfach} 
+                                                                onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
+                                                                className="h-4 w-4 rounded border-gray-300 text-primary"
+                                                            />
+                                                            Hauptfach
+                                                        </label>
+                                                        
+                                                        {timetableSettings.isABWeekActive && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Rotation:</Label>
+                                                                <Select value={entry.rotation || 'both'} onValueChange={(v: any) => handleInputChange(day, slotIndex, 'rotation', v)}>
+                                                                    <SelectTrigger className="h-7 text-[10px] w-28 bg-secondary/30">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="both">Jede Woche</SelectItem>
+                                                                        <SelectItem value="a">Nur Woche A</SelectItem>
+                                                                        <SelectItem value="b">Nur Woche B</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </Card>
@@ -697,15 +800,30 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                                                 className="h-7 text-[10px]"
                                                                 />
                                                         </div>
-                                                        <label className="flex items-center gap-2 text-[9px] uppercase font-black text-muted-foreground cursor-pointer pt-1 hover:text-primary transition-colors">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={!!entry.hauptfach} 
-                                                                onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
-                                                                className="rounded-sm h-3 w-3 border-gray-300"
-                                                            />
-                                                            Hauptfach
-                                                        </label>
+                                                        <div className="flex items-center justify-between gap-1 pt-1">
+                                                            <label className="flex items-center gap-1.5 text-[8px] uppercase font-black text-muted-foreground cursor-pointer hover:text-primary transition-colors">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={!!entry.hauptfach} 
+                                                                    onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)}
+                                                                    className="rounded-sm h-2.5 w-2.5 border-gray-300"
+                                                                />
+                                                                HF
+                                                            </label>
+
+                                                            {timetableSettings.isABWeekActive && (
+                                                                <Select value={entry.rotation || 'both'} onValueChange={(v: any) => handleInputChange(day, slotIndex, 'rotation', v)}>
+                                                                    <SelectTrigger className="h-5 text-[8px] p-0 px-1 border-none shadow-none w-auto bg-secondary/50">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="both" className="text-[10px]">Wöchentl.</SelectItem>
+                                                                        <SelectItem value="a" className="text-[10px]">Woche A</SelectItem>
+                                                                        <SelectItem value="b" className="text-[10px]">Woche B</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </TableCell>
                                             )
