@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check, Link2 } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check, Link2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -242,7 +241,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const handleLogout = async () => {
         if (!auth) return;
         await auth.signOut();
-        toast({ title: 'Abgemeldet', description: 'Du wurdest erfolgreich abgemeldet.' });
+        toast({ title: 'Abgemeldet', description: 'Du wurden erfolgreich abgemeldet.' });
         router.push('/');
     };
 
@@ -507,28 +506,26 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Stundenplan & Zeiten</CardTitle>
-                        <CardDescription>Verwalte deinen Stundenplan und die Schul- und Pausenzeiten.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                        <div className="space-y-1.5">
+                            <CardTitle>Stundenplan & Zeiten</CardTitle>
+                            <CardDescription>Verwalte deinen Stundenplan und die Schul- und Pausenzeiten.</CardDescription>
+                        </div>
                         {userProfile?.groupId && (
-                            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/20 mb-4 animate-in fade-in slide-in-from-top-1 duration-300">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base font-black flex items-center gap-2">
-                                        <Link2 className="h-4 w-4 text-primary" /> Gruppen-Synchronisation
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Kopple deinen Plan mit der Gruppe {userProfile.groupId}.
-                                    </p>
+                             <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 p-2 px-3 rounded-xl animate-in fade-in slide-in-from-top-1 duration-300">
+                                <div className="flex flex-col items-end mr-1">
+                                    <Label htmlFor="sync-toggle" className="text-[9px] font-black uppercase text-primary leading-none">Gruppen-Sync</Label>
+                                    <span className="text-[8px] text-muted-foreground">Echtzeit</span>
                                 </div>
                                 <Switch 
+                                    id="sync-toggle"
                                     checked={!!userProfile.groupSettings?.syncTimetable} 
                                     onCheckedChange={(v) => handleGroupSettingChange('syncTimetable', v)}
                                 />
-                            </div>
+                             </div>
                         )}
-
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className={cn("space-y-4 transition-all duration-300", isTimetableSynced && "opacity-40 grayscale pointer-events-none")}>
                             {isTimetableSynced && (
                                 <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] mb-2">
@@ -771,4 +768,3 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         </div>
     )
 }
-
