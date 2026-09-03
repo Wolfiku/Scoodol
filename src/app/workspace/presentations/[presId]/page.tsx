@@ -137,6 +137,7 @@ export default function PresentationPage() {
     const [isPresenting, setIsPresenting] = useState(false);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+    const [isEditingText, setIsEditingText] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -241,6 +242,7 @@ export default function PresentationPage() {
         newSlides[currentSlideIndex].elements.push(newElement);
         setSlides(newSlides);
         setSelectedElementId(newElement.id);
+        setIsEditingText(false);
         triggerAutoSave();
     };
 
@@ -274,6 +276,7 @@ export default function PresentationPage() {
         newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== elementId);
         setSlides(newSlides);
         setSelectedElementId(null);
+        setIsEditingText(false);
         triggerAutoSave();
     };
 
@@ -289,7 +292,17 @@ export default function PresentationPage() {
 
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
-        setSelectedElementId(element.id);
+        
+        if (selectedElementId !== element.id) {
+            setSelectedElementId(element.id);
+            setIsEditingText(false);
+        }
+
+        // If we are already editing text, don't start dragging
+        if (isEditingText && element.type === 'text') {
+            return;
+        }
+        
         setIsDragging(true);
         
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -346,6 +359,8 @@ export default function PresentationPage() {
 
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
         const isSelected = !isPreview && selectedElementId === el.id;
+        const isEditing = isSelected && isEditingText;
+
         const style: React.CSSProperties = {
             position: 'absolute',
             left: `${el.x}%`,
@@ -363,7 +378,7 @@ export default function PresentationPage() {
             alignItems: 'center',
             justifyContent: 'center',
             transition: isDragging ? 'none' : 'all 0.2s',
-            cursor: isPreview ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+            cursor: isPreview ? 'default' : (isDragging ? 'grabbing' : (isEditing ? 'text' : 'grab')),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden'
         };
@@ -378,6 +393,12 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onMouseDown={(e) => onMouseDown(e, el)}
+                onClick={(e) => {
+                    if (!isPreview && isSelected && el.type === 'text') {
+                        e.stopPropagation();
+                        setIsEditingText(true);
+                    }
+                }}
                 className={cn("group select-none", el.type === 'text' && "p-2")}
             >
                 {el.type === 'text' && (
@@ -391,11 +412,15 @@ export default function PresentationPage() {
                             textDecoration: el.styles.textDecoration || 'none',
                             color: el.styles.color || '#000000',
                             width: '100%',
-                            outline: 'none'
+                            outline: 'none',
+                            cursor: isEditing ? 'text' : 'inherit'
                         }}
-                        contentEditable={isSelected}
+                        contentEditable={isEditing}
                         suppressContentEditableWarning
-                        onBlur={(e) => updateElement(el.id, { content: e.currentTarget.innerText })}
+                        onBlur={(e) => {
+                            updateElement(el.id, { content: e.currentTarget.innerText });
+                            setIsEditingText(false);
+                        }}
                     >
                         {el.content}
                     </div>
@@ -555,6 +580,7 @@ export default function PresentationPage() {
                                 onClick={() => {
                                     setCurrentSlideIndex(idx);
                                     setSelectedElementId(null);
+                                    setIsEditingText(false);
                                 }}
                             >
                                 <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
@@ -606,7 +632,10 @@ export default function PresentationPage() {
                                     theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-white'
                                 )}
                                 onClick={(e) => {
-                                    if (e.target === canvasRef.current) setSelectedElementId(null);
+                                    if (e.target === canvasRef.current) {
+                                        setSelectedElementId(null);
+                                        setIsEditingText(false);
+                                    }
                                 }}
                             >
                                 {(currentSlide.elements || []).map(el => renderElement(el))}
