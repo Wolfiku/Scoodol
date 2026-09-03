@@ -57,6 +57,7 @@ type Homework = {
   id: string; // Firestore document ID
   subject: string;
   task: string;
+  description?: string;
   dueDate: string;
   done: boolean;
   completedAt?: number;
@@ -67,6 +68,7 @@ type GroupHomework = {
     id: string;
     subject: string;
     task: string;
+    description?: string;
     dueDate: string;
     createdBy: string;
     createdByName?: string;
@@ -98,6 +100,7 @@ export default function HomeworkPlanner() {
 
   const [newSubject, setNewSubject] = useState("");
   const [newTask, setNewTask] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [shareWithGroup, setShareWithGroup] = useState(false);
   
@@ -145,6 +148,7 @@ export default function HomeworkPlanner() {
                     id: `ghw-${ghw.id}`,
                     subject: ghw.subject,
                     task: ghw.task,
+                    description: ghw.description,
                     dueDate: ghw.dueDate,
                     done: false,
                     groupHwId: ghw.id
@@ -168,6 +172,7 @@ export default function HomeworkPlanner() {
   const resetDialogForm = () => {
       setNewSubject("");
       setNewTask("");
+      setNewDescription("");
       setNewDueDate("");
       setShareWithGroup(false);
       setEditingHomework(null);
@@ -178,6 +183,7 @@ export default function HomeworkPlanner() {
           setEditingHomework(hw);
           setNewSubject(hw.subject);
           setNewTask(hw.task);
+          setNewDescription(hw.description || "");
           setNewDueDate(hw.dueDate);
       } else {
           resetDialogForm();
@@ -196,6 +202,7 @@ export default function HomeworkPlanner() {
     const homeworkData = {
         subject: newSubject || "Allgemein",
         task: newTask,
+        description: newDescription,
         dueDate: newDueDate || "",
     };
 
@@ -251,6 +258,7 @@ export default function HomeworkPlanner() {
         const newPersonalHw = {
             subject: homework.subject,
             task: homework.task,
+            description: homework.description,
             dueDate: homework.dueDate,
             done: true,
             completedAt: Date.now(),
@@ -343,6 +351,7 @@ export default function HomeworkPlanner() {
                       addDocumentNonBlocking(homeworksRef!, {
                           subject: ghw.subject,
                           task: ghw.task,
+                          description: ghw.description,
                           dueDate: ghw.dueDate,
                           done: true,
                           completedAt: Date.now(),
@@ -442,9 +451,20 @@ export default function HomeworkPlanner() {
                         onChange={(e) => setNewTask(e.target.value)}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="task-content">Inhalt</Label>
+                    <Textarea
+                        id="task-content"
+                        placeholder="Zusätzliche Details zur Aufgabe..."
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        rows={3}
+                    />
+                  </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="task-subject">Fach (Optional)</Label>
+                    <Label htmlFor="task-subject">Fach</Label>
                     <Select value={newSubject} onValueChange={setNewSubject}>
                         <SelectTrigger id="task-subject">
                             <SelectValue placeholder="Fach wählen..." />
@@ -459,7 +479,7 @@ export default function HomeworkPlanner() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="task-date">Fälligkeitsdatum (Optional)</Label>
+                    <Label htmlFor="task-date">Fälligkeitsdatum</Label>
                     <Input
                         id="task-date"
                         type="date"
@@ -544,7 +564,8 @@ export default function HomeworkPlanner() {
                         </div>
                         {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                     </div>
-                    <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
+                    <p className="text-sm font-medium">{hw.task}</p>
+                    {hw.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{hw.description}</p>}
                   </div>
                 </div>
                 {!hw.id.startsWith('ghw-') && (
@@ -599,7 +620,8 @@ export default function HomeworkPlanner() {
                         </div>
                         {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                     </div>
-                    <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
+                    <p className="text-sm font-medium">{hw.task}</p>
+                    {hw.description && <p className="text-xs text-muted-foreground line-clamp-1">{hw.description}</p>}
                   </div>
                 </div>
                  {!hw.id.startsWith('ghw-') && (
