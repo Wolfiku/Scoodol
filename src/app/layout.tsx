@@ -8,7 +8,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { APP_VERSION } from '@/app/lib/version';
 
 export const metadata: Metadata = {
-  title: `Scoodol v${APP_VERSION} | @wolfikuproduction`,
+  title: 'Scoodol',
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
   manifest: '/manifest.webmanifest',
 };
