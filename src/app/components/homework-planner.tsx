@@ -41,7 +41,7 @@ import FocusMode, { type FocusTask } from "./tools/focus-mode";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useTheme } from "@/hooks/use-theme";
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -138,12 +138,15 @@ export default function HomeworkPlanner() {
     if (!personalHomeworks) return [];
     
     const combined: Homework[] = [...personalHomeworks];
+    const deletedGroupIds = userProfile?.settings?.deletedGroupHwIds || [];
     
     if (groupHomeworks) {
         groupHomeworks.forEach(ghw => {
-            // Check if this group task is already in personal list
+            // Check if this group task is already in personal list or marked as deleted by user
             const alreadyInList = personalHomeworks.find(phw => phw.groupHwId === ghw.id);
-            if (!alreadyInList) {
+            const isIgnored = deletedGroupIds.includes(ghw.id);
+
+            if (!alreadyInList && !isIgnored) {
                 combined.push({
                     id: `ghw-${ghw.id}`,
                     subject: ghw.subject,
@@ -158,7 +161,7 @@ export default function HomeworkPlanner() {
     }
     
     return combined;
-  }, [personalHomeworks, groupHomeworks]);
+  }, [personalHomeworks, groupHomeworks, userProfile?.settings?.deletedGroupHwIds]);
 
   const activeHomeworks = allHomeworks.filter(hw => {
     const isNotDone = !hw.done;
@@ -284,9 +287,26 @@ export default function HomeworkPlanner() {
   };
 
   const deleteHomework = (id: string) => {
-    if (!user || id.startsWith('ghw-')) return;
-    const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
-    deleteDocumentNonBlocking(docRef);
+    if (!user || !firestore) return;
+    
+    const homework = allHomeworks.find(hw => hw.id === id);
+    if (!homework) return;
+
+    // If it's a group task (either virtual ghw- or already a personal copy), add to ignore list
+    if (homework.groupHwId && userDocRef) {
+        updateDoc(userDocRef, {
+            'settings.deletedGroupHwIds': arrayUnion(homework.groupHwId)
+        });
+    }
+
+    if (id.startsWith('ghw-')) {
+        // Only needs to be added to ignore list (done above)
+        toast({ title: "Aufgabe ausgeblendet" });
+    } else {
+        const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+        deleteDocumentNonBlocking(docRef);
+        toast({ title: "Aufgabe gelöscht" });
+    }
   };
   
   const handleCameraClick = () => {
@@ -577,8 +597,8 @@ export default function HomeworkPlanner() {
                     {hw.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{hw.description}</p>}
                   </div>
                 </div>
-                {!hw.id.startsWith('ghw-') && (
-                    <div className="flex">
+                <div className="flex">
+                    {!hw.id.startsWith('ghw-') && (
                         <Button
                         variant="ghost"
                         size="icon"
@@ -587,16 +607,16 @@ export default function HomeworkPlanner() {
                         >
                         <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteHomework(hw.id)}
-                        className="shrink-0"
-                        >
-                        <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </div>
-                )}
+                    )}
+                    <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteHomework(hw.id)}
+                    className="shrink-0"
+                    >
+                    <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
               </div>
             ))
           ) : (
@@ -633,8 +653,8 @@ export default function HomeworkPlanner() {
                     {hw.description && <p className="text-xs text-muted-foreground line-clamp-1">{hw.description}</p>}
                   </div>
                 </div>
-                 {!hw.id.startsWith('ghw-') && (
-                    <div className="flex">
+                <div className="flex">
+                    {!hw.id.startsWith('ghw-') && (
                         <Button
                         variant="ghost"
                         size="icon"
@@ -643,16 +663,16 @@ export default function HomeworkPlanner() {
                         >
                         <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteHomework(hw.id)}
-                        className="shrink-0"
-                        >
-                        <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </div>
-                )}
+                    )}
+                    <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteHomework(hw.id)}
+                    className="shrink-0"
+                    >
+                    <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
               </div>
             ))}
         </CardContent>
