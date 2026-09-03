@@ -76,6 +76,7 @@ type Props = {
   timetable: TimetableData;
   timetableSettings: TimetableSettings;
   onTimetableUpdate: (timetable: TimetableData) => void;
+  currentWeek?: 'A' | 'B' | null;
 };
 
 const parseTime = (timeStr: string) => {
@@ -96,7 +97,7 @@ const formatDuration = (ms: number) => {
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
-export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate }: Props) {
+export default function ZeitplanDashboard({ setView, isPreview = false, timetable, timetableSettings, onTimetableUpdate, currentWeek }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<TimetableEntry | null>(
@@ -121,7 +122,7 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     setCurrentDayIndex(prevIndex => {
       const newIndex = prevIndex + offset;
       if (newIndex >= 0 && newIndex < weekDays.length) {
-        setManualView(null); // Reset manual view when changing day
+        setManualView(null);
         return newIndex;
       }
       return prevIndex;
@@ -130,20 +131,22 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
   
   const { schoolStartTime, schoolEndTime } = timetableSettings;
 
-  const isSchoolTime = useMemo(() => {
-    if (!now || !schoolStartTime || !schoolEndTime) return false;
-    const currentHour = now.getHours();
-    const [startHour] = schoolStartTime.split(':').map(Number);
-    const [endHour] = schoolEndTime.split(':').map(Number);
-    return currentHour >= startHour && currentHour < endHour;
-  }, [now, schoolStartTime, schoolEndTime]);
-
   useEffect(() => {
     const updateTime = () => setNow(new Date());
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const isSchoolTime = useMemo(() => {
+    if (!now || !schoolStartTime || !schoolEndTime) return false;
+    const current = now.getHours() * 60 + now.getMinutes();
+    const [startH, startM] = schoolStartTime.split(':').map(Number);
+    const [endH, endM] = schoolEndTime.split(':').map(Number);
+    const start = startH * 60 + (startM || 0);
+    const end = endH * 60 + (endM || 0);
+    return current >= start && current < end;
+  }, [now, schoolStartTime, schoolEndTime]);
 
   const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
@@ -174,18 +177,15 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     const currentMinute = now.getMinutes();
     if (currentMinute !== lastMinuteRef.current) {
         const morningEndTime = parseTime(schoolEndTime);
-        
         const diffMs = morningEndTime.getTime() - now.getTime();
         
         if (diffMs > 0) {
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
             const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-            const formattedTime = `${String(diffHours).padStart(2, '0')}:${String(diffMinutes).padStart(2, '0')}`;
-            setRemainingTime(formattedTime);
+            setRemainingTime(`${String(diffHours).padStart(2, '0')}:${String(diffMinutes).padStart(2, '0')}`);
         } else {
             setRemainingTime("00:00");
         }
-
       lastMinuteRef.current = currentMinute;
     }
   }, [now, isSchoolTime, schoolEndTime]);
@@ -214,13 +214,13 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
     }
   };
   
-    const { morningSchedule, afternoonSchedule, afternoonStartIndex, processedScheduleForDay } = useMemo(() => {
+    const { morningSchedule, afternoonSchedule, processedScheduleForDay } = useMemo(() => {
         const daySchedule = updatedTimetable[weekDays[currentDayIndex]] || [];
         
         let firstAfternoonIndex = daySchedule.findIndex(entry => {
             if(!entry.start) return false;
             const startHour = parseInt(entry.start.split(':')[0], 10);
-            return startHour >= 13; // Typical afternoon start
+            return startHour >= 13;
         });
         if(firstAfternoonIndex === -1) firstAfternoonIndex = daySchedule.length;
 
@@ -233,16 +233,13 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 i++;
                 continue;
             }
-
             let rowspan = 1;
             while (
                 i + rowspan < daySchedule.length &&
                 daySchedule[i + rowspan].fach === currentEntry.fach &&
                 daySchedule[i + rowspan].lehrer === currentEntry.lehrer &&
                 daySchedule[i + rowspan].room === currentEntry.room
-            ) {
-                rowspan++;
-            }
+            ) { rowspan++; }
             
             processedSchedule.push({
                 ...currentEntry,
@@ -250,7 +247,6 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 rowspan,
                 isContinuation: false,
             });
-
             for (let j = 1; j < rowspan; j++) {
                 processedSchedule.push({ ...daySchedule[i + j], rowspan: 0, isContinuation: true });
             }
@@ -267,24 +263,16 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             return originalIndex >= firstAfternoonIndex;
         });
 
-        return { morningSchedule: morning, afternoonSchedule: afternoon, afternoonStartIndex: firstAfternoonIndex, processedScheduleForDay: processedSchedule };
+        return { morningSchedule: morning, afternoonSchedule: afternoon, processedScheduleForDay: processedSchedule };
     }, [updatedTimetable, currentDayIndex]);
 
     const activeView = useMemo(() => {
         if (manualView) return manualView;
         if (!now) return 'morning';
-        
         const isToday = new Date().getDay() - 1 === currentDayIndex;
-        if (!isToday) {
-            return 'morning';
-        }
-
+        if (!isToday) return 'morning';
         const schoolEnd = parseTime(schoolEndTime);
-        const hasAfternoon = afternoonSchedule.length > 0;
-        
-        if (hasAfternoon && now > schoolEnd) {
-            return 'afternoon';
-        }
+        if (afternoonSchedule.length > 0 && now > schoolEnd) return 'afternoon';
         return 'morning';
     }, [now, schoolEndTime, afternoonSchedule, currentDayIndex, manualView]);
   
@@ -292,29 +280,23 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const currentSubject = useMemo(() => {
     if (!now || (new Date().getDay() -1) !== currentDayIndex) return null;
-    
-    const activeEntry = processedScheduleForDay.find((entry) => {
+    return processedScheduleForDay.find((entry) => {
       if (!entry.start || !entry.ende || entry.isContinuation) return false;
       const start = parseTime(entry.start);
       const end = parseTime(entry.ende);
       return now >= start && now < end;
-    });
-
-    return activeEntry || null;
+    }) || null;
   }, [now, processedScheduleForDay, currentDayIndex]);
 
   const detailedCountdown = useMemo(() => {
     if (!now || !isSchoolTime) return null;
-    
     const schoolEnd = parseTime(schoolEndTime);
     const msToSchoolEnd = schoolEnd.getTime() - now.getTime();
-    
     let msToLessonEnd = null;
     if (currentSubject) {
       const lessonEnd = parseTime(currentSubject.ende);
       msToLessonEnd = lessonEnd.getTime() - now.getTime();
     }
-
     return {
       schoolEnd: formatDuration(msToSchoolEnd),
       lessonEnd: msToLessonEnd !== null ? formatDuration(msToLessonEnd) : null,
@@ -339,34 +321,24 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         </div>
 
         <div className="flex flex-col gap-2 w-full sm:w-auto">
-          <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background">
+          <div className="text-right flex flex-col items-center sm:items-end p-4 rounded-lg bg-background relative">
+            {currentWeek && (
+                <Badge variant="secondary" className="absolute -top-2 -left-2 shadow-sm font-black uppercase text-[10px]">Woche {currentWeek}</Badge>
+            )}
             <div className="flex items-center gap-2 text-3xl font-bold text-foreground">
               <Clock className="w-8 h-8" />
               <span>{now ? now.toLocaleTimeString("de-DE", { hour: '2-digit', minute: '2-digit', second: '2-digit'}) : "..."}</span>
             </div>
             {isSchoolTime ? (
-              <div 
-                className="flex items-center gap-2 text-accent animate-pulse cursor-pointer hover:bg-accent/10 p-1 px-2 rounded-md transition-colors"
-                onClick={() => setIsTimerDetailOpen(true)}
-              >
+              <div className="flex items-center gap-2 text-accent animate-pulse cursor-pointer hover:bg-accent/10 p-1 px-2 rounded-md" onClick={() => setIsTimerDetailOpen(true)}>
                 <Sun className="w-5 h-5" />
-                <span className="font-semibold">
-                  {remainingTime
-                    ? `Schulende in: ${remainingTime}`
-                    : "Berechne..."}
-                </span>
+                <span className="font-semibold">{remainingTime ? `Schulende in: ${remainingTime}` : "Berechne..."}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Moon className="w-5 h-5" />
-                <span className="font-semibold">Außerhalb der Schulzeit</span>
-              </div>
+              <div className="flex items-center gap-2 text-muted-foreground"><Moon className="w-5 h-5" /><span className="font-semibold text-sm">Freizeit</span></div>
             )}
           </div>
-          <Button variant="outline" onClick={() => setView('weekly')}>
-            <Calendar className="mr-2 h-4 w-4" />
-            Wochenansicht
-          </Button>
+          <Button variant="outline" onClick={() => setView('weekly')}><Calendar className="mr-2 h-4 w-4" /> Wochenansicht</Button>
         </div>
       </header>
 
@@ -378,44 +350,12 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {dailyTimetable.map((entry) => {
           const isCurrent = currentSubject?.id === entry.id;
-          const isBreak = !entry.lehrer && entry.fach.includes("Pause");
-
-          if (isBreak) {
-            return (
-              <Card
-                key={entry.id}
-                className={`flex items-center justify-center p-4 rounded-xl bg-secondary ${
-                  isCurrent ? "ring-2 ring-accent" : ""
-                }`}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-5 h-5" /> {entry.fach}
-                  </CardTitle>
-                  <CardDescription className="text-center">
-                    {entry.start} - {entry.ende}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            );
-          }
-
           return (
-            <Card
-              key={entry.id}
-              onClick={() => handleOpenDialog(entry)}
-              className={cn(`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 rounded-xl`,
-                isCurrent && "border-accent shadow-accent/20 shadow-lg"
-              )}
-            >
+            <Card key={entry.id} onClick={() => handleOpenDialog(entry)} className={cn(`cursor-pointer transition-all duration-300 hover:shadow-lg rounded-xl`, isCurrent && "border-accent shadow-accent/20 shadow-lg")}>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-2xl font-bold">{entry.fach}</CardTitle>
-                  {entry.hauptfach ? (
-                    <Badge variant="default">Hauptfach</Badge>
-                  ) : (
-                    <Badge variant="secondary">Nebenfach</Badge>
-                  )}
+                  {entry.hauptfach ? <Badge variant="default">Hauptfach</Badge> : <Badge variant="secondary">Nebenfach</Badge>}
                 </div>
                 <CardDescription className="text-base flex items-center gap-2">
                   <span>{entry.start} - {entry.ende}</span>
@@ -423,154 +363,61 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex justify-between items-center text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  {entry.lehrer && <User className="w-4 h-4" />}
-                  <span>{entry.lehrer}</span>
-                </div>
-                 <div className="flex items-center gap-2">
-                  {entry.room && <MapPin className="w-4 h-4" />}
-                  <span>{entry.room}</span>
-                </div>
+                <div className="flex items-center gap-2">{entry.lehrer && <User className="w-4 h-4" />}<span>{entry.lehrer}</span></div>
+                 <div className="flex items-center gap-2">{entry.room && <MapPin className="w-4 h-4" />}<span>{entry.room}</span></div>
               </CardContent>
             </Card>
           );
         })}
       </div>
       {dailyTimetable.length === 0 && (
-        <Card className="text-center p-8 text-muted-foreground">
-            <p>Für den {activeView === 'morning' ? 'Vormittag' : 'Nachmittag'} ist kein Unterricht eingetragen.</p>
-        </Card>
+        <Card className="text-center p-8 text-muted-foreground"><p>Kein Unterricht eingetragen.</p></Card>
       )}
 
       {(afternoonSchedule.length > 0) && (
          <div className="mt-4 flex justify-center">
-            {activeView === 'morning' ? (
-                <Button variant="outline" onClick={() => setManualView('afternoon')}>
-                    <ArrowDown className="mr-2 h-4 w-4" />
-                    Zum Nachmittag wechseln
-                </Button>
-            ) : (
-                 <Button variant="outline" onClick={() => setManualView('morning')}>
-                    <ArrowUp className="mr-2 h-4 w-4" />
-                    Zum Vormittag wechseln
-                </Button>
-            )}
+            <Button variant="outline" onClick={() => setManualView(activeView === 'morning' ? 'afternoon' : 'morning')}>
+                {activeView === 'morning' ? <><ArrowDown className="mr-2 h-4 w-4" /> Zum Nachmittag</> : <><ArrowUp className="mr-2 h-4 w-4" /> Zum Vormittag</>}
+            </Button>
          </div>
       )}
 
 
-      <Dialog
-        open={!!selectedSubject}
-        onOpenChange={(isOpen) => !isOpen && handleCloseDialog()}
-      >
+      <Dialog open={!!selectedSubject} onOpenChange={(isOpen) => !isOpen && handleCloseDialog()}>
         <DialogContent className="sm:max-w-[425px]">
           {selectedSubject && (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center text-3xl font-bold gap-3">
-                  {selectedSubject.fach}
-                </DialogTitle>
-                <DialogDescription className="text-lg">
-                  {selectedSubject.start} - {selectedSubject.ende}
-                </DialogDescription>
-              </DialogHeader>
+              <DialogHeader><DialogTitle className="text-3xl font-bold">{selectedSubject.fach}</DialogTitle><DialogDescription>{selectedSubject.start} - {selectedSubject.ende}</DialogDescription></DialogHeader>
               <div className="grid gap-4 py-4 text-sm">
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-muted-foreground" />
-                  <span className="font-semibold">Lehrer:</span>
-                  <span>{selectedSubject.lehrer || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-muted-foreground" />
-                  <span className="font-semibold">Raum:</span>
-                  <span>{selectedSubject.room || 'N/A'}</span>
-                </div>
-                 <div className="flex items-center gap-3">
-                  {selectedSubject.hauptfach ? (
-                    <Badge variant="default">Hauptfach</Badge>
-                  ) : (
-                    <Badge variant="secondary">Nebenfach</Badge>
-                  )}
-                </div>
+                <div className="flex items-center gap-3"><User className="w-5 h-5 text-muted-foreground" /><span className="font-semibold">Lehrer:</span><span>{selectedSubject.lehrer || 'N/A'}</span></div>
+                <div className="flex items-center gap-3"><MapPin className="w-5 h-5 text-muted-foreground" /><span className="font-semibold">Raum:</span><span>{selectedSubject.room || 'N/A'}</span></div>
                 <div className="grid gap-2">
-                    <div className="flex items-center gap-3">
-                      <BookOpen className="w-5 h-5 text-muted-foreground" />
-                       <span className="font-semibold">Notizen:</span>
-                    </div>
-                    <Textarea
-                      value={editingNotes}
-                      onChange={(e) => setEditingNotes(e.target.value)}
-                      className="text-sm"
-                      rows={4}
-                      placeholder="Hier kannst du Notizen hinzufügen..."
-                    />
-                    <Button onClick={handleSaveNotes} className="mt-2" disabled={isPreview}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Notizen speichern
-                    </Button>
+                    <div className="flex items-center gap-3"><BookOpen className="w-5 h-5 text-muted-foreground" /><span className="font-semibold">Notizen:</span></div>
+                    <Textarea value={editingNotes} onChange={(e) => setEditingNotes(e.target.value)} className="text-sm" rows={4} placeholder="..." />
+                    <Button onClick={handleSaveNotes} className="mt-2" disabled={isPreview}><Save className="mr-2 h-4 w-4" /> Speichern</Button>
                   </div>
-                {selectedSubject.materialien && (
-                  <Button asChild variant="outline" className="mt-2">
-                    <a href={selectedSubject.materialien} target="_blank" rel="noopener noreferrer">
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                      Materialien öffnen
-                    </a>
-                  </Button>
-                )}
               </div>
-              <DialogFooter>
-                 <Button variant="outline" onClick={handleCloseDialog}>Schließen</Button>
-              </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Detailed Countdown Dialog */}
-      <Dialog
-        open={isTimerDetailOpen}
-        onOpenChange={setIsTimerDetailOpen}
-      >
+      <Dialog open={isTimerDetailOpen} onOpenChange={setIsTimerDetailOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
-              <Timer className="w-6 h-6 text-primary" />
-              Zeit-Details
-            </DialogTitle>
-            <DialogDescription>
-              Hier siehst du die verbleibende Zeit bis zum Ende der aktuellen Stunde und des Schultages.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl font-bold"><Timer className="w-6 h-6 text-primary" /> Zeit-Details</DialogTitle></DialogHeader>
           <div className="space-y-6 py-6">
             <div className="text-center p-6 bg-secondary/50 rounded-2xl border">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-2">Schulende in</p>
-              <p className="text-5xl font-mono font-bold text-primary tracking-tighter">
-                {detailedCountdown?.schoolEnd || "00:00:00"}
-              </p>
-              <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span>Geplantes Ende: {schoolEndTime} Uhr</span>
-              </div>
+              <p className="text-xs text-muted-foreground uppercase font-bold mb-2">Schulende in</p>
+              <p className="text-5xl font-mono font-bold text-primary tracking-tighter">{detailedCountdown?.schoolEnd || "00:00:00"}</p>
             </div>
-
             {currentSubject && (
               <div className="text-center p-6 bg-accent/5 border-accent/20 border rounded-2xl">
-                <p className="text-xs text-accent uppercase tracking-widest font-bold mb-2">Aktuelle Stunde endet in</p>
-                <p className="text-5xl font-mono font-bold text-accent tracking-tighter">
-                  {detailedCountdown?.lessonEnd || "00:00:00"}
-                </p>
-                <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-                  <Star className="w-4 h-4 text-accent" />
-                  <span className="font-medium text-foreground">{currentSubject.fach}</span>
-                  <span>•</span>
-                  <span>Ende: {currentSubject.ende} Uhr</span>
-                </div>
+                <p className="text-xs text-accent uppercase font-bold mb-2">Stunde endet in</p>
+                <p className="text-5xl font-mono font-bold text-accent tracking-tighter">{detailedCountdown?.lessonEnd || "00:00:00"}</p>
+                <p className="text-xs mt-2 text-muted-foreground">{currentSubject.fach} bis {currentSubject.ende} Uhr</p>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button className="w-full" variant="outline" onClick={() => setIsTimerDetailOpen(false)}>Schließen</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
