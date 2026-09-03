@@ -50,18 +50,21 @@ export default function GroupsPage() {
         const timetable = JSON.parse(localStorage.getItem('timetable') || '{}');
         const timetableSettings = JSON.parse(localStorage.getItem('timetableSettings') || '{}');
 
+        // Erstelle das neue Gruppendokument mit dem Ersteller als Admin
         const newGroup = {
             ...values,
             admin: user.uid,
             members: [user.uid],
             roles: {
-              [user.uid]: 'admin'
+              [user.uid]: 'admin' // Ersteller explizit als Admin setzen
             },
             timetable,
             timetableSettings
         };
 
         const groupDocRef = await addDoc(collection(firestore, 'groups'), newGroup);
+        
+        // Verknüpfe die Gruppe im Profil des Nutzers
         const userDocRef = doc(firestore, 'users', user.uid);
         await updateDoc(userDocRef, { 
             groupId: groupDocRef.id,
@@ -75,6 +78,7 @@ export default function GroupsPage() {
         toast({ title: "Gruppe erstellt!", description: "Du bist jetzt der Admin deiner neuen Gruppe." });
         router.push(`/groups/${groupDocRef.id}`);
     } catch (error) {
+        console.error("Fehler beim Erstellen der Gruppe:", error);
         toast({ variant: 'destructive', title: 'Fehler', description: 'Die Gruppe konnte nicht erstellt werden.' });
         setIsLoading(false);
     }
