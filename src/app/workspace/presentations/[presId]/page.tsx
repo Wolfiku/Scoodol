@@ -14,7 +14,7 @@ import {
     MoreHorizontal,
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
     Square, Circle, Minus, Type, 
-    BringToFront, SendToBack, GripHorizontal
+    BringToFront, SendToBack, GripHorizontal, Copy
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -280,6 +280,27 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
+    const duplicateElement = () => {
+        if (!selectedElementId || !slides[currentSlideIndex]) return;
+        const elements = slides[currentSlideIndex].elements || [];
+        const el = elements.find(e => e.id === selectedElementId);
+        if (!el) return;
+
+        const newElement: SlideElement = {
+            ...el,
+            id: 'e' + (Date.now() + Math.random()).toString(36).substr(2, 9),
+            x: el.x + 2,
+            y: el.y + 2,
+            styles: { ...el.styles, zIndex: elements.length + 1 }
+        };
+
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements.push(newElement);
+        setSlides(newSlides);
+        setSelectedElementId(newElement.id);
+        triggerAutoSave();
+    }
+
     const changeZIndex = (direction: 'front' | 'back') => {
         if (!selectedElementId || !slides[currentSlideIndex]) return;
         const elements = slides[currentSlideIndex].elements || [];
@@ -331,8 +352,9 @@ export default function PresentationPage() {
         let newX = mouseX - dragOffset.current.x;
         let newY = mouseY - dragOffset.current.y;
 
-        newX = Math.max(0, Math.min(100 - 5, newX));
-        newY = Math.max(0, Math.min(100 - 5, newY));
+        // Keep within bounds
+        newX = Math.max(-10, Math.min(110, newX));
+        newY = Math.max(-10, Math.min(110, newY));
 
         updateElement(selectedElementId, { x: newX, y: newY });
     };
@@ -379,7 +401,7 @@ export default function PresentationPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: isDragging ? 'none' : 'all 0.2s',
+            transition: isDragging ? 'none' : 'all 0.1s',
             cursor: isPreview ? 'default' : (isDragging ? 'grabbing' : (isEditing ? 'text' : 'grab')),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden'
@@ -436,7 +458,7 @@ export default function PresentationPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-background overflow-hidden" onMouseUp={onMouseUp}>
+        <div className="flex flex-col h-screen bg-background overflow-hidden" onMouseUp={onMouseUp} onMouseMove={onMouseMove}>
             <header className="bg-background border-b p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center gap-4 flex-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-5 w-5" /></Button>
@@ -499,11 +521,11 @@ export default function PresentationPage() {
                 </div>
 
                 {selectedElement ? (
-                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1">
-                        <Badge className="bg-primary/10 text-primary border-primary/20 mr-2">{selectedElement.type.toUpperCase()}</Badge>
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-1 flex-nowrap shrink-0">
+                        <Badge className="bg-primary/10 text-primary border-primary/20 mr-2 uppercase text-[10px]">{selectedElement.type}</Badge>
                         
                         {selectedElement.type === 'text' && (
-                            <div className="flex items-center gap-1 border-r pr-2">
+                            <div className="flex items-center gap-1 border-r pr-2 shrink-0">
                                 <Select value={selectedElement.styles.fontFamily} onValueChange={(v) => updateElementStyle(selectedElement.id, { fontFamily: v })}>
                                     <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
                                     <SelectContent>{FONTS.map(f => <SelectItem key={f.name} value={f.family} style={{fontFamily: f.family}}>{f.name}</SelectItem>)}</SelectContent>
@@ -521,7 +543,7 @@ export default function PresentationPage() {
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 shrink-0">
                              <div className="flex flex-col gap-1">
                                 <Label className="text-[10px] font-bold uppercase opacity-50">Farbe</Label>
                                 <DropdownMenu>
@@ -570,7 +592,10 @@ export default function PresentationPage() {
                                 </div>
                              </div>
 
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive ml-2" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="h-4 w-4"/></Button>
+                             <div className="flex items-center gap-1 border-l pl-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={duplicateElement} title="Duplizieren"><Copy className="h-4 w-4"/></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive rounded-full hover:bg-destructive/10" onClick={() => deleteElement(selectedElement.id)} title="Löschen"><Trash2 className="h-4 w-4"/></Button>
+                             </div>
                         </div>
                     </div>
                 ) : (
@@ -581,7 +606,7 @@ export default function PresentationPage() {
             </div>
 
             <main className="flex-1 flex overflow-hidden bg-secondary/10">
-                <aside className="w-64 border-r bg-background overflow-y-auto p-4 space-y-4 no-scrollbar">
+                <aside className="w-64 border-r bg-background overflow-y-auto p-4 space-y-4 no-scrollbar shrink-0">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Folien</h3>
                     {slides.map((slide, idx) => (
                         <div key={slide.id} className="relative group">
@@ -617,7 +642,7 @@ export default function PresentationPage() {
                     </Button>
                 </aside>
 
-                <section className="flex-1 overflow-auto p-12 flex flex-col items-center">
+                <section className="flex-1 overflow-auto p-4 md:p-12 flex flex-col items-center">
                     {currentSlide ? (
                         <div className="w-full max-w-5xl space-y-4">
                             <div className="flex justify-between items-end">
@@ -639,7 +664,6 @@ export default function PresentationPage() {
 
                             <div 
                                 ref={canvasRef}
-                                onMouseMove={onMouseMove}
                                 className={cn(
                                     "aspect-video w-full bg-card shadow-2xl rounded-2xl relative overflow-hidden transition-colors border-4",
                                     theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-white'
@@ -653,6 +677,7 @@ export default function PresentationPage() {
                             >
                                 {(currentSlide.elements || []).map(el => renderElement(el))}
                             </div>
+                            <p className="text-[10px] text-muted-foreground text-center italic">Auswählen: 1 Klick • Bearbeiten: 2 Klicks • Verschieben: Ziehen</p>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full opacity-50"><Loader2 className="animate-spin w-10 h-10 mb-4"/><p>Lade Folie...</p></div>
