@@ -185,6 +185,19 @@ export default function WorkspacePage() {
       setIsShareDialogOpen(true);
     }
 
+    const getItemUrl = (item: any) => {
+        let path = '';
+        switch(item.type) {
+            case 'note': path = 'notes'; break;
+            case 'document': path = 'documents'; break;
+            case 'todo': path = 'todos'; break;
+            case 'quiz': path = 'quizzes'; break;
+            case 'statistic': path = 'statistics'; break;
+            case 'presentation': path = 'presentations'; break;
+        }
+        return `/workspace/${path}/${item.id}`;
+    }
+
 
     return (
         <div className="container mx-auto p-4 md:p-8">
@@ -258,10 +271,13 @@ export default function WorkspacePage() {
                 ) : recentItems && recentItems.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {recentItems.map(item => (
-                        <Card key={item.id} className="hover:shadow-md transition-shadow flex flex-col">
-                           <div className="p-4 flex-1">
+                        <Card key={item.id} className="hover:shadow-md transition-shadow flex flex-col group">
+                           <div 
+                             className="p-4 flex-1 cursor-pointer"
+                             onClick={() => router.push(getItemUrl(item))}
+                           >
                               <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-semibold truncate pr-4">{item.title}</h3>
+                                <h3 className="font-semibold truncate pr-4 group-hover:text-primary transition-colors">{item.title}</h3>
                                 <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full whitespace-nowrap flex items-center gap-1">
                                   {item.type === 'note' && <StickyNote className="w-3 h-3" />}
                                   {item.type === 'document' && <Type className="w-3 h-3" />}
@@ -278,7 +294,7 @@ export default function WorkspacePage() {
                            </div>
                            <div className="p-2 border-t flex justify-end items-center gap-1">
                                 <Button asChild variant="ghost" size="icon">
-                                  <Link href={`/workspace/${item.type === 'note' ? 'notes' : item.type === 'document' ? 'documents' : item.type === 'todo' ? 'todos' : item.type === 'quiz' ? 'quizzes' : item.type === 'statistic' ? 'statistics' : 'presentations'}/${item.id}`} >
+                                  <Link href={getItemUrl(item)} >
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>
