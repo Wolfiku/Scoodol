@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -20,6 +20,8 @@ import {
   X,
   Pencil,
   Info,
+  Users,
+  Star,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,10 +39,11 @@ import { useToast } from "@/hooks/use-toast";
 import FocusMode, { type FocusTask } from "./tools/focus-mode";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useTheme } from "@/hooks/use-theme";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 type Homework = {
   id: string; // Firestore document ID
@@ -49,17 +52,38 @@ type Homework = {
   dueDate: string;
   done: boolean;
   completedAt?: number;
+  groupHwId?: string;
 };
+
+type GroupHomework = {
+    id: string;
+    subject: string;
+    task: string;
+    dueDate: string;
+    createdBy: string;
+    createdByName?: string;
+}
 
 export default function HomeworkPlanner() {
   const { user } = useUser();
   const firestore = useFirestore();
   
+  const userDocRef = useMemoFirebase(() => 
+    user ? doc(firestore, 'users', user.uid) : null
+  , [firestore, user]);
+  const { data: userProfile } = useDoc<any>(userDocRef);
+
   const homeworksRef = useMemoFirebase(() => 
     user ? collection(firestore, `users/${user.uid}/homeworks`) : null
   , [firestore, user]);
 
-  const { data: homeworks, isLoading: isLoadingHomeworks } = useCollection<Omit<Homework, 'id'>>(homeworksRef);
+  const { data: personalHomeworks, isLoading: isLoadingHomeworks } = useCollection<Omit<Homework, 'id'>>(homeworksRef);
+
+  const groupHomeworksRef = useMemoFirebase(() => 
+    userProfile?.groupId ? collection(firestore, `groups/${userProfile.groupId}/homeworks`) : null
+  , [firestore, userProfile?.groupId]);
+
+  const { data: groupHomeworks, isLoading: isLoadingGroupHw } = useCollection<GroupHomework>(groupHomeworksRef);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
@@ -67,6 +91,7 @@ export default function HomeworkPlanner() {
   const [newSubject, setNewSubject] = useState("");
   const [newTask, setNewTask] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [shareWithGroup, setShareWithGroup] = useState(false);
   
   const [isScanning, setIsScanning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -76,13 +101,37 @@ export default function HomeworkPlanner() {
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
 
-  const activeHomeworks = homeworks 
-    ? homeworks.filter(hw => {
-        const isNotDone = !hw.done;
-        const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
-        return isNotDone || isDoneRecently;
-      })
-    : [];
+  // Combine personal and group homeworks
+  const allHomeworks = useMemo(() => {
+    if (!personalHomeworks) return [];
+    
+    const combined: Homework[] = [...personalHomeworks];
+    
+    if (groupHomeworks) {
+        groupHomeworks.forEach(ghw => {
+            // Check if this group task is already in personal list
+            const alreadyInList = personalHomeworks.find(phw => phw.groupHwId === ghw.id);
+            if (!alreadyInList) {
+                combined.push({
+                    id: `ghw-${ghw.id}`,
+                    subject: ghw.subject,
+                    task: ghw.task,
+                    dueDate: ghw.dueDate,
+                    done: false,
+                    groupHwId: ghw.id
+                });
+            }
+        });
+    }
+    
+    return combined;
+  }, [personalHomeworks, groupHomeworks]);
+
+  const activeHomeworks = allHomeworks.filter(hw => {
+    const isNotDone = !hw.done;
+    const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
+    return isNotDone || isDoneRecently;
+  });
   
   const upcomingHomeworks = activeHomeworks.filter(hw => !hw.done);
   const doneHomeworks = activeHomeworks.filter(hw => hw.done);
@@ -91,6 +140,7 @@ export default function HomeworkPlanner() {
       setNewSubject("");
       setNewTask("");
       setNewDueDate("");
+      setShareWithGroup(false);
       setEditingHomework(null);
   }
 
@@ -114,20 +164,34 @@ export default function HomeworkPlanner() {
   const handleSaveHomework = async () => {
     if (!newTask.trim() || !user) return;
 
+    const homeworkData = {
+        subject: newSubject,
+        task: newTask,
+        dueDate: newDueDate,
+    };
+
     if (editingHomework) {
         const docRef = doc(firestore, `users/${user.uid}/homeworks`, editingHomework.id);
-        const updatedData = { subject: newSubject, task: newTask, dueDate: newDueDate };
-        updateDocumentNonBlocking(docRef, updatedData);
+        updateDocumentNonBlocking(docRef, homeworkData);
         toast({ title: 'Aufgabe aktualisiert!' });
     } else {
         const newHomework = {
-            subject: newSubject,
-            task: newTask,
-            dueDate: newDueDate,
+            ...homeworkData,
             done: false,
         };
         addDocumentNonBlocking(homeworksRef!, newHomework);
-        toast({ title: 'Neue Aufgabe hinzugefügt!' });
+        
+        // Share with group if toggled
+        if (shareWithGroup && groupHomeworksRef) {
+            addDocumentNonBlocking(groupHomeworksRef, {
+                ...homeworkData,
+                createdBy: user.uid,
+                createdByName: user.displayName || user.email?.split('@')[0] || "Anonym"
+            });
+            toast({ title: 'Aufgabe hinzugefügt und geteilt!' });
+        } else {
+            toast({ title: 'Neue Aufgabe hinzugefügt!' });
+        }
     }
     
     handleCloseDialog();
@@ -147,18 +211,34 @@ export default function HomeworkPlanner() {
   }
 
   const toggleDone = (id: string) => {
-    if (!user) return;
-    const homework = homeworks?.find(hw => hw.id === id);
+    if (!user || !firestore) return;
+    
+    const homework = allHomeworks.find(hw => hw.id === id);
     if (!homework) return;
 
-    const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
-    const isDone = !homework.done;
-    const updatedData = { done: isDone, completedAt: isDone ? Date.now() : null };
-    updateDocumentNonBlocking(docRef, updatedData);
+    if (id.startsWith('ghw-') && homework.groupHwId) {
+        // This is a group task not yet in personal list
+        // Create a personal record for it
+        const newPersonalHw = {
+            subject: homework.subject,
+            task: homework.task,
+            dueDate: homework.dueDate,
+            done: true,
+            completedAt: Date.now(),
+            groupHwId: homework.groupHwId
+        };
+        addDocumentNonBlocking(homeworksRef!, newPersonalHw);
+        toast({ title: "In deine Liste übernommen und erledigt!" });
+    } else {
+        const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+        const isDone = !homework.done;
+        const updatedData = { done: isDone, completedAt: isDone ? Date.now() : null };
+        updateDocumentNonBlocking(docRef, updatedData);
+    }
   };
 
   const deleteHomework = (id: string) => {
-    if (!user) return;
+    if (!user || id.startsWith('ghw-')) return;
     const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
     deleteDocumentNonBlocking(docRef);
   };
@@ -228,8 +308,22 @@ export default function HomeworkPlanner() {
       setIsFocusMode(false);
       if(completedTaskIds && user) {
           completedTaskIds.forEach(id => {
-              const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
-              updateDocumentNonBlocking(docRef, { done: true, completedAt: Date.now() });
+              if (id.startsWith('ghw-')) {
+                  const ghw = allHomeworks.find(h => h.id === id);
+                  if (ghw && ghw.groupHwId) {
+                      addDocumentNonBlocking(homeworksRef!, {
+                          subject: ghw.subject,
+                          task: ghw.task,
+                          dueDate: ghw.dueDate,
+                          done: true,
+                          completedAt: Date.now(),
+                          groupHwId: ghw.groupHwId
+                      });
+                  }
+              } else {
+                  const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+                  updateDocumentNonBlocking(docRef, { done: true, completedAt: Date.now() });
+              }
           });
       }
   }
@@ -242,7 +336,7 @@ export default function HomeworkPlanner() {
       return <FocusMode tasks={focusModeTasks} onExit={handleExitFocusMode} />;
   }
   
-  if (isLoadingHomeworks) {
+  if (isLoadingHomeworks || (userProfile?.groupId && isLoadingGroupHw)) {
     return (
         <Card>
             <CardHeader>
@@ -325,6 +419,20 @@ export default function HomeworkPlanner() {
                     value={newDueDate}
                     onChange={(e) => setNewDueDate(e.target.value)}
                   />
+                  
+                  {userProfile?.groupId && !editingHomework && (
+                      <div className="flex items-center space-x-2 p-2 bg-secondary/50 rounded-lg">
+                          <Switch 
+                            id="group-share" 
+                            checked={shareWithGroup} 
+                            onCheckedChange={setShareWithGroup} 
+                          />
+                          <Label htmlFor="group-share" className="flex items-center gap-2 cursor-pointer">
+                              <Users className="w-4 h-4 text-primary" />
+                              Mit der Gruppe teilen
+                          </Label>
+                      </div>
+                  )}
                 </div>
                 <DialogFooter className="pt-4 sm:pt-0">
                     <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
@@ -366,7 +474,7 @@ export default function HomeworkPlanner() {
                 className="flex items-center justify-between gap-4 p-3 rounded-md bg-secondary"
               >
                 <div 
-                  className="flex items-start gap-4 cursor-pointer"
+                  className="flex items-start gap-4 cursor-pointer flex-1"
                   onClick={() => toggleDone(hw.id)}
                 >
                   <Checkbox
@@ -375,33 +483,38 @@ export default function HomeworkPlanner() {
                     className="mt-1"
                   />
                   <div
-                    className={`grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                    className={`grid gap-1 flex-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                   >
                     <div className="flex justify-between items-baseline flex-wrap">
-                      <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                        <div className="flex items-center gap-2">
+                             <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                             {hw.groupHwId && <Star className="w-3.5 h-3.5 text-primary fill-primary" title="Gruppenaufgabe" />}
+                        </div>
                         {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                     </div>
                     <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                   </div>
                 </div>
-                <div className="flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenDialog(hw)}
-                      className="shrink-0"
-                      >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteHomework(hw.id)}
-                      className="shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                </div>
+                {!hw.id.startsWith('ghw-') && (
+                    <div className="flex">
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(hw)}
+                        className="shrink-0"
+                        >
+                        <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteHomework(hw.id)}
+                        className="shrink-0"
+                        >
+                        <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
+                )}
               </div>
             ))
           ) : (
@@ -417,7 +530,7 @@ export default function HomeworkPlanner() {
                 className="flex items-center justify-between gap-3 p-3 rounded-md bg-secondary/50"
               >
                 <div 
-                  className="flex items-start gap-3 cursor-pointer"
+                  className="flex items-start gap-3 cursor-pointer flex-1"
                   onClick={() => toggleDone(hw.id)}
                 >
                   <Checkbox
@@ -425,33 +538,38 @@ export default function HomeworkPlanner() {
                     className="mt-1"
                   />
                   <div
-                    className={`grid gap-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                    className={`grid gap-1 flex-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                   >
                     <div className="flex justify-between items-baseline flex-wrap">
-                      <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
+                            {hw.groupHwId && <Star className="w-3 h-3 text-primary fill-primary opacity-50" />}
+                        </div>
                         {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                     </div>
                     <p className="text-sm text-muted-foreground break-words">{hw.task}</p>
                   </div>
                 </div>
-                 <div className="flex">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenDialog(hw)}
-                      className="shrink-0"
-                      >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteHomework(hw.id)}
-                      className="shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                </div>
+                 {!hw.id.startsWith('ghw-') && (
+                    <div className="flex">
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(hw)}
+                        className="shrink-0"
+                        >
+                        <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteHomework(hw.id)}
+                        className="shrink-0"
+                        >
+                        <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
+                )}
               </div>
             ))}
         </CardContent>
@@ -459,7 +577,3 @@ export default function HomeworkPlanner() {
     </Card>
   );
 }
-
-    
-
-    

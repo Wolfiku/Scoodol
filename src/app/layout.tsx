@@ -5,9 +5,10 @@ import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/hooks/use-theme';
 import { PT_Sans } from 'next/font/google';
 import { FirebaseClientProvider } from '@/firebase';
+import { APP_VERSION } from '@/app/lib/version';
 
 export const metadata: Metadata = {
-  title: 'Scoodol',
+  title: `Scoodol v${APP_VERSION} | @wolfikuproduction`,
   description: 'Scoodol - Dein smarter Begleiter für den Schulalltag.',
   manifest: '/manifest.webmanifest',
 };
