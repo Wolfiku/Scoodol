@@ -101,6 +101,11 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     
     const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
+    const groupDocRef = useMemoFirebase(() => 
+        userProfile?.groupId ? doc(firestore, 'groups', userProfile.groupId) : null
+    , [firestore, userProfile?.groupId]);
+    const { data: groupData } = useDoc<any>(groupDocRef);
+
     useEffect(() => {
         setLocalTimetableSettings(timetableSettings);
     }, [timetableSettings]);
@@ -515,7 +520,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                              <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 p-2 px-3 rounded-xl animate-in fade-in slide-in-from-top-1 duration-300">
                                 <div className="flex flex-col items-end mr-1">
                                     <Label htmlFor="sync-toggle" className="text-[9px] font-black uppercase text-primary leading-none">Gruppen-Sync</Label>
-                                    <span className="text-[8px] text-muted-foreground">Echtzeit</span>
+                                    <span className="text-[8px] text-muted-foreground">{groupData?.name || 'Laden...'}</span>
                                 </div>
                                 <Switch 
                                     id="sync-toggle"
