@@ -285,7 +285,7 @@ export default function GroupDetailsPage() {
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row items-center gap-4">
                         <div className="relative flex-1 w-full">
-                            <Input inviteLink readOnly value={inviteLink} className="pr-10 bg-secondary/30" />
+                            <Input readOnly value={inviteLink} className="pr-10 bg-secondary/30" />
                             <Users className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         </div>
                         <Button onClick={copyToClipboard} className="shrink-0 w-full sm:w-auto font-bold gap-2">
