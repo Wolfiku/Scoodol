@@ -2,6 +2,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function getRole(groupId, userId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data.roles[userId];
+    }
+    
+    function isAdmin(groupId, userId) {
+      return getRole(groupId, userId) == 'admin';
+    }
+    
+    function isEditor(groupId, userId) {
+      let role = getRole(groupId, userId);
+      return role == 'admin' || role == 'bearbeiter';
+    }
+    
+    function isContributor(groupId, userId) {
+      let role = getRole(groupId, userId);
+      return role == 'admin' || role == 'bearbeiter' || role == 'berechtigt';
+    }
+
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
@@ -29,11 +47,11 @@ service cloud.firestore {
     match /groups/{groupId} {
       allow read: if request.auth != null && (request.auth.uid in resource.data.members);
       allow create: if request.auth != null;
-      allow update: if request.auth != null && (request.auth.uid == resource.data.admin || request.auth.uid in resource.data.members);
+      allow update: if request.auth != null && (isAdmin(groupId, request.auth.uid) || isEditor(groupId, request.auth.uid));
       
       match /homeworks/{hwId} {
-        allow read: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
-        allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+        allow read: if request.auth != null && (request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members);
+        allow create, update, delete: if request.auth != null && isContributor(groupId, request.auth.uid);
       }
     }
   }

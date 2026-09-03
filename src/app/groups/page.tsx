@@ -54,6 +54,9 @@ export default function GroupsPage() {
             ...values,
             admin: user.uid,
             members: [user.uid],
+            roles: {
+              [user.uid]: 'admin'
+            },
             timetable,
             timetableSettings
         };

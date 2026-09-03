@@ -23,7 +23,8 @@
             "theme": { "type": "string" },
             "startView": { "type": "string" },
             "aiLanguage": { "type": "string" },
-            "notesSlots": { "type": "object", "additionalProperties": { "type": "string" } }
+            "notesSlots": { "type": "object", "additionalProperties": { "type": "string" } },
+            "deletedGroupHwIds": { "type": "array", "items": { "type": "string" } }
           }
         },
         "timetable": { "type": "object" },
@@ -39,6 +40,13 @@
         "motto": { "type": "string" },
         "admin": { "type": "string" },
         "members": { "type": "array", "items": { "type": "string" } },
+        "roles": { 
+          "type": "object", 
+          "additionalProperties": { 
+            "type": "string", 
+            "enum": ["admin", "bearbeiter", "berechtigt", "nutzer"] 
+          } 
+        },
         "timetable": { "type": "object" },
         "timetableSettings": { "type": "object" }
       },
@@ -54,7 +62,8 @@
         "dueDate": { "type": "string", "format": "date" },
         "done": { "type": "boolean" },
         "completedAt": { "type": "number" },
-        "createdBy": { "type": "string" }
+        "createdBy": { "type": "string" },
+        "groupHwId": { "type": "string" }
       },
       "required": ["id", "task", "done"]
     },

@@ -8,6 +8,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import SetupView from '@/app/components/setup-view';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * Editor-Seite für den Stundenplan.
@@ -19,6 +20,7 @@ function EditContent() {
   const searchParams = useSearchParams();
   const id = params?.id as string;
   const groupId = searchParams.get('groupId');
+  const { toast } = useToast();
   
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -31,6 +33,16 @@ function EditContent() {
   }, [firestore, user, groupId]);
 
   const { data: targetData, isLoading: isTargetDataLoading } = useDoc<any>(targetDocRef);
+
+  useEffect(() => {
+      if (groupId && targetData && user) {
+          const userRole = targetData.roles?.[user.uid];
+          if (userRole !== 'admin' && userRole !== 'bearbeiter') {
+              toast({ variant: 'destructive', title: 'Zugriff verweigert', description: 'Du hast keine Berechtigung, den Stundenplan der Gruppe zu bearbeiten.' });
+              router.push(`/groups/${groupId}`);
+          }
+      }
+  }, [groupId, targetData, user, router, toast]);
 
   const handleSetupComplete = async (newData: any) => {
     if (!targetDocRef) return;
@@ -59,6 +71,7 @@ function EditContent() {
         }
     } catch (e) {
         console.error("Fehler beim Speichern des Stundenplans:", e);
+        toast({ variant: 'destructive', title: 'Fehler beim Speichern', description: 'Du hast eventuell keine Berechtigung für diese Aktion.' });
     }
   };
 
@@ -72,6 +85,7 @@ function EditContent() {
         window.location.reload();
     } catch (e) {
         console.error("Fehler beim Importieren:", e);
+        toast({ variant: 'destructive', title: 'Fehler beim Importieren' });
     }
   };
 

@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock } from 'lucide-react';
+import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock, ShieldCheck, ShieldAlert, ShieldInfo, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type TimetableEntry = {
     id: string;
@@ -33,12 +34,15 @@ type TimetableData = {
     [key: string]: TimetableEntry[];
 };
 
+type GroupRole = 'admin' | 'bearbeiter' | 'berechtigt' | 'nutzer';
+
 type Group = {
   name: string;
   schoolName: string;
   motto?: string;
   admin: string;
   members: string[];
+  roles: Record<string, GroupRole>;
   timetable: TimetableData;
   timetableSettings: any;
 }
@@ -143,6 +147,19 @@ export default function GroupDetailsPage() {
       if (!groupDocRef || !firestore) return;
       const hwRef = doc(firestore, `groups/${groupId}/homeworks`, id);
       deleteDocumentNonBlocking(hwRef);
+      toast({ title: "Hausaufgabe für alle gelöscht" });
+  }
+
+  const handleRoleChange = async (uid: string, newRole: GroupRole) => {
+      if (!groupDocRef) return;
+      try {
+          await updateDoc(groupDocRef, {
+              [`roles.${uid}`]: newRole
+          });
+          toast({ title: "Rolle aktualisiert" });
+      } catch (e) {
+          toast({ variant: 'destructive', title: "Fehler beim Aktualisieren der Rolle" });
+      }
   }
 
   const isLoading = isUserLoading || isLoadingGroup || isLoadingMembers;
@@ -172,9 +189,22 @@ export default function GroupDetailsPage() {
     );
   }
 
-  const isGroupAdmin = user.uid === group.admin;
+  const userRole = group.roles[user.uid] || 'nutzer';
+  const isGroupAdmin = userRole === 'admin';
+  const canEditTimetable = userRole === 'admin' || userRole === 'bearbeiter';
+  const canManageHomework = userRole === 'admin' || userRole === 'bearbeiter' || userRole === 'berechtigt';
+
   const todayName = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][new Date().getDay()];
   const todaySchedule = group.timetable?.[todayName] || [];
+
+  const getRoleIcon = (role: GroupRole) => {
+      switch(role) {
+          case 'admin': return <ShieldAlert className="h-3 w-3 text-red-500" />;
+          case 'bearbeiter': return <ShieldCheck className="h-3 w-3 text-blue-500" />;
+          case 'berechtigt': return <ShieldInfo className="h-3 w-3 text-green-500" />;
+          default: return <Shield className="h-3 w-3 text-muted-foreground" />;
+      }
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-6xl pb-24">
@@ -191,10 +221,15 @@ export default function GroupDetailsPage() {
                     </div>
                 </div>
             </div>
-            <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5 px-3 py-1">
-                <Users className="h-3.5 w-3.5" />
-                <span>{group.members.length} Mitglieder</span>
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+                <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1">
+                    <Users className="h-3.5 w-3.5" />
+                    <span>{group.members.length} Mitglieder</span>
+                </Badge>
+                <div className="flex items-center gap-1 text-[10px] uppercase font-black text-muted-foreground">
+                    Deine Rolle: <span className="text-primary">{userRole}</span>
+                </div>
+            </div>
         </div>
 
         {group.motto && (
@@ -212,27 +247,25 @@ export default function GroupDetailsPage() {
 
         <TabsContent value="overview" className="space-y-8">
             <div className="grid gap-8 md:grid-cols-2">
-                {isGroupAdmin && (
-                    <Card className="md:col-span-2 border-primary/20 shadow-md">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Plus className="h-5 w-5 text-primary" />
-                                Gruppe verwalten
-                            </CardTitle>
-                            <CardDescription>Lade deine Mitschüler mit diesem Link in die Gruppe ein.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-                            <div className="relative flex-1 w-full">
-                                <Input value={inviteLink} readOnly className="pr-10 bg-secondary/30" />
-                                <Users className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <Button onClick={copyToClipboard} className="shrink-0 w-full sm:w-auto font-bold gap-2">
-                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                Link kopieren
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
+                <Card className="md:col-span-2 border-primary/20 shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Plus className="h-5 w-5 text-primary" />
+                            Gruppe teilen
+                        </CardTitle>
+                        <CardDescription>Lade deine Mitschüler mit diesem Link in die Gruppe ein.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                        <div className="relative flex-1 w-full">
+                            <Input value={inviteLink} readOnly className="pr-10 bg-secondary/30" />
+                            <Users className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <Button onClick={copyToClipboard} className="shrink-0 w-full sm:w-auto font-bold gap-2">
+                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            Link kopieren
+                        </Button>
+                    </CardContent>
+                </Card>
 
                 <Card className="shadow-sm">
                     <CardHeader>
@@ -277,25 +310,46 @@ export default function GroupDetailsPage() {
                             <Users className="h-5 w-5 text-primary" />
                             Mitglieder ({members.length})
                         </CardTitle>
+                        <CardDescription>Hier siehst du, wer in der Gruppe ist.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ScrollArea className="h-64 pr-4">
                             <div className="space-y-4">
-                                {members.map((member) => (
-                                    <div key={member.id} className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10 border-2 border-background ring-2 ring-primary/5">
-                                                <AvatarImage src={member.settings?.profilePicture} />
-                                                <AvatarFallback className="bg-primary/10 text-primary"><User className="h-5 w-5" /></AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <p className="font-bold text-sm leading-tight">{member.displayName || 'Anonymer Nutzer'}</p>
-                                                {member.id === group.admin && <span className="text-[9px] uppercase font-black text-primary">Gruppen-Admin</span>}
+                                {members.map((member) => {
+                                    const mRole = group.roles[member.id] || 'nutzer';
+                                    return (
+                                        <div key={member.id} className="flex items-center justify-between group">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-10 w-10 border-2 border-background ring-2 ring-primary/5">
+                                                    <AvatarImage src={member.settings?.profilePicture} />
+                                                    <AvatarFallback className="bg-primary/10 text-primary"><User className="h-5 w-5" /></AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-bold text-sm leading-tight">{member.displayName || 'Anonymer Nutzer'}</p>
+                                                    <div className="flex items-center gap-1 text-[9px] uppercase font-black text-muted-foreground mt-0.5">
+                                                        {getRoleIcon(mRole)}
+                                                        {mRole}
+                                                    </div>
+                                                </div>
                                             </div>
+                                            {isGroupAdmin && member.id !== user.uid ? (
+                                                <Select value={mRole} onValueChange={(v: GroupRole) => handleRoleChange(member.id, v)}>
+                                                    <SelectTrigger className="h-7 text-[10px] w-32 font-bold uppercase rounded-full">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="admin">Admin</SelectItem>
+                                                        <SelectItem value="bearbeiter">Bearbeiter</SelectItem>
+                                                        <SelectItem value="berechtigt">Berechtigt</SelectItem>
+                                                        <SelectItem value="nutzer">Nutzer</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <div className="h-2 w-2 rounded-full bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            )}
                                         </div>
-                                        <div className="h-2 w-2 rounded-full bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </ScrollArea>
                     </CardContent>
@@ -310,7 +364,7 @@ export default function GroupDetailsPage() {
                         <CardTitle>Gruppen-Stundenplan</CardTitle>
                         <CardDescription>Dieser Plan gilt für alle Mitglieder der Gruppe.</CardDescription>
                     </div>
-                    {isGroupAdmin && (
+                    {canEditTimetable && (
                         <Button variant="outline" onClick={() => router.push(`/edit/timetable?groupId=${groupId}`)} className="font-bold">
                             Plan bearbeiten
                         </Button>
@@ -337,37 +391,39 @@ export default function GroupDetailsPage() {
                         </CardTitle>
                         <CardDescription>Aufgaben, die von Mitgliedern für die ganze Klasse geteilt wurden.</CardDescription>
                     </div>
-                    <Dialog open={isHwDialogOpen} onOpenChange={setIsHwDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="bg-accent hover:bg-accent/90 text-white font-bold">
-                                <Plus className="mr-2 h-4 w-4" /> Aufgabe teilen
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Hausaufgabe für die Gruppe hinzufügen</DialogTitle>
-                                <DialogDescription>Diese Aufgabe wird für alle Mitglieder in diesem Dashboard sichtbar.</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Fach</Label>
-                                    <Input placeholder="z.B. Mathe" value={newHwSubject} onChange={e => setNewHwSubject(e.target.value)} />
+                    {canManageHomework && (
+                        <Dialog open={isHwDialogOpen} onOpenChange={setIsHwDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="bg-accent hover:bg-accent/90 text-white font-bold">
+                                    <Plus className="mr-2 h-4 w-4" /> Aufgabe teilen
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Hausaufgabe für die Gruppe hinzufügen</DialogTitle>
+                                    <DialogDescription>Diese Aufgabe wird für alle Mitglieder in diesem Dashboard sichtbar.</DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Fach</Label>
+                                        <Input placeholder="z.B. Mathe" value={newHwSubject} onChange={e => setNewHwSubject(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Aufgabe</Label>
+                                        <Textarea placeholder="Was ist zu tun?" value={newHwTask} onChange={e => setNewHwTask(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Fällig am</Label>
+                                        <Input type="date" value={newHwDue} onChange={e => setNewHwDue(e.target.value)} />
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Aufgabe</Label>
-                                    <Textarea placeholder="Was ist zu tun?" value={newHwTask} onChange={e => setNewHwTask(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Fällig am</Label>
-                                    <Input type="date" value={newHwDue} onChange={e => setNewHwDue(e.target.value)} />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsHwDialogOpen(false)}>Abbrechen</Button>
-                                <Button onClick={handleAddHw} className="bg-accent text-white">Jetzt teilen</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsHwDialogOpen(false)}>Abbrechen</Button>
+                                    <Button onClick={handleAddHw} className="bg-accent text-white">Jetzt teilen</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-4">
@@ -386,7 +442,7 @@ export default function GroupDetailsPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {(isGroupAdmin || hw.createdBy === user.uid) && (
+                                        {canManageHomework && (
                                             <Button variant="ghost" size="icon" onClick={() => deleteHw(hw.id)} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>

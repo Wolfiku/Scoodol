@@ -58,7 +58,8 @@ export default function JoinGroupPage() {
     try {
         const groupRef = doc(firestore, 'groups', groupId);
         await updateDoc(groupRef, {
-            members: arrayUnion(user.uid)
+            members: arrayUnion(user.uid),
+            [`roles.${user.uid}`]: 'nutzer'
         });
 
         const userRef = doc(firestore, 'users', user.uid);
@@ -81,7 +82,7 @@ export default function JoinGroupPage() {
 
   if (!group) {
     return (
-         <div className="container mx-auto p-4 md:p-8 max-w-lg text-center">
+         <div className="container mx-auto p-4 md:p-8 max-lg text-center">
              <Card>
                  <CardHeader><CardTitle>Ungültiger Link</CardTitle></CardHeader>
                  <CardContent>
