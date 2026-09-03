@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock, ShieldCheck, ShieldAlert, ShieldInfo, Shield } from 'lucide-react';
+import { Loader2, ArrowLeft, Copy, User, Check, Users, Calendar, ListChecks, Plus, Trash2, Camera, Info, GraduationCap, MapPin, Clock, ShieldCheck, ShieldAlert, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -201,7 +201,7 @@ export default function GroupDetailsPage() {
       switch(role) {
           case 'admin': return <ShieldAlert className="h-3 w-3 text-red-500" />;
           case 'bearbeiter': return <ShieldCheck className="h-3 w-3 text-blue-500" />;
-          case 'berechtigt': return <ShieldInfo className="h-3 w-3 text-green-500" />;
+          case 'berechtigt': return <Shield className="h-3 w-3 text-green-500" />;
           default: return <Shield className="h-3 w-3 text-muted-foreground" />;
       }
   }
