@@ -73,7 +73,7 @@ export default function Page() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { startView } = useTheme();
+  const { startView, updateSettings } = useTheme();
 
   const [view, setView] = useState('');
   const [manualWeekToggle, setManualWeekToggle] = useState<'A' | 'B' | null>(null);
@@ -112,35 +112,66 @@ export default function Page() {
     return data;
   }, []);
 
+  const hasLocalData = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const tt = localStorage.getItem('timetable');
+    return !!tt && tt !== '{}';
+  }, []);
+
   useEffect(() => {
     if (isUserLoading) return;
+    
+    // Redirect to login only if accessing protected routes, otherwise allow root for Welcome/Guest view
     if (!user || user.isAnonymous) {
-        if (!pathname.startsWith('/login') && !pathname.startsWith('/register') && !pathname.startsWith('/public')) {
+        if (pathname.startsWith('/workspace') || pathname.startsWith('/admin') || pathname.startsWith('/account')) {
             router.replace('/login');
+        }
+        // Root page handling for unauthenticated
+        if (pathname === '/' && !view) {
+            if (hasLocalData) setView('daily');
+            else setView(''); // Triggers SetupView below
         }
         return;
     }
+
     if (!view && !isUserDataLoading) {
         if (userData?.settings?.startView) setView(userData.settings.startView);
         else setView('daily');
     }
-  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view]);
+  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view, hasLocalData]);
 
   const updateUserData = async (data: Partial<UserData>) => {
-    if (!userDocRef) return;
+    if (!userDocRef) {
+        // Guest mode: save to local storage
+        if (data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
+        if (data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
+        return;
+    };
     const cleaned = cleanData(data);
     await setDoc(userDocRef, cleaned, { merge: true });
   };
 
   const handleSetupComplete = async (newUserData: Partial<UserData>) => {
-    if (!userDocRef) return;
+    if (!userDocRef) {
+        // Guest mode: Save data locally
+        if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
+        if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+        if (newUserData.settings?.profilePicture) localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
+        setView('daily');
+        return;
+    }
     const cleaned = cleanData(newUserData);
     await setDoc(userDocRef, cleaned, { merge: true });
     setView(startView || 'daily');
   };
 
   const handleTimetableImport = (importedData: any) => {
-    if (!userDocRef) return;
+    if (!userDocRef) {
+        localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
+        localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
+        window.location.reload();
+        return;
+    }
     const dataToSave = cleanData({
       timetable: importedData.timetable,
       timetableSettings: importedData.timetableSettings,
@@ -159,17 +190,39 @@ export default function Page() {
 
   const effectiveTimetable = useMemo(() => {
     if (isPreviewMode) return previewTimetableData;
-    const raw = isTimetableSynced ? groupData?.timetable : (userData?.timetable || {});
-    // @ts-ignore
-    if (raw?.weekA) {
-        return currentWeekType === 'A' ? (raw as any).weekA : (raw as any).weekB;
+    if (isTimetableSynced) return groupData?.timetable;
+    
+    const raw = userData?.timetable;
+    if (raw) {
+        // @ts-ignore
+        if (raw.weekA) return currentWeekType === 'A' ? (raw as any).weekA : (raw as any).weekB;
+        return raw as TimetableData;
     }
-    return raw as TimetableData;
+
+    // Guest fallback
+    if (typeof window !== 'undefined') {
+        const local = localStorage.getItem('timetable');
+        if (local) {
+            const parsed = JSON.parse(local);
+            if (parsed.weekA) return currentWeekType === 'A' ? parsed.weekA : parsed.weekB;
+            return parsed;
+        }
+    }
+    return {};
   }, [userData, isPreviewMode, currentWeekType, isTimetableSynced, groupData]);
 
   const effectiveSettings = useMemo(() => {
     if (isPreviewMode) return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
-    return isTimetableSynced ? groupData?.timetableSettings : (userData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+    if (isTimetableSynced) return groupData?.timetableSettings;
+    
+    if (userData?.timetableSettings) return userData.timetableSettings;
+
+    // Guest fallback
+    if (typeof window !== 'undefined') {
+        const local = localStorage.getItem('timetableSettings');
+        if (local) return JSON.parse(local);
+    }
+    return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
   }, [userData, isPreviewMode, isTimetableSynced, groupData]);
 
   if (isUserLoading || (user && isUserDataLoading && !view)) {
@@ -181,32 +234,34 @@ export default function Page() {
     );
   }
 
-  if (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0)) {
+  // Show setup if no data exists (for both users and guests)
+  const hasNoData = (!user && !hasLocalData) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0));
+  
+  if (!view && hasNoData) {
     return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />;
   }
 
   const renderView = () => {
     switch(view) {
       case 'daily': return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} onTimetableUpdate={(nt) => {
-          if (isTimetableSynced) return; // Cannot manually update if synced
-          if (userData?.timetableSettings?.isABWeekActive) {
-              const fullTimetable = userData.timetable as any;
+          if (isTimetableSynced) return;
+          const isAB = userData?.timetableSettings?.isABWeekActive || (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('timetableSettings') || '{}').isABWeekActive);
+          if (isAB) {
+              const fullTimetable = userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {});
               const updated = currentWeekType === 'A' ? { ...fullTimetable, weekA: nt } : { ...fullTimetable, weekB: nt };
               updateUserData({ timetable: updated });
           } else {
               updateUserData({ timetable: nt });
           }
-      }} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : userData?.timetableSettings?.isABWeekActive) ? currentWeekType : null} />;
-      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : userData?.timetableSettings?.isABWeekActive) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
+      }} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : (userData?.timetableSettings?.isABWeekActive || effectiveSettings.isABWeekActive)) ? currentWeekType : null} />;
+      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : (userData?.timetableSettings?.isABWeekActive || effectiveSettings.isABWeekActive)) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
       case 'homework': return <HomeworkPlanner />;
       case 'smart-tool': return <SmartToolsView />;
       case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={isTimetableSynced} />;
-      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable, timetableSettings: userData?.timetableSettings }} isEditing={true} viewMode="edit" />;
+      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {}), timetableSettings: effectiveSettings }} isEditing={true} viewMode="edit" />;
       default: return null;
     }
   }
-
-  if (!user) return null;
 
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
@@ -222,4 +277,3 @@ export default function Page() {
     </main>
   );
 }
-
