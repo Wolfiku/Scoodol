@@ -15,7 +15,7 @@ import SetupView from './components/setup-view';
 import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { APP_VERSION } from '@/app/lib/version';
+import { APP_VERSION } from '@/lib/version';
 
 type TimetableEntry = {
   id: string;
@@ -136,39 +136,56 @@ export default function Page() {
 
     if (!view && !isUserDataLoading) {
         if (userData?.settings?.startView) setView(userData.settings.startView);
-        else setView('daily');
+        else {
+            // Fallback to cache while doc is potentially still empty/missing fields
+            const cachedStartView = localStorage.getItem('startView');
+            setView(cachedStartView || 'daily');
+        }
+    }
+    
+    // Early view setting if we have cache
+    if (!view && isUserDataLoading && hasLocalData) {
+        const cachedStartView = localStorage.getItem('startView');
+        setView(cachedStartView || 'daily');
     }
   }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view, hasLocalData]);
 
   const updateUserData = async (data: Partial<UserData>) => {
-    if (!userDocRef) {
-        // Guest mode: save to local storage
+    // Always update local cache first
+    if (typeof window !== 'undefined') {
         if (data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
         if (data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
-        return;
-    };
+        if (data.settings?.startView) localStorage.setItem('startView', data.settings.startView);
+    }
+
+    if (!userDocRef) return;
     const cleaned = cleanData(data);
     await setDoc(userDocRef, cleaned, { merge: true });
   };
 
   const handleSetupComplete = async (newUserData: Partial<UserData>) => {
-    if (!userDocRef) {
-        // Guest mode: Save data locally
+    // Update cache
+    if (typeof window !== 'undefined') {
         if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
         if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
         if (newUserData.settings?.profilePicture) localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
-        setView('daily');
-        return;
+        if (newUserData.settings?.startView) localStorage.setItem('startView', newUserData.settings.startView);
     }
-    const cleaned = cleanData(newUserData);
-    await setDoc(userDocRef, cleaned, { merge: true });
-    setView(startView || 'daily');
+
+    if (userDocRef) {
+        const cleaned = cleanData(newUserData);
+        await setDoc(userDocRef, cleaned, { merge: true });
+    }
+    setView(newUserData.settings?.startView || startView || 'daily');
   };
 
   const handleTimetableImport = (importedData: any) => {
-    if (!userDocRef) {
+    if (typeof window !== 'undefined') {
         localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
         localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
+    }
+    
+    if (!userDocRef) {
         window.location.reload();
         return;
     }
@@ -199,13 +216,15 @@ export default function Page() {
         return raw as TimetableData;
     }
 
-    // Guest fallback
+    // Guest / Cache fallback
     if (typeof window !== 'undefined') {
         const local = localStorage.getItem('timetable');
         if (local) {
-            const parsed = JSON.parse(local);
-            if (parsed.weekA) return currentWeekType === 'A' ? parsed.weekA : parsed.weekB;
-            return parsed;
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed.weekA) return currentWeekType === 'A' ? parsed.weekA : parsed.weekB;
+                return parsed;
+            } catch (e) { return {}; }
         }
     }
     return {};
@@ -217,15 +236,18 @@ export default function Page() {
     
     if (userData?.timetableSettings) return userData.timetableSettings;
 
-    // Guest fallback
+    // Guest / Cache fallback
     if (typeof window !== 'undefined') {
         const local = localStorage.getItem('timetableSettings');
-        if (local) return JSON.parse(local);
+        if (local) {
+            try { return JSON.parse(local); } catch (e) {}
+        }
     }
     return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
   }, [userData, isPreviewMode, isTimetableSynced, groupData]);
 
-  if (isUserLoading || (user && isUserDataLoading && !view)) {
+  // Show loader only if we have NO data at all and we are loading
+  if (isUserLoading || (user && isUserDataLoading && !view && !hasLocalData)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -235,7 +257,7 @@ export default function Page() {
   }
 
   // Show setup if no data exists (for both users and guests)
-  const hasNoData = (!user && !hasLocalData) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0));
+  const hasNoData = (!user && !hasLocalData) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0) && !hasLocalData);
   
   if (!view && hasNoData) {
     return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />;
@@ -245,7 +267,7 @@ export default function Page() {
     switch(view) {
       case 'daily': return <ZeitplanDashboard setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} onTimetableUpdate={(nt) => {
           if (isTimetableSynced) return;
-          const isAB = userData?.timetableSettings?.isABWeekActive || (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('timetableSettings') || '{}').isABWeekActive);
+          const isAB = effectiveSettings.isABWeekActive;
           if (isAB) {
               const fullTimetable = userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {});
               const updated = currentWeekType === 'A' ? { ...fullTimetable, weekA: nt } : { ...fullTimetable, weekB: nt };
@@ -253,8 +275,8 @@ export default function Page() {
           } else {
               updateUserData({ timetable: nt });
           }
-      }} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : (userData?.timetableSettings?.isABWeekActive || effectiveSettings.isABWeekActive)) ? currentWeekType : null} />;
-      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : (userData?.timetableSettings?.isABWeekActive || effectiveSettings.isABWeekActive)) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
+      }} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : effectiveSettings.isABWeekActive) ? currentWeekType : null} />;
+      case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : effectiveSettings.isABWeekActive) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
       case 'homework': return <HomeworkPlanner />;
       case 'smart-tool': return <SmartToolsView />;
       case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={isTimetableSynced} />;

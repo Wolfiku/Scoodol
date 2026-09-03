@@ -59,7 +59,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     let initialAiLanguage = 'German';
     let initialBeta = false;
 
-    // Local-first approach
+    // Local-first approach (Load from cache immediately)
     try {
         const localTheme = localStorage.getItem('theme');
         if (localTheme) initialTheme = localTheme;
@@ -97,16 +97,19 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       if (newSettings.aiLanguage) setAiLanguageState(newSettings.aiLanguage);
       if (newSettings.betaFeaturesEnabled !== undefined) setBetaFeaturesEnabledState(newSettings.betaFeaturesEnabled);
 
-      // Sync with the correct persistence layer
-      if (user && !user.isAnonymous && settingsDocRef) {
-          const currentSettings = userSettingsDoc?.settings || {};
-          const settingsToUpdate = { settings: { ...currentSettings, ...newSettings }};
-          setDoc(settingsDocRef, settingsToUpdate, { merge: true });
-      } else {
+      // ALWAYS update local storage cache immediately
+      if (typeof window !== 'undefined') {
           if (newSettings.theme) localStorage.setItem('theme', newSettings.theme);
           if (newSettings.startView) localStorage.setItem('startView', newSettings.startView);
           if (newSettings.aiLanguage) localStorage.setItem('aiLanguage', newSettings.aiLanguage);
           if (newSettings.betaFeaturesEnabled !== undefined) localStorage.setItem('betaFeaturesEnabled', String(newSettings.betaFeaturesEnabled));
+      }
+
+      // Sync with Firestore if logged in
+      if (user && !user.isAnonymous && settingsDocRef) {
+          const currentSettings = userSettingsDoc?.settings || {};
+          const settingsToUpdate = { settings: { ...currentSettings, ...newSettings }};
+          setDoc(settingsDocRef, settingsToUpdate, { merge: true });
       }
   }
 
