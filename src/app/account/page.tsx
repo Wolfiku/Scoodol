@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,10 +13,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { Loader2, ArrowLeft, Lock, Ghost, School, User as UserIcon, Mail, ShieldCheck } from 'lucide-react';
-import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { Loader2, ArrowLeft, Lock, Ghost, School, User as UserIcon, Mail, ShieldCheck, Trash2, AlertTriangle } from 'lucide-react';
+import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from 'firebase/auth';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 
@@ -39,7 +41,8 @@ export default function AccountPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isReauthDialogOpen, setIsReauthDialogOpen] = useState(false);
-  const [reauthType, setReauthType] = useState<'email' | 'password'>('email');
+  const [isDeleteFirstConfirmOpen, setIsDeleteFirstConfirmOpen] = useState(false);
+  const [reauthType, setReauthType] = useState<'email' | 'password' | 'delete'>('email');
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -83,7 +86,6 @@ export default function AccountPage() {
 
     const { displayName, email, isOffline, managementId } = values;
 
-    // Handle profile and settings updates (Firestore)
     try {
         const updates: any = {
             displayName,
@@ -97,7 +99,6 @@ export default function AccountPage() {
             await updateProfile(user, { displayName });
         }
 
-        // Email change requires re-auth
         if (email !== user.email && email) {
             setNewEmail(email);
             setReauthType('email');
@@ -139,6 +140,14 @@ export default function AccountPage() {
             toast({ title: "Passwort geändert!", description: "Dein neues Passwort ist nun aktiv." });
             setNewPassword('');
             setConfirmPassword('');
+        } else if (reauthType === 'delete') {
+            // Delete Firestore doc first
+            await deleteDoc(doc(firestore, 'users', user.uid));
+            // Then delete user account
+            await deleteUser(user);
+            toast({ title: "Account gelöscht", description: "Deine Daten wurden vollständig entfernt." });
+            router.push('/');
+            return;
         }
 
         setIsReauthDialogOpen(false);
@@ -169,6 +178,16 @@ export default function AccountPage() {
       setIsReauthDialogOpen(true);
   }
 
+  const handleDeleteAccountRequest = () => {
+      setIsDeleteFirstConfirmOpen(true);
+  }
+
+  const proceedToDeleteFinal = () => {
+      setIsDeleteFirstConfirmOpen(false);
+      setReauthType('delete');
+      setIsReauthDialogOpen(true);
+  }
+
   if (isUserLoading || isProfileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -189,7 +208,7 @@ export default function AccountPage() {
           <DialogHeader>
             <DialogTitle>Bestätige deine Identität</DialogTitle>
             <DialogDescription>
-              Um sensible Daten zu ändern, gib bitte dein **aktuelles Passwort** ein.
+              Um {reauthType === 'delete' ? 'deinen Account zu löschen' : 'sensible Daten zu ändern'}, gib bitte dein **aktuelles Passwort** ein.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -202,12 +221,34 @@ export default function AccountPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsReauthDialogOpen(false)}>Abbrechen</Button>
-            <Button onClick={handleReauthenticate} disabled={isLoading}>
-              {isLoading ? <Loader2 className="animate-spin" /> : 'Bestätigen'}
+            <Button 
+                variant={reauthType === 'delete' ? 'destructive' : 'default'}
+                onClick={handleReauthenticate} 
+                disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="animate-spin" /> : (reauthType === 'delete' ? 'Endgültig löschen' : 'Bestätigen')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteFirstConfirmOpen} onOpenChange={setIsDeleteFirstConfirmOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="h-5 w-5" />
+                    Bist du dir sicher?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                    Wenn du deinen Account löschst, werden alle deine Daten (Stundenplan, Hausaufgaben, Dokumente) unwiderruflich entfernt. Dies kann nicht rückgängig gemacht werden.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction onClick={proceedToDeleteFinal} className="bg-destructive text-white hover:bg-destructive/90">Ja, weiter zur Bestätigung</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
@@ -344,6 +385,21 @@ export default function AccountPage() {
                 </div>
                 <Button variant="secondary" className="w-full" onClick={openPasswordChange} disabled={isLoading || !newPassword}>
                     <ShieldCheck className="mr-2 h-4 w-4" /> Passwort jetzt ändern
+                </Button>
+            </CardContent>
+        </Card>
+
+        <Card className="border-destructive/50 bg-destructive/5">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                    <Trash2 className="h-5 w-5" />
+                    Gefahrenzone
+                </CardTitle>
+                <CardDescription>Hier kannst du deinen gesamten Scoodol-Account unwiderruflich löschen.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button variant="destructive" className="w-full" onClick={handleDeleteAccountRequest} disabled={isLoading}>
+                    Account jetzt unwiderruflich löschen
                 </Button>
             </CardContent>
         </Card>
