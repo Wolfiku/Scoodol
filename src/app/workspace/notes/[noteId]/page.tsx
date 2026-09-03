@@ -62,7 +62,9 @@ interface LinkItem {
     url: string;
 }
 
-const PROTOCOL_HEADER_REGEX = /^# Protokoll: (.*) vom (.*)\n\*\*Thema:\*\* (.*)\n\n/;
+const MARKER_LINKS = '<!-- SCOODOL_TYPE:LINKS -->';
+const MARKER_PROTOCOL = '<!-- SCOODOL_TYPE:PROTOCOL -->';
+const MARKER_STUDY = '<!-- SCOODOL_TYPE:STUDY -->';
 
 function NoteEditor() {
   const router = useRouter();
@@ -70,7 +72,7 @@ function NoteEditor() {
   const searchParams = useSearchParams();
   const noteId = params?.noteId as string;
   const isNewNote = noteId === 'new';
-  const templateType = searchParams.get('template');
+  const urlTemplate = searchParams.get('template');
 
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -80,6 +82,8 @@ function NoteEditor() {
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [activeTemplate, setActiveTemplate] = useState<string | null>(urlTemplate);
+  
   const [isEditing, setIsEditing] = useState(isNewNote);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -115,30 +119,37 @@ function NoteEditor() {
 
   // Apply templates for new notes
   useEffect(() => {
-    if (isNewNote && templateType && content === '') {
-        if (templateType === 'study') {
+    if (isNewNote && urlTemplate && content === '') {
+        setActiveTemplate(urlTemplate);
+        if (urlTemplate === 'study') {
             setTitle('Lernzettel: [Thema]');
             setContent('### 💡 Kernkonzepte\n- [ ] Konzept 1...\n\n### 📝 Zusammenfassung\n...\n\n### 🔢 Wichtige Fakten & Formeln\n- a² + b² = c²\n\n### ❓ Mögliche Prüfungsfragen\n1. ?');
-        } else if (templateType === 'protocol') {
+        } else if (urlTemplate === 'protocol') {
             setTitle(`Protokoll: ${new Date().toLocaleDateString('de-DE')}`);
             setProtoDate(new Date().toISOString().split('T')[0]);
             setContent(`### 📓 Mitschrift\n- \n\n### 🎯 Wichtige Erkenntnisse\n...`);
-        } else if (templateType === 'links') {
+        } else if (urlTemplate === 'links') {
             setTitle('Recherche: Link-Sammlung');
-            setContent('');
         }
     }
-  }, [isNewNote, templateType, content]);
+  }, [isNewNote, urlTemplate, content]);
 
   // Load content and split into states
   useEffect(() => {
       if (note) {
           setTitle(note.title);
           if (note.isLocked) setIsEditing(false);
-          setSaveStatus('idle');
+
+          // Detect template from content
+          let detectedTemplate = urlTemplate;
+          if (note.content.includes(MARKER_LINKS)) detectedTemplate = 'links';
+          else if (note.content.includes(MARKER_PROTOCOL)) detectedTemplate = 'protocol';
+          else if (note.content.includes(MARKER_STUDY)) detectedTemplate = 'study';
+          
+          setActiveTemplate(detectedTemplate);
 
           // Link Template Parsing
-          if (templateType === 'links' || note.title.toLowerCase().includes('link')) {
+          if (detectedTemplate === 'links') {
               const linksMatch = note.content.match(/## 🔗 Links\n([\s\S]*?)\n\n## 📝 Notizen/);
               if (linksMatch) {
                   const parsed = linksMatch[1].split('\n').filter(l => l.startsWith('- ')).map(line => {
@@ -149,33 +160,37 @@ function NoteEditor() {
               }
               const notesMatch = note.content.match(/## 📝 Notizen\n([\s\S]*)$/);
               if (notesMatch) setLinkNotes(notesMatch[1].trim());
-              setContent('');
-          } else if (templateType === 'protocol') {
-              // Protocol Template Parsing (Strip header from body)
-              const headMatch = note.content.match(PROTOCOL_HEADER_REGEX);
+          } else if (detectedTemplate === 'protocol') {
+              const headMatch = note.content.match(/# Protokoll: (.*) vom (.*)\n\*\*Thema:\*\* (.*)\n\n/);
               if (headMatch) {
                   setProtoSubject(headMatch[1]);
                   setProtoDate(headMatch[2]);
                   setProtoTopic(headMatch[3]);
-                  setContent(note.content.replace(PROTOCOL_HEADER_REGEX, ''));
+                  setContent(note.content.replace(/# Protokoll: .*\n\*\*Thema:\*\* .*\n\n/, '').replace(MARKER_PROTOCOL, '').trim());
               } else {
-                  setContent(note.content);
+                  setContent(note.content.replace(MARKER_PROTOCOL, '').trim());
               }
+          } else if (detectedTemplate === 'study') {
+              setContent(note.content.replace(MARKER_STUDY, '').trim());
           } else {
               setContent(note.content);
           }
+          
+          setSaveStatus('idle');
       }
-  }, [note, templateType]);
+  }, [note, urlTemplate]);
 
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim() || note?.isLocked) return;
     setSaveStatus('saving');
 
     let finalContent = content;
-    if (templateType === 'links') {
-        finalContent = `# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`;
-    } else if (templateType === 'protocol') {
-        finalContent = `# Protokoll: ${protoSubject} vom ${protoDate}\n**Thema:** ${protoTopic}\n\n${content}`;
+    if (activeTemplate === 'links') {
+        finalContent = `${MARKER_LINKS}\n# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`;
+    } else if (activeTemplate === 'protocol') {
+        finalContent = `${MARKER_PROTOCOL}\n# Protokoll: ${protoSubject} vom ${protoDate}\n**Thema:** ${protoTopic}\n\n${content}`;
+    } else if (activeTemplate === 'study') {
+        finalContent = `${MARKER_STUDY}\n${content}`;
     }
 
     try {
@@ -189,7 +204,7 @@ function NoteEditor() {
                 updatedAt: serverTimestamp(),
                 isLocked: false,
             });
-            router.replace(`/workspace/notes/${newDocRef.id}${templateType ? `?template=${templateType}` : ''}`);
+            router.replace(`/workspace/notes/${newDocRef.id}${activeTemplate ? `?template=${activeTemplate}` : ''}`);
         } else {
             if (!noteDocRef) return;
             await setDoc(noteDocRef, {
@@ -202,25 +217,20 @@ function NoteEditor() {
     } catch (error) {
         setSaveStatus('dirty');
     }
-  }, [firestore, user, title, content, links, linkNotes, isNewNote, noteDocRef, router, note?.isLocked, templateType, protoSubject, protoDate, protoTopic]);
+  }, [firestore, user, title, content, links, linkNotes, isNewNote, noteDocRef, router, note?.isLocked, activeTemplate, protoSubject, protoDate, protoTopic]);
+
+  const triggerAutoSave = () => {
+    if (isLoadingNote || note?.isLocked) return;
+    setSaveStatus('dirty');
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(handleSave, 1500);
+  };
 
   useEffect(() => {
-    if (isLoadingNote) return;
-    
-    let currentFinalContent = content;
-    if (templateType === 'links') currentFinalContent = `# Link-Sammlung: ${title}\n\n## 🔗 Links\n${links.map(l => `- [${l.title}](${l.url})`).join('\n')}\n\n## 📝 Notizen\n${linkNotes}`;
-    if (templateType === 'protocol') currentFinalContent = `# Protokoll: ${protoSubject} vom ${protoDate}\n**Thema:** ${protoTopic}\n\n${content}`;
-
-    if (note && title === note.title && currentFinalContent === note.content) return;
-
-    if (title.trim()) {
-        setSaveStatus('dirty');
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
-        debounceTimer.current = setTimeout(handleSave, 1500);
-    }
-
-    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [title, content, links, linkNotes, protoSubject, protoDate, protoTopic, note, isLoadingNote, handleSave, templateType]);
+      if (title.trim() && isEditing) {
+          triggerAutoSave();
+      }
+  }, [title, content, links, linkNotes, protoSubject, protoDate, protoTopic]);
 
   const handleDelete = async () => {
       if(isNewNote || !noteDocRef) return;
@@ -243,6 +253,7 @@ function NoteEditor() {
       if (!url.startsWith('http')) url = 'https://' + url;
       setLinks([...links, { id: Date.now().toString(), title: newLinkTitle, url }]);
       setNewLinkTitle(''); setNewLinkUrl('');
+      triggerAutoSave();
   }
 
   const handleAddHw = async () => {
@@ -323,7 +334,7 @@ function NoteEditor() {
                 placeholder="Titel..."
                 className="text-2xl font-black border-0 shadow-none focus-visible:ring-0 px-0 h-auto flex-1 bg-transparent"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { setTitle(e.target.value); setSaveStatus('dirty'); }}
                 readOnly={!showEditor}
             />
             <div className="flex items-center gap-2">
@@ -331,7 +342,7 @@ function NoteEditor() {
                     <span className="cursor-pointer hover:text-foreground hidden sm:inline" onClick={() => setDateDisplayType(dateDisplayType === 'updated' ? 'created' : 'updated')}>
                       {note ? getFormattedDate(note?.[dateDisplayType === 'updated' ? 'updatedAt' : 'createdAt'], dateDisplayType) : ''}
                     </span>
-                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    {saveStatus === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : saveStatus === 'dirty' ? <Save className="h-3 w-3 opacity-50" /> : <Check className="h-3 w-3" />}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger>
@@ -353,7 +364,7 @@ function NoteEditor() {
       </header>
 
       <main className="flex-1 overflow-y-auto relative p-4 md:p-8 max-w-5xl mx-auto w-full">
-            {templateType === 'links' ? (
+            {activeTemplate === 'links' ? (
                 <div className="space-y-8 animate-in fade-in duration-500">
                     {showEditor && (
                         <Card className="bg-primary/5 border-dashed border-2">
@@ -377,29 +388,32 @@ function NoteEditor() {
                                         <p className="font-bold truncate">{link.title}</p>
                                         <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">{link.url}</a>
                                     </div>
-                                    {showEditor && <Button variant="ghost" size="icon" onClick={() => setLinks(links.filter(l => l.id !== link.id))}><X className="w-4 h-4" /></Button>}
+                                    {showEditor && <Button variant="ghost" size="icon" onClick={() => { setLinks(links.filter(l => l.id !== link.id)); setSaveStatus('dirty'); }}><X className="w-4 h-4" /></Button>}
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <Textarea 
-                        placeholder="Zusätzliche Gedanken zu deiner Recherche..." 
-                        className={cn("min-h-[200px] text-base leading-relaxed", !showEditor && "border-0 shadow-none focus-visible:ring-0 p-0 resize-none")}
-                        value={linkNotes} 
-                        onChange={e => setLinkNotes(e.target.value)} 
-                        readOnly={!showEditor} 
-                    />
+                    <div className="space-y-2">
+                        <Label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Zusätzliche Notizen</Label>
+                        <Textarea 
+                            placeholder="Zusätzliche Gedanken zu deiner Recherche..." 
+                            className={cn("min-h-[200px] text-base leading-relaxed", !showEditor && "border-0 shadow-none focus-visible:ring-0 p-0 resize-none")}
+                            value={linkNotes} 
+                            onChange={e => { setLinkNotes(e.target.value); setSaveStatus('dirty'); }} 
+                            readOnly={!showEditor} 
+                        />
+                    </div>
                 </div>
-            ) : templateType === 'protocol' ? (
+            ) : activeTemplate === 'protocol' ? (
                 <div className="space-y-8 animate-in fade-in duration-500">
                     {showEditor ? (
                         <>
                             <Card className="bg-accent/5 border-2">
                                 <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><FileText className="w-4 h-4" /> Protokoll-Daten</CardTitle></CardHeader>
                                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-1"><Label>Fach</Label><Input value={protoSubject} onChange={e => setProtoSubject(e.target.value)} placeholder="Mathe..." /></div>
-                                    <div className="space-y-1"><Label>Datum</Label><Input type="date" value={protoDate} onChange={e => setProtoDate(e.target.value)} /></div>
-                                    <div className="space-y-1"><Label>Thema</Label><Input value={protoTopic} onChange={e => setProtoTopic(e.target.value)} placeholder="Analysis..." /></div>
+                                    <div className="space-y-1"><Label>Fach</Label><Input value={protoSubject} onChange={e => { setProtoSubject(e.target.value); setSaveStatus('dirty'); }} placeholder="Mathe..." /></div>
+                                    <div className="space-y-1"><Label>Datum</Label><Input type="date" value={protoDate} onChange={e => { setProtoDate(e.target.value); setSaveStatus('dirty'); }} /></div>
+                                    <div className="space-y-1"><Label>Thema</Label><Input value={protoTopic} onChange={e => { setProtoTopic(e.target.value); setSaveStatus('dirty'); }} placeholder="Analysis..." /></div>
                                 </CardContent>
                             </Card>
 
@@ -426,17 +440,17 @@ function NoteEditor() {
                                 placeholder="Mitschrift..." 
                                 className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none p-0 resize-none leading-relaxed bg-transparent" 
                                 value={content} 
-                                onChange={e => setContent(e.target.value)} 
+                                onChange={e => { setContent(e.target.value); setSaveStatus('dirty'); }} 
                             />
                         ) : (
                             <CustomMarkdownRenderer content={content} />
                         )}
                     </div>
                 </div>
-            ) : templateType === 'study' ? (
+            ) : activeTemplate === 'study' ? (
                 <div className="flex flex-col h-full space-y-8 animate-in fade-in duration-500">
                     <div className="flex-1">
-                        {showEditor ? <Textarea placeholder="Lernzettel..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none p-0 resize-none leading-relaxed bg-transparent" value={content} onChange={e => setContent(e.target.value)} /> : <CustomMarkdownRenderer content={content} />}
+                        {showEditor ? <Textarea placeholder="Lernzettel..." className="min-h-[400px] border-0 focus-visible:ring-0 text-lg shadow-none p-0 resize-none leading-relaxed bg-transparent" value={content} onChange={e => { setContent(e.target.value); setSaveStatus('dirty'); }} /> : <CustomMarkdownRenderer content={content} />}
                     </div>
                     
                     <div className="border-t pt-8 space-y-4">
@@ -463,7 +477,7 @@ function NoteEditor() {
                     </div>
                 </div>
             ) : showEditor ? (
-                <Textarea placeholder="Schreib hier deine Gedanken auf..." className="w-full h-full border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-lg leading-relaxed bg-transparent" value={content} onChange={(e) => setContent(e.target.value)} autoFocus />
+                <Textarea placeholder="Schreib hier deine Gedanken auf..." className="w-full h-full border-0 resize-none shadow-none focus-visible:ring-0 p-0 text-lg leading-relaxed bg-transparent" value={content} onChange={(e) => { setContent(e.target.value); setSaveStatus('dirty'); }} autoFocus />
             ) : (
                 <div className="w-full h-full flex-1" onClick={() => { if (!note?.isLocked) setIsEditing(true); }}><CustomMarkdownRenderer content={content} /></div>
             )}
