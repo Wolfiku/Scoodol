@@ -38,10 +38,34 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undef
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [isMounted, setIsMounted] = useState(false);
   
-  const [theme, setThemeState] = useState<Theme>('light');
-  const [startView, setStartViewState] = useState<StartView>('daily');
-  const [aiLanguage, setAiLanguageState] = useState<AiLanguage>('German');
-  const [betaFeaturesEnabled, setBetaFeaturesEnabledState] = useState(false);
+  // Synchronous initialization from localStorage to prevent flash
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'light';
+    }
+    return 'light';
+  });
+
+  const [startView, setStartViewState] = useState<StartView>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('startView') as StartView) || 'daily';
+    }
+    return 'daily';
+  });
+
+  const [aiLanguage, setAiLanguageState] = useState<AiLanguage>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('aiLanguage') as AiLanguage) || 'German';
+    }
+    return 'German';
+  });
+
+  const [betaFeaturesEnabled, setBetaFeaturesEnabledState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('betaFeaturesEnabled') === 'true';
+    }
+    return false;
+  });
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -54,38 +78,16 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   
   useEffect(() => {
     setIsMounted(true);
-    let initialTheme = 'light';
-    let initialStartView = 'daily';
-    let initialAiLanguage = 'German';
-    let initialBeta = false;
-
-    // Local-first approach (Load from cache immediately)
-    try {
-        const localTheme = localStorage.getItem('theme');
-        if (localTheme) initialTheme = localTheme;
-        else initialTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-
-        initialStartView = (localStorage.getItem('startView') as StartView) || 'daily';
-        initialAiLanguage = (localStorage.getItem('aiLanguage') as AiLanguage) || 'German';
-        initialBeta = localStorage.getItem('betaFeaturesEnabled') === 'true';
-
-    } catch (e) {}
-
-    setThemeState(initialTheme);
-    setStartViewState(initialStartView);
-    setAiLanguageState(initialAiLanguage);
-    setBetaFeaturesEnabledState(initialBeta);
-
   }, []);
 
   // Sync from Firestore when available
    useEffect(() => {
     if (userSettingsDoc?.settings) {
-      const { theme, startView, aiLanguage, betaFeaturesEnabled } = userSettingsDoc.settings;
-      if (theme) setThemeState(theme);
-      if (startView) setStartViewState(startView);
-      if (aiLanguage) setAiLanguageState(aiLanguage);
-      if (betaFeaturesEnabled !== undefined) setBetaFeaturesEnabledState(betaFeaturesEnabled);
+      const { theme: cloudTheme, startView: cloudStartView, aiLanguage: cloudLang, betaFeaturesEnabled: cloudBeta } = userSettingsDoc.settings;
+      if (cloudTheme && cloudTheme !== theme) setThemeState(cloudTheme);
+      if (cloudStartView && cloudStartView !== startView) setStartViewState(cloudStartView);
+      if (cloudLang && cloudLang !== aiLanguage) setAiLanguageState(cloudLang);
+      if (cloudBeta !== undefined && cloudBeta !== betaFeaturesEnabled) setBetaFeaturesEnabledState(cloudBeta);
     }
   }, [userSettingsDoc]);
 
@@ -148,12 +150,17 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [theme]);
 
   useEffect(() => {
-    if (isMounted && resolvedTheme) {
+    if (resolvedTheme) {
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(resolvedTheme);
+      document.documentElement.dataset.theme = colorTheme;
+      
+      // Also apply to body for extra safety with CSS variables
       document.body.classList.remove('light', 'dark');
       document.body.classList.add(resolvedTheme);
       document.body.dataset.theme = colorTheme;
     }
-  }, [resolvedTheme, colorTheme, isMounted]);
+  }, [resolvedTheme, colorTheme]);
 
   const value = { 
       theme, 

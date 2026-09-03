@@ -34,6 +34,29 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme) {
+                    var parts = theme.split('-');
+                    var mode = parts[0] === 'dark' ? 'dark' : 'light';
+                    var color = parts.length > 1 ? parts[1] : 'default';
+                    document.documentElement.classList.add(mode);
+                    document.documentElement.setAttribute('data-theme', color);
+                  } else {
+                    var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    document.documentElement.classList.add(isDark ? 'dark' : 'light');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={`${ptSans.variable} font-body antialiased`}>
         <FirebaseClientProvider>
           <ThemeProvider>

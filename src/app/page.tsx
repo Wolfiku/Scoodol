@@ -73,9 +73,16 @@ export default function Page() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { startView, updateSettings } = useTheme();
+  const { startView: themeStartView, updateSettings } = useTheme();
 
-  const [view, setView] = useState('');
+  // Initialize view from cache immediately to prevent white screen
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('startView') || '';
+    }
+    return '';
+  });
+
   const [manualWeekToggle, setManualWeekToggle] = useState<'A' | 'B' | null>(null);
 
   const userDocRef = useMemoFirebase(() => 
@@ -137,16 +144,9 @@ export default function Page() {
     if (!view && !isUserDataLoading) {
         if (userData?.settings?.startView) setView(userData.settings.startView);
         else {
-            // Fallback to cache while doc is potentially still empty/missing fields
             const cachedStartView = localStorage.getItem('startView');
             setView(cachedStartView || 'daily');
         }
-    }
-    
-    // Early view setting if we have cache
-    if (!view && isUserDataLoading && hasLocalData) {
-        const cachedStartView = localStorage.getItem('startView');
-        setView(cachedStartView || 'daily');
     }
   }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view, hasLocalData]);
 
@@ -176,7 +176,7 @@ export default function Page() {
         const cleaned = cleanData(newUserData);
         await setDoc(userDocRef, cleaned, { merge: true });
     }
-    setView(newUserData.settings?.startView || startView || 'daily');
+    setView(newUserData.settings?.startView || themeStartView || 'daily');
   };
 
   const handleTimetableImport = (importedData: any) => {
@@ -246,8 +246,8 @@ export default function Page() {
     return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
   }, [userData, isPreviewMode, isTimetableSynced, groupData]);
 
-  // Show loader only if we have NO data at all and we are loading
-  if (isUserLoading || (user && isUserDataLoading && !view && !hasLocalData)) {
+  // SMARTER LOADER: Only show full-screen loader if we have NO data at all and are still loading auth
+  if ((isUserLoading || isUserDataLoading) && !hasLocalData && !view) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -257,7 +257,7 @@ export default function Page() {
   }
 
   // Show setup if no data exists (for both users and guests)
-  const hasNoData = (!user && !hasLocalData) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0) && !hasLocalData);
+  const hasNoData = (!user && !hasLocalData && !view) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0) && !hasLocalData && !view);
   
   if (!view && hasNoData) {
     return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />;
