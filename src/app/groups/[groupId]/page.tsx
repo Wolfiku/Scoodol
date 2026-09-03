@@ -165,7 +165,7 @@ export default function GroupDetailsPage() {
             </CardHeader>
             <CardContent>
                 <p className="text-muted-foreground">Diese Gruppe existiert nicht oder du hast keinen Zugriff.</p>
-                <Button onClick={() => router.push('/settings')} className="mt-4 w-full">Zurück zu den Einstellungen</Button>
+                <Button onClick={() => router.push('/')} className="mt-4 w-full">Zurück zum Dashboard</Button>
             </CardContent>
         </Card>
       </div>
@@ -180,7 +180,7 @@ export default function GroupDetailsPage() {
     <div className="container mx-auto p-4 md:p-8 max-w-6xl pb-24">
         <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.push('/settings')} className="rounded-full">
+                <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="rounded-full">
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div>
