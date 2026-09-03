@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -13,15 +14,13 @@ import {
     MoreHorizontal,
     Bold, Italic, Underline, AlignCenter, 
     Square, Circle, Minus, Type, 
-    BringToFront, SendToBack, GripHorizontal, Copy, Strikethrough
+    Copy, Strikethrough
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -33,10 +32,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -123,7 +121,6 @@ export default function PresentationPage() {
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [isEditingText, setIsEditingText] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [hasMovedDuringDrag, setHasMovedDuringDrag] = useState(false);
     
     const canvasRef = useRef<HTMLDivElement>(null);
     const dragOffset = useRef({ x: 0, y: 0 });
@@ -184,31 +181,35 @@ export default function PresentationPage() {
     [currentSlide, selectedElementId]);
 
     const updateElement = (elementId: string, updates: Partial<SlideElement>) => {
-        const newSlides = [...slides];
-        const slide = newSlides[currentSlideIndex];
-        if (!slide) return;
-        
-        const elements = slide.elements || [];
-        const index = elements.findIndex(e => e.id === elementId);
-        if (index !== -1) {
-            elements[index] = { ...elements[index], ...updates };
-            setSlides(newSlides);
-            triggerAutoSave();
-        }
+        setSlides(prevSlides => {
+            const newSlides = [...prevSlides];
+            const slide = { ...newSlides[currentSlideIndex] };
+            if (!slide) return prevSlides;
+            
+            slide.elements = (slide.elements || []).map(el => 
+                el.id === elementId ? { ...el, ...updates } : el
+            );
+            
+            newSlides[currentSlideIndex] = slide;
+            return newSlides;
+        });
+        triggerAutoSave();
     };
 
     const updateElementStyle = (elementId: string, styleUpdates: Partial<SlideElement['styles']>) => {
-        const newSlides = [...slides];
-        const slide = newSlides[currentSlideIndex];
-        if (!slide) return;
+        setSlides(prevSlides => {
+            const newSlides = [...prevSlides];
+            const slide = { ...newSlides[currentSlideIndex] };
+            if (!slide) return prevSlides;
 
-        const elements = slide.elements || [];
-        const index = elements.findIndex(e => e.id === elementId);
-        if (index !== -1) {
-            elements[index].styles = { ...elements[index].styles, ...styleUpdates };
-            setSlides(newSlides);
-            triggerAutoSave();
-        }
+            slide.elements = (slide.elements || []).map(el => 
+                el.id === elementId ? { ...el, styles: { ...el.styles, ...styleUpdates } } : el
+            );
+
+            newSlides[currentSlideIndex] = slide;
+            return newSlides;
+        });
+        triggerAutoSave();
     };
 
     // Global drag handlers
@@ -223,11 +224,11 @@ export default function PresentationPage() {
             let newX = mouseX - dragOffset.current.x;
             let newY = mouseY - dragOffset.current.y;
 
-            newX = Math.max(-10, Math.min(110, newX));
-            newY = Math.max(-10, Math.min(110, newY));
+            // Clamp to slide area with some bleed
+            newX = Math.max(-10, Math.min(100, newX));
+            newY = Math.max(-10, Math.min(100, newY));
 
             updateElement(selectedElementId, { x: newX, y: newY });
-            setHasMovedDuringDrag(true);
         };
 
         const handleGlobalMouseUp = () => {
@@ -248,16 +249,13 @@ export default function PresentationPage() {
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting || (isEditingText && selectedElementId === element.id)) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-
+        // Ensure selection happens on mouse down to allow immediate drag
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
         }
 
-        setIsDragging(true);
-        setHasMovedDuringDrag(false);
+        e.stopPropagation();
         
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -269,11 +267,16 @@ export default function PresentationPage() {
             x: mouseX - element.x,
             y: mouseY - element.y
         };
+
+        setIsDragging(true);
     };
 
-    const handleElementAction = (e: React.MouseEvent, element: SlideElement) => {
+    const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
-        if (!hasMovedDuringDrag && selectedElementId === element.id && element.type === 'text') {
+        e.stopPropagation();
+
+        // Second click on text element enables editing
+        if (selectedElementId === element.id && element.type === 'text') {
             setIsEditingText(true);
         }
     };
@@ -311,7 +314,7 @@ export default function PresentationPage() {
 
     const deleteElement = (id: string) => {
         const newSlides = [...slides];
-        newSlides[currentSlideIndex].elements = newSlides[currentSlideIndex].elements.filter(e => e.id !== id);
+        newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== id);
         setSlides(newSlides);
         setSelectedElementId(null);
         triggerAutoSave();
@@ -319,7 +322,12 @@ export default function PresentationPage() {
 
     const duplicateElement = () => {
         if (!selectedElement) return;
-        const newElement = { ...selectedElement, id: 'e' + Math.random().toString(36).substr(2, 9), x: selectedElement.x + 2, y: selectedElement.y + 2 };
+        const newElement = { 
+            ...JSON.parse(JSON.stringify(selectedElement)), 
+            id: 'e' + Math.random().toString(36).substr(2, 9), 
+            x: selectedElement.x + 2, 
+            y: selectedElement.y + 2 
+        };
         const newSlides = [...slides];
         newSlides[currentSlideIndex].elements.push(newElement);
         setSlides(newSlides);
@@ -347,7 +355,7 @@ export default function PresentationPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: isPreview ? 'default' : (isDragging ? 'grabbing' : (isEditing ? 'text' : 'grab')),
+            cursor: isPreview ? 'default' : (isEditing ? 'text' : (isDragging && isSelected ? 'grabbing' : 'grab')),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden',
             userSelect: 'none'
@@ -363,7 +371,7 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onMouseDown={(e) => onMouseDown(e, el)}
-                onClick={(e) => handleElementAction(e, el)}
+                onClick={(e) => handleElementClick(e, el)}
                 className="group"
             >
                 {el.type === 'text' && (
@@ -399,7 +407,7 @@ export default function PresentationPage() {
 
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden">
-            {/* COMPACT SINGLE TOOLBAR */}
+            {/* UNIFIED COMPACT TOOLBAR */}
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
@@ -510,7 +518,7 @@ export default function PresentationPage() {
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
-                    <DialogHeader className="sr-only"><DialogTitle>Vollbild</DialogTitle></DialogHeader>
+                    <DialogHeader className="sr-only"><DialogTitle>Vollbild-Präsentation</DialogTitle></DialogHeader>
                     <div className="w-full h-full flex items-center justify-center relative bg-white">
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button>
                         <div className="w-full aspect-video relative overflow-hidden">
@@ -537,3 +545,4 @@ export default function PresentationPage() {
         </div>
     );
 }
+
