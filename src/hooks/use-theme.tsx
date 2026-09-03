@@ -38,34 +38,11 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undef
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [isMounted, setIsMounted] = useState(false);
   
-  // Synchronous initialization from localStorage to prevent flash
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'light';
-    }
-    return 'light';
-  });
-
-  const [startView, setStartViewState] = useState<StartView>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('startView') as StartView) || 'daily';
-    }
-    return 'daily';
-  });
-
-  const [aiLanguage, setAiLanguageState] = useState<AiLanguage>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('aiLanguage') as AiLanguage) || 'German';
-    }
-    return 'German';
-  });
-
-  const [betaFeaturesEnabled, setBetaFeaturesEnabledState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('betaFeaturesEnabled') === 'true';
-    }
-    return false;
-  });
+  // Start with default values to avoid hydration mismatch
+  const [theme, setThemeState] = useState<Theme>('light');
+  const [startView, setStartViewState] = useState<StartView>('daily');
+  const [aiLanguage, setAiLanguageState] = useState<AiLanguage>('German');
+  const [betaFeaturesEnabled, setBetaFeaturesEnabledState] = useState(false);
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -76,8 +53,22 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const { data: userSettingsDoc } = useDoc<{settings: UserSettings}>(settingsDocRef);
   
+  // Initialize client-side state on mount
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) setThemeState(savedTheme);
+      
+      const savedStartView = localStorage.getItem('startView') as StartView;
+      if (savedStartView) setStartViewState(savedStartView);
+      
+      const savedAiLang = localStorage.getItem('aiLanguage') as AiLanguage;
+      if (savedAiLang) setAiLanguageState(savedAiLang);
+      
+      const savedBeta = localStorage.getItem('betaFeaturesEnabled') === 'true';
+      setBetaFeaturesEnabledState(savedBeta);
+    }
   }, []);
 
   // Sync from Firestore when available
@@ -150,7 +141,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [theme]);
 
   useEffect(() => {
-    if (resolvedTheme) {
+    if (resolvedTheme && isMounted) {
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(resolvedTheme);
       document.documentElement.dataset.theme = colorTheme;
@@ -160,7 +151,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       document.body.classList.add(resolvedTheme);
       document.body.dataset.theme = colorTheme;
     }
-  }, [resolvedTheme, colorTheme]);
+  }, [resolvedTheme, colorTheme, isMounted]);
 
   const value = { 
       theme, 

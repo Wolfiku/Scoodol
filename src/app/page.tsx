@@ -73,16 +73,11 @@ export default function Page() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { startView: themeStartView, updateSettings } = useTheme();
+  const { startView: themeStartView } = useTheme();
 
-  // Initialize view from cache immediately to prevent white screen
-  const [view, setView] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('startView') || '';
-    }
-    return '';
-  });
-
+  const [isMounted, setIsMounted] = useState(false);
+  const [view, setView] = useState('');
+  const [hasLocalData, setHasLocalData] = useState(false);
   const [manualWeekToggle, setManualWeekToggle] = useState<'A' | 'B' | null>(null);
 
   const userDocRef = useMemoFirebase(() => 
@@ -104,6 +99,16 @@ export default function Page() {
     return weekNum % 2 !== 0 ? 'A' : 'B';
   }, [manualWeekToggle]);
 
+  // Safely initialize client-side state
+  useEffect(() => {
+    setIsMounted(true);
+    const cachedStartView = localStorage.getItem('startView');
+    if (cachedStartView) setView(cachedStartView);
+
+    const tt = localStorage.getItem('timetable');
+    setHasLocalData(!!tt && tt !== '{}');
+  }, []);
+
   const cleanData = useCallback((data: any): any => {
     if (data === undefined) return null;
     if (data !== null && typeof data === 'object') {
@@ -119,14 +124,8 @@ export default function Page() {
     return data;
   }, []);
 
-  const hasLocalData = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    const tt = localStorage.getItem('timetable');
-    return !!tt && tt !== '{}';
-  }, []);
-
   useEffect(() => {
-    if (isUserLoading) return;
+    if (!isMounted || isUserLoading) return;
     
     // Redirect to login only if accessing protected routes, otherwise allow root for Welcome/Guest view
     if (!user || user.isAnonymous) {
@@ -148,7 +147,7 @@ export default function Page() {
             setView(cachedStartView || 'daily');
         }
     }
-  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view, hasLocalData]);
+  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname, view, hasLocalData, isMounted]);
 
   const updateUserData = async (data: Partial<UserData>) => {
     // Always update local cache first
@@ -246,8 +245,8 @@ export default function Page() {
     return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
   }, [userData, isPreviewMode, isTimetableSynced, groupData]);
 
-  // SMARTER LOADER: Only show full-screen loader if we have NO data at all and are still loading auth
-  if ((isUserLoading || isUserDataLoading) && !hasLocalData && !view) {
+  // Initial Loader to match server during hydration
+  if (!isMounted || ((isUserLoading || isUserDataLoading) && !hasLocalData && !view)) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen bg-background p-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary"/>
