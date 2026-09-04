@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -247,13 +246,18 @@ export default function PresentationPage() {
     }, [isDragging, selectedElementId, currentSlideIndex]);
 
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
-        if (isPresenting || (isEditingText && selectedElementId === element.id)) return;
+        if (isPresenting) return;
 
-        // Ensure selection happens on mouse down to allow immediate drag
+        // SELECTION LOGIC: First click just selects. Second click/hold on selected element drags.
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
+            e.stopPropagation();
+            return;
         }
+
+        // Already selected? Start dragging if not in text edit mode
+        if (isEditingText) return;
 
         e.stopPropagation();
         
@@ -275,8 +279,8 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // Second click on text element enables editing
-        if (selectedElementId === element.id && element.type === 'text') {
+        // Text editing activates on second click (when already selected)
+        if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
             setIsEditingText(true);
         }
     };
@@ -407,7 +411,7 @@ export default function PresentationPage() {
 
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden">
-            {/* UNIFIED COMPACT TOOLBAR */}
+            {/* COMPACT TOOLBAR - NO HEADER */}
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
@@ -518,7 +522,7 @@ export default function PresentationPage() {
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
-                    <DialogHeader className="sr-only"><DialogTitle>Vollbild-Präsentation</DialogTitle></DialogHeader>
+                    <DialogHeader className="sr-only"><DialogTitle>Präsentation Vollbild</DialogTitle></DialogHeader>
                     <div className="w-full h-full flex items-center justify-center relative bg-white">
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button>
                         <div className="w-full aspect-video relative overflow-hidden">
@@ -545,4 +549,3 @@ export default function PresentationPage() {
         </div>
     );
 }
-
