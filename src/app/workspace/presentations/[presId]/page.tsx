@@ -153,8 +153,8 @@ export default function PresentationPage() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
     
     const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [uploadType, setUploadType] = useState<'image' | 'video' | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const uploadTypeRef = useRef<'image' | 'video' | null>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
     const hasDraggedRef = useRef(false);
@@ -437,8 +437,10 @@ export default function PresentationPage() {
     };
 
     const handleFileSelect = (type: 'image' | 'video') => {
-        uploadTypeRef.current = type;
-        fileInputRef.current?.click();
+        setUploadType(type);
+        setTimeout(() => {
+            fileInputRef.current?.click();
+        }, 50);
     };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,7 +454,7 @@ export default function PresentationPage() {
             return;
         }
 
-        const type = uploadTypeRef.current;
+        const type = uploadType;
         const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
         const fileRef = ref(storage, storageRefPath);
         const uploadTask = uploadBytesResumable(fileRef, file);
@@ -464,7 +466,7 @@ export default function PresentationPage() {
             }, 
             (error) => {
                 console.error("Upload failed:", error);
-                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen' });
+                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: error.message });
                 setUploadProgress(null);
             }, 
             async () => {
@@ -559,7 +561,7 @@ export default function PresentationPage() {
                 [contenteditable="true"] { user-select: text !important; cursor: text !important; }
             `}</style>
 
-            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept={uploadTypeRef.current === 'image' ? "image/*" : "video/*"} />
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept={uploadType === 'image' ? "image/*" : "video/*"} />
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
