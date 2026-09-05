@@ -13,13 +13,19 @@ import {
     MoreHorizontal,
     Bold, Italic, Underline, AlignCenter, 
     Square, Circle, Minus, Type, 
-    Copy, Strikethrough
+    Copy, Strikethrough,
+    Layers,
+    Type as FontIcon,
+    ChevronDown,
+    Palette
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -36,6 +42,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 
 interface SlideElement {
     id: string;
@@ -211,7 +218,6 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    // Global drag handlers
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => {
             if (!isDragging || !selectedElementId || !canvasRef.current) return;
@@ -223,7 +229,6 @@ export default function PresentationPage() {
             let newX = mouseX - dragOffset.current.x;
             let newY = mouseY - dragOffset.current.y;
 
-            // Clamp to slide area with some bleed
             newX = Math.max(-10, Math.min(100, newX));
             newY = Math.max(-10, Math.min(100, newY));
 
@@ -248,7 +253,9 @@ export default function PresentationPage() {
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
 
-        // SELECTION LOGIC: First click just selects. Second click/hold on selected element drags.
+        // TWO-STEP INTERACTION: 
+        // 1. Click to select.
+        // 2. Click and hold on selected element to drag.
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
@@ -256,7 +263,6 @@ export default function PresentationPage() {
             return;
         }
 
-        // Already selected? Start dragging if not in text edit mode
         if (isEditingText) return;
 
         e.stopPropagation();
@@ -279,7 +285,6 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // Text editing activates on second click (when already selected)
         if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
             setIsEditingText(true);
         }
@@ -362,7 +367,8 @@ export default function PresentationPage() {
             cursor: isPreview ? 'default' : (isEditing ? 'text' : (isDragging && isSelected ? 'grabbing' : 'grab')),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden',
-            userSelect: 'none'
+            userSelect: 'none',
+            touchAction: 'none'
         };
 
         if (el.type === 'line') {
@@ -411,7 +417,12 @@ export default function PresentationPage() {
 
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden">
-            {/* COMPACT TOOLBAR - NO HEADER */}
+            <style jsx global>{`
+                @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Dancing+Script:wght@400;700&family=Fira+Code:wght@400;700&family=Montserrat:wght@400;700;900&family=Playfair+Display:wght@400;700;900&display=swap');
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
@@ -456,14 +467,28 @@ export default function PresentationPage() {
                                     <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3 w-3" /></Button>
                                 </>
                             )}
+                            
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} /></DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} />
+                                </DropdownMenuTrigger>
                                 <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                                     {COLORS.map(c => (
                                         <button key={c} className="w-6 h-6 rounded-full border" style={{backgroundColor: c}} onClick={() => updateElementStyle(selectedElement.id, selectedElement.type === 'text' ? { color: c } : { backgroundColor: c })} />
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
+
+                            <div className="flex items-center gap-2 px-2 border-l border-r">
+                                <Label className="text-[10px] font-black uppercase opacity-50"><Palette className="h-3 w-3"/></Label>
+                                <Slider 
+                                    className="w-20"
+                                    min={0} max={1} step={0.1}
+                                    value={[selectedElement.styles.opacity ?? 1]}
+                                    onValueChange={([v]) => updateElementStyle(selectedElement.id, { opacity: v })}
+                                />
+                            </div>
+
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={duplicateElement}><Copy className="h-3 w-3"/></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="h-3 w-3"/></Button>
                         </div>
@@ -483,7 +508,7 @@ export default function PresentationPage() {
                 </div>
             </div>
 
-            <main className="flex-1 flex overflow-hidden bg-secondary/10">
+            <main className="flex-1 flex overflow-hidden bg-secondary/10 h-[calc(100vh-50px)]">
                 <aside className="w-48 border-r bg-background overflow-y-auto p-3 space-y-3 shrink-0 no-scrollbar">
                     {slides.map((slide, idx) => (
                         <div key={slide.id} className="relative group">
@@ -508,7 +533,7 @@ export default function PresentationPage() {
                     </Button>
                 </aside>
 
-                <section className="flex-1 overflow-auto p-4 md:p-8 flex items-center justify-center" onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}>
+                <section className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative" onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}>
                     <div 
                         ref={canvasRef}
                         className="aspect-video w-full max-w-5xl bg-white shadow-2xl rounded-2xl relative overflow-hidden border-4 border-white"
