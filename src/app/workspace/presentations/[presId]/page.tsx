@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -620,8 +619,14 @@ export default function PresentationPage() {
         };
 
         if (el.type === 'line') {
-            style.height = `${el.styles.borderWidth || 4}px`;
+            const thickness = el.styles.borderWidth || 4;
+            const hitboxPadding = 15; // Increased hitbox for easier selection on touch
+            style.height = `${thickness + (hitboxPadding * 2)}px`;
             style.backgroundColor = el.styles.borderColor || '#000000';
+            style.borderTop = `${hitboxPadding}px solid transparent`;
+            style.borderBottom = `${hitboxPadding}px solid transparent`;
+            style.backgroundClip = 'padding-box';
+            style.marginTop = `-${hitboxPadding}px`; // Keep original visual vertical position
             if (isSelected) style.boxShadow = '0 0 10px hsla(var(--primary), 0.5)';
         }
 
