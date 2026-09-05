@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -13,7 +14,8 @@ import {
     MoreHorizontal,
     Bold, Italic, Square, Circle, Minus, Type, 
     Copy, Palette, RotateCcw,
-    ArrowUp, ArrowDown, MoveUp, MoveDown
+    ArrowUp, ArrowDown, MoveUp, MoveDown,
+    Triangle, Star as StarIcon, MoveRight, Diamond
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -42,7 +44,7 @@ import { Slider } from '@/components/ui/slider';
 
 interface SlideElement {
     id: string;
-    type: 'text' | 'rect' | 'circle' | 'line';
+    type: 'text' | 'rect' | 'circle' | 'line' | 'triangle' | 'star' | 'arrow' | 'diamond';
     x: number;
     y: number;
     width: number;
@@ -280,10 +282,8 @@ export default function PresentationPage() {
         const deltaX = currentMouseX - initialDragState.current.x;
         const deltaY = currentMouseY - initialDragState.current.y;
 
-        // Set hasDragged flag if movement exceeds a small threshold
         if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
             hasDraggedRef.current = true;
-            // Cancel long press if moving
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
@@ -395,7 +395,7 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
         setContextMenu({ ...contextMenu, open: false });
-        hasDraggedRef.current = false; // Reset for new interaction
+        hasDraggedRef.current = false; 
 
         selectionAtStartOfPointerDown.current = selectedElementId;
 
@@ -412,7 +412,6 @@ export default function PresentationPage() {
         const mouseX = e.clientX;
         const mouseY = e.clientY;
 
-        // Start long press detection for context menu
         longPressTimer.current = setTimeout(() => {
             setContextMenu({ x: mouseX, y: mouseY, open: true, elId: element.id });
         }, 500);
@@ -594,7 +593,7 @@ export default function PresentationPage() {
                 fontFamily: 'var(--font-pt-sans), sans-serif',
                 textAlign: 'center',
                 zIndex: (currentSlide.elements?.length || 0) + 1,
-                borderWidth: type === 'line' ? 4 : 0,
+                borderWidth: type === 'line' ? 4 : (type === 'rect' || type === 'circle' ? 0 : 2),
                 borderColor: '#000000',
                 borderRadius: type === 'circle' ? 9999 : 0,
                 opacity: 1,
@@ -622,9 +621,9 @@ export default function PresentationPage() {
             width: `${el.width}%`,
             height: el.type === 'line' ? 'auto' : `${el.height}%`,
             zIndex: el.styles.zIndex,
-            backgroundColor: el.type === 'line' ? 'transparent' : el.styles.backgroundColor,
+            backgroundColor: (el.type === 'line' || ['triangle', 'star', 'arrow', 'diamond'].includes(el.type)) ? 'transparent' : el.styles.backgroundColor,
             borderColor: el.styles.borderColor,
-            borderWidth: el.type === 'line' ? 0 : `${el.styles.borderWidth || 0}px`,
+            borderWidth: (el.type === 'line' || ['triangle', 'star', 'arrow', 'diamond'].includes(el.type)) ? 0 : `${el.styles.borderWidth || 0}px`,
             borderStyle: el.styles.borderWidth ? 'solid' : 'none',
             borderRadius: `${el.styles.borderRadius || 0}px`,
             opacity: el.styles.opacity ?? 1,
@@ -650,6 +649,43 @@ export default function PresentationPage() {
             if (isSelected) style.boxShadow = '0 0 10px hsla(var(--primary), 0.5)';
         }
 
+        const renderShape = () => {
+            const strokeProps = {
+                stroke: el.styles.borderColor || '#000',
+                strokeWidth: el.styles.borderWidth || 0,
+                fill: el.styles.backgroundColor || '#3b82f6'
+            };
+
+            switch(el.type) {
+                case 'triangle':
+                    return (
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polygon points="50,5 5,95 95,95" {...strokeProps} />
+                        </svg>
+                    );
+                case 'star':
+                    return (
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polygon points="50,5 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35" {...strokeProps} />
+                        </svg>
+                    );
+                case 'arrow':
+                    return (
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polygon points="5,30 65,30 65,10 95,50 65,90 65,70 5,70" {...strokeProps} />
+                        </svg>
+                    );
+                case 'diamond':
+                    return (
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polygon points="50,5 95,50 50,95 5,50" {...strokeProps} />
+                        </svg>
+                    );
+                default:
+                    return null;
+            }
+        };
+
         return (
             <div 
                 key={el.id} 
@@ -658,6 +694,8 @@ export default function PresentationPage() {
                 onClick={(e) => handleElementClick(e, el)}
                 onContextMenu={(e) => handleContextMenu(e, el)}
             >
+                {['triangle', 'star', 'arrow', 'diamond'].includes(el.type) && renderShape()}
+
                 {el.type === 'text' && (
                     <div 
                         style={{
@@ -768,6 +806,10 @@ export default function PresentationPage() {
                             <DropdownMenuItem onClick={() => addElement('text')} className="gap-2"><Type className="h-4 w-4"/> Textfeld</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addElement('rect')} className="gap-2"><Square className="h-4 w-4"/> Rechteck</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addElement('circle')} className="gap-2"><Circle className="h-4 w-4"/> Kreis</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('triangle')} className="gap-2"><Triangle className="h-4 w-4"/> Dreieck</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('star')} className="gap-2"><StarIcon className="h-4 w-4"/> Stern</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('arrow')} className="gap-2"><MoveRight className="h-4 w-4"/> Pfeil</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => addElement('diamond')} className="gap-2"><Diamond className="h-4 w-4"/> Raute</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => addElement('line')} className="gap-2"><Minus className="h-4 w-4"/> Linie</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -796,7 +838,7 @@ export default function PresentationPage() {
                             
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: selectedElement.type === 'text' || selectedElement.type === 'line' ? (selectedElement.styles.color || selectedElement.styles.borderColor || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} />
+                                    <Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: (selectedElement.type === 'text' || selectedElement.type === 'line') ? (selectedElement.styles.color || selectedElement.styles.borderColor || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                                     {COLORS.map(c => (
