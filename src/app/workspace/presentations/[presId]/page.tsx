@@ -133,6 +133,7 @@ export default function PresentationPage() {
 
     const canvasRef = useRef<HTMLDivElement>(null);
     const selectionAtStartOfPointerDown = useRef<string | null>(null);
+    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
     const initialDragState = useRef<{ 
         x: number, y: number, 
         elX: number, elY: number, 
@@ -278,6 +279,14 @@ export default function PresentationPage() {
         const deltaX = currentMouseX - initialDragState.current.x;
         const deltaY = currentMouseY - initialDragState.current.y;
 
+        // Cancel long press if moving
+        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+            }
+        }
+
         if (interactionMode === 'drag') {
             const rawX = initialDragState.current.elX + deltaX;
             const rawY = initialDragState.current.elY + deltaY;
@@ -326,7 +335,7 @@ export default function PresentationPage() {
                 
                 if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
                 if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
-                if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elW + deltaY);
+                if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
                 if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
 
                 if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
@@ -362,6 +371,10 @@ export default function PresentationPage() {
         setActiveResizeHandle(null);
         setGuides({ x: null, y: null });
         initialDragState.current = null;
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
     }, []);
 
     useEffect(() => {
@@ -392,6 +405,14 @@ export default function PresentationPage() {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        // Start long press detection for context menu
+        longPressTimer.current = setTimeout(() => {
+            setContextMenu({ x: mouseX, y: mouseY, open: true, elId: element.id });
+        }, 500);
+
         initialDragState.current = {
             x: ((e.clientX - rect.left) / rect.width) * 100,
             y: ((e.clientY - rect.top) / rect.height) * 100,
@@ -410,12 +431,10 @@ export default function PresentationPage() {
     const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
-        // "Second Click" logic: if it was already selected, enter edit mode IMMEDIATELY
         if (element.type === 'text' && selectionAtStartOfPointerDown.current === element.id && !isEditingText) {
             e.stopPropagation();
             setIsEditingText(true);
             
-            // Critical for iPad: Focus immediately in the same tick
             const target = e.currentTarget;
             const editable = target.querySelector('[contenteditable]') as HTMLElement;
             if (editable) {
