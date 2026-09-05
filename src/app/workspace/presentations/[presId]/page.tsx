@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -124,7 +125,7 @@ export default function PresentationPage() {
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [isEditingText, setIsEditingText] = useState(false);
-    const [interactionMode, setInteractionMode] = useState<'none' | 'drag' | 'resize'>('none');
+    const [interactionMode, setInteractionMode] = useState<'none' | 'drag' | 'resize' | 'rotate'>('none');
     const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
@@ -261,7 +262,7 @@ export default function PresentationPage() {
     };
 
     const handleGlobalPointerMove = useCallback((e: PointerEvent) => {
-        if (interactionMode === 'none' || !selectedElementId || !canvasRef.current || !initialDragState.current) return;
+        if (interactionMode === 'none' || !selectedElementId || !canvasRef.current || !initialDragState.current || !selectedElement) return;
 
         const rect = canvasRef.current.getBoundingClientRect();
         const currentMouseX = ((e.clientX - rect.left) / rect.width) * 100;
@@ -297,6 +298,17 @@ export default function PresentationPage() {
             }
 
             updateElement(selectedElementId, { x: elX, y: elY, width: elW, height: elH });
+        } else if (interactionMode === 'rotate') {
+            const centerX = selectedElement.x + selectedElement.width / 2;
+            const centerY = selectedElement.y + selectedElement.height / 2;
+            
+            const angleRad = Math.atan2(currentMouseY - centerY, currentMouseX - centerX);
+            let angleDeg = (angleRad * 180) / Math.PI;
+            
+            // Handle at top is -90deg from 0 (right). So add 90 to make handle pull it correctly.
+            angleDeg += 90;
+            
+            updateElementStyle(selectedElementId, { rotation: angleDeg });
         }
     }, [interactionMode, selectedElementId, activeResizeHandle, currentSlideIndex, selectedElement]);
 
@@ -366,6 +378,27 @@ export default function PresentationPage() {
 
         setInteractionMode('resize');
         setActiveResizeHandle(handle);
+    };
+
+    const handleRotateHandleStart = (e: React.PointerEvent) => {
+        if (isPresenting || !selectedElement) return;
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        initialDragState.current = {
+            x: ((e.clientX - rect.left) / rect.width) * 100,
+            y: ((e.clientY - rect.top) / rect.height) * 100,
+            elX: selectedElement.x,
+            elY: selectedElement.y,
+            elW: selectedElement.width,
+            elH: selectedElement.height,
+            startFontSize: selectedElement.styles.fontSize || 24
+        };
+
+        setInteractionMode('rotate');
     };
 
     const getAngle = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
@@ -487,6 +520,18 @@ export default function PresentationPage() {
 
                 {isSelected && !isPreview && !isEditingText && (
                     <>
+                        {/* Rotation Handle */}
+                        <div 
+                            className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 cursor-grab active:cursor-grabbing z-[100]"
+                            onPointerDown={handleRotateHandleStart}
+                        >
+                            <div className="w-8 h-8 bg-white border-2 border-primary rounded-full shadow-xl flex items-center justify-center hover:bg-primary hover:text-white transition-colors">
+                                <RotateCcw className="w-4 h-4" />
+                            </div>
+                            <div className="w-0.5 h-4 bg-primary" />
+                        </div>
+
+                        {/* Resize Handles */}
                         <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
                         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
                         <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
