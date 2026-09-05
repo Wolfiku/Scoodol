@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
@@ -77,31 +76,39 @@ export default function GalleryPage() {
         const fileRef = ref(storage, storageRefPath);
         const uploadTask = uploadBytesResumable(fileRef, file);
 
+        setUploadProgress(0);
+
         uploadTask.on('state_changed', 
             (snapshot) => {
                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(progress);
+                setUploadProgress(Math.max(1, progress)); // At least 1% once started
             }, 
             (error) => {
+                console.error("Upload error:", error);
                 toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: error.message });
                 setUploadProgress(null);
             }, 
             async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                
-                await addDoc(mediaRef, {
-                    name: file.name,
-                    url: downloadURL,
-                    type,
-                    size: file.size,
-                    fullPath: storageRefPath,
-                    createdAt: serverTimestamp()
-                });
+                try {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    
+                    await addDoc(mediaRef, {
+                        name: file.name,
+                        url: downloadURL,
+                        type,
+                        size: file.size,
+                        fullPath: storageRefPath,
+                        createdAt: serverTimestamp()
+                    });
 
-                await updateDoc(userDocRef, { storageUsage: increment(file.size) });
-                
-                setUploadProgress(null);
-                toast({ title: 'Datei zur Galerie hinzugefügt!' });
+                    await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                    
+                    setUploadProgress(null);
+                    toast({ title: 'Datei zur Galerie hinzugefügt!' });
+                } catch (err) {
+                    console.error("Finalization error:", err);
+                    setUploadProgress(null);
+                }
             }
         );
         event.target.value = '';
