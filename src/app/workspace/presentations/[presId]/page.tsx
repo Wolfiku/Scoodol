@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -13,7 +14,7 @@ import {
     MoreHorizontal,
     Bold, Italic, Square, Circle, Minus, Type, 
     Copy, Palette, RotateCcw,
-    Layers, ArrowUp, ArrowDown, MoveUp, MoveDown
+    ArrowUp, ArrowDown, MoveUp, MoveDown
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -90,7 +91,7 @@ const FONTS = [
 
 const COLORS = ['transparent', '#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
 
-type ResizeHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r';
+type ResizeHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'line-start' | 'line-end';
 
 export default function PresentationPage() {
     const router = useRouter();
@@ -129,11 +130,10 @@ export default function PresentationPage() {
     const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
-    // Context Menu State
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
 
     const canvasRef = useRef<HTMLDivElement>(null);
-    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number } | null>(null);
+    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number, startRotation: number } | null>(null);
     const initialTouchDistance = useRef(0);
     const initialElementSize = useRef<{ w: number, h: number, x: number, y: number, fs: number } | null>(null);
 
@@ -287,20 +287,69 @@ export default function PresentationPage() {
             setGuides({ x: guideX, y: guideY });
             updateElement(selectedElementId, { x: snappedX, y: snappedY });
         } else if (interactionMode === 'resize' && activeResizeHandle) {
-            let { elX, elY, elW, elH, startFontSize } = initialDragState.current;
-            
-            if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
-            if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
-            if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
-            if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
+            if (selectedElement.type === 'line') {
+                // Line point logic
+                const angleRad = (selectedElement.styles.rotation || 0) * Math.PI / 180;
+                const cos = Math.cos(angleRad);
+                const sin = Math.sin(angleRad);
+                
+                const centerX = initialDragState.current.elX + initialDragState.current.elW / 2;
+                const centerY = initialDragState.current.elY + initialDragState.current.elH / 2;
 
-            if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
-                const scaleFactor = elH / initialDragState.current.elH;
-                const newFontSize = Math.round(startFontSize * scaleFactor);
-                updateElementStyle(selectedElementId, { fontSize: Math.max(8, newFontSize) });
+                const halfW = initialDragState.current.elW / 2;
+                
+                let p1x = centerX - halfW * cos;
+                let p1y = centerY - halfW * sin;
+                let p2x = centerX + halfW * cos;
+                let p2y = centerY + halfW * sin;
+
+                if (activeResizeHandle === 'line-start') {
+                    p1x = currentMouseX;
+                    p1y = currentMouseY;
+                } else {
+                    p2x = currentMouseX;
+                    p2y = currentMouseY;
+                }
+
+                const newCenterX = (p1x + p2x) / 2;
+                const newCenterY = (p1y + p2y) / 2;
+                const dx = p2x - p1x;
+                const dy = p2y - p1y;
+                const newWidth = Math.sqrt(dx*dx + dy*dy);
+                let newRot = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                // Angle Snapping
+                const snapInterval = 45;
+                const snapThreshold = 5;
+                const roundedRot = Math.round(newRot / snapInterval) * snapInterval;
+                if (Math.abs(newRot - roundedRot) < snapThreshold) {
+                    newRot = roundedRot;
+                }
+
+                updateElement(selectedElementId, {
+                    x: newCenterX - newWidth / 2,
+                    y: newCenterY - (selectedElement.styles.borderWidth || 2) / 2,
+                    width: newWidth,
+                });
+                updateElementStyle(selectedElementId, { rotation: newRot });
+
+            } else {
+                // Normal box resize
+                let { elX, elY, elW, elH, startFontSize } = initialDragState.current;
+                
+                if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
+                if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
+                if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
+                if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
+
+                if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
+                    const scaleFactor = elH / initialDragState.current.elH;
+                    const newFontSize = Math.round(startFontSize * scaleFactor);
+                    updateElementStyle(selectedElementId, { fontSize: Math.max(8, newFontSize) });
+                }
+
+                updateElement(selectedElementId, { x: elX, y: elY, width: elW, height: elH });
             }
-
-            updateElement(selectedElementId, { x: elX, y: elY, width: elW, height: elH });
         } else if (interactionMode === 'rotate') {
             const centerX = selectedElement.x + selectedElement.width / 2;
             const centerY = selectedElement.y + selectedElement.height / 2;
@@ -362,7 +411,8 @@ export default function PresentationPage() {
             elY: element.y,
             elW: element.width,
             elH: element.height,
-            startFontSize: element.styles.fontSize || 24
+            startFontSize: element.styles.fontSize || 24,
+            startRotation: element.styles.rotation || 0
         };
 
         setInteractionMode('drag');
@@ -383,7 +433,8 @@ export default function PresentationPage() {
             elY: selectedElement.y,
             elW: selectedElement.width,
             elH: selectedElement.height,
-            startFontSize: selectedElement.styles.fontSize || 24
+            startFontSize: selectedElement.styles.fontSize || 24,
+            startRotation: selectedElement.styles.rotation || 0
         };
 
         setInteractionMode('resize');
@@ -405,7 +456,8 @@ export default function PresentationPage() {
             elY: selectedElement.y,
             elW: selectedElement.width,
             elH: selectedElement.height,
-            startFontSize: selectedElement.styles.fontSize || 24
+            startFontSize: selectedElement.styles.fontSize || 24,
+            startRotation: selectedElement.styles.rotation || 0
         };
 
         setInteractionMode('rotate');
@@ -472,14 +524,13 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    const getDistance = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
-        return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
-    };
-
     const handleTouchStart = (e: React.TouchEvent) => {
         if (isPresenting) return;
         if (e.touches.length === 2 && selectedElement) {
-            initialTouchDistance.current = getDistance(e.touches[0], e.touches[1]);
+            initialTouchDistance.current = Math.sqrt(
+                Math.pow(e.touches[1].clientX - e.touches[0].clientX, 2) + 
+                Math.pow(e.touches[1].clientY - e.touches[0].clientY, 2)
+            );
             initialElementSize.current = {
                 w: selectedElement.width,
                 h: selectedElement.height,
@@ -493,16 +544,21 @@ export default function PresentationPage() {
     const handleTouchMove = (e: React.TouchEvent) => {
         if (isPresenting) return;
         if (e.touches.length === 2 && selectedElementId && initialElementSize.current) {
-            const currentDist = getDistance(e.touches[0], e.touches[1]);
+            const currentDist = Math.sqrt(
+                Math.pow(e.touches[1].clientX - e.touches[0].clientX, 2) + 
+                Math.pow(e.touches[1].clientY - e.touches[0].clientY, 2)
+            );
             const ratio = currentDist / initialTouchDistance.current;
             
             const newW = Math.max(1, initialElementSize.current.w * ratio);
             const newH = Math.max(1, initialElementSize.current.h * ratio);
             
-            const updates: Partial<SlideElement> = { width: newW, height: newH };
-            
-            updates.x = initialElementSize.current.x - (newW - initialElementSize.current.w) / 2;
-            updates.y = initialElementSize.current.y - (newH - initialElementSize.current.h) / 2;
+            const updates: Partial<SlideElement> = { 
+                width: newW, 
+                height: newH,
+                x: initialElementSize.current.x - (newW - initialElementSize.current.w) / 2,
+                y: initialElementSize.current.y - (newH - initialElementSize.current.h) / 2
+            };
 
             updateElement(selectedElementId, updates);
             
@@ -528,7 +584,7 @@ export default function PresentationPage() {
                 fontFamily: 'var(--font-pt-sans), sans-serif',
                 textAlign: 'center',
                 zIndex: (currentSlide.elements?.length || 0) + 1,
-                borderWidth: 0,
+                borderWidth: type === 'line' ? 4 : 0,
                 borderColor: '#000000',
                 borderRadius: type === 'circle' ? 9999 : 0,
                 opacity: 1,
@@ -556,9 +612,9 @@ export default function PresentationPage() {
             width: `${el.width}%`,
             height: el.type === 'line' ? 'auto' : `${el.height}%`,
             zIndex: el.styles.zIndex,
-            backgroundColor: el.styles.backgroundColor,
+            backgroundColor: el.type === 'line' ? 'transparent' : el.styles.backgroundColor,
             borderColor: el.styles.borderColor,
-            borderWidth: `${el.styles.borderWidth || 0}px`,
+            borderWidth: el.type === 'line' ? 0 : `${el.styles.borderWidth || 0}px`,
             borderStyle: el.styles.borderWidth ? 'solid' : 'none',
             borderRadius: `${el.styles.borderRadius || 0}px`,
             opacity: el.styles.opacity ?? 1,
@@ -566,15 +622,16 @@ export default function PresentationPage() {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: isPreview ? 'default' : (isEditing ? 'text' : 'pointer'),
-            boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary))' : 'none',
+            boxShadow: isSelected && el.type !== 'line' ? '0 0 0 2px hsl(var(--primary))' : 'none',
             transform: `rotate(${el.styles.rotation || 0}deg)`,
             userSelect: isEditing ? 'text' : 'none',
             touchAction: 'none'
         };
 
         if (el.type === 'line') {
-            style.height = `${el.styles.borderWidth || 2}px`;
+            style.height = `${el.styles.borderWidth || 4}px`;
             style.backgroundColor = el.styles.borderColor || '#000000';
+            if (isSelected) style.boxShadow = '0 0 10px hsla(var(--primary), 0.5)';
         }
 
         return (
@@ -622,15 +679,28 @@ export default function PresentationPage() {
                             <div className="w-0.5 h-4 bg-primary" />
                         </div>
 
-                        <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
-                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
-                        <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
-                        <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'br')} />
-                        
-                        <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'l')} />
-                        <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'r')} />
-                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 't')} />
-                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'b')} />
+                        {el.type === 'line' ? (
+                            <>
+                                <div className="absolute top-1/2 -left-3 -translate-y-1/2 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-start')}>
+                                    <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                </div>
+                                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-end')}>
+                                    <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
+                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
+                                <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
+                                <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'br')} />
+                                
+                                <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'l')} />
+                                <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'r')} />
+                                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 't')} />
+                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'b')} />
+                            </>
+                        )}
                     </>
                 )}
             </div>
@@ -650,6 +720,7 @@ export default function PresentationPage() {
                 body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; user-select: none; }
                 .canvas-area { touch-action: none; }
                 [contenteditable="true"] { user-select: text !important; }
+                .read-only-element { user-select: none !important; -webkit-user-select: none !important; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
@@ -708,11 +779,11 @@ export default function PresentationPage() {
                             
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: selectedElement.type === 'text' ? (selectedElement.styles.color || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} />
+                                    <Button variant="outline" className="w-6 h-6 rounded-full p-0 border-2" style={{backgroundColor: selectedElement.type === 'text' || selectedElement.type === 'line' ? (selectedElement.styles.color || selectedElement.styles.borderColor || '#000') : (selectedElement.styles.backgroundColor || '#3b82f6')}} />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
                                     {COLORS.map(c => (
-                                        <button key={c} className="w-6 h-6 rounded-full border" style={{backgroundColor: c}} onClick={() => updateElementStyle(selectedElement.id, selectedElement.type === 'text' ? { color: c } : { backgroundColor: c })} />
+                                        <button key={c} className="w-6 h-6 rounded-full border" style={{backgroundColor: c}} onClick={() => updateElementStyle(selectedElement.id, selectedElement.type === 'text' ? { color: c } : (selectedElement.type === 'line' ? { borderColor: c } : { backgroundColor: c }))} />
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
