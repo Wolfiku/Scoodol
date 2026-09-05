@@ -411,26 +411,28 @@ export default function PresentationPage() {
     const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         
-        // "Second Click" logic: if it was already selected before the pointerDown started, enter edit mode
+        // "Second Click" logic: if it was already selected, enter edit mode IMMEDIATELY
         if (element.type === 'text' && selectionAtStartOfPointerDown.current === element.id && !isEditingText) {
             e.stopPropagation();
             setIsEditingText(true);
             
-            // Critical for iPad: explicitly focus the contentEditable area after state update
+            // Critical for iPad: Focus immediately in the same tick if possible, 
+            // but since React state update is async, we help it along
             const target = e.currentTarget;
-            setTimeout(() => {
-                const editable = target.querySelector('[contenteditable="true"]') as HTMLElement;
-                if (editable) {
-                    editable.focus();
-                    // Place cursor at end of text
-                    const selection = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(editable);
-                    range.collapse(false);
-                    selection?.removeAllRanges();
-                    selection?.addRange(range);
-                }
-            }, 0);
+            const editable = target.querySelector('[contenteditable]') as HTMLElement;
+            if (editable) {
+                // Ensure editable status is visible to the browser before focus
+                editable.setAttribute('contenteditable', 'true');
+                editable.focus();
+                
+                // Place cursor at end of text
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(editable);
+                range.collapse(false);
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+            }
         }
     };
 
@@ -831,9 +833,9 @@ export default function PresentationPage() {
                             </div>
                         ))}
                     </div>
-                    <div className="p-3 border-t bg-background shrink-0 pb-8 min-h-[120px]">
+                    <div className="p-3 border-t bg-background shrink-0 pb-10">
                         <button 
-                            className="w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors group"
+                            className="w-full h-20 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-secondary/50 transition-colors group"
                             onClick={() => { 
                                 const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] };
                                 setSlides([...slides, newSlide]); 
@@ -841,7 +843,7 @@ export default function PresentationPage() {
                                 triggerAutoSave(); 
                             }}
                         >
-                            <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
                             <span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span>
                         </button>
                     </div>
