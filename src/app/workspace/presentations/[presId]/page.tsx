@@ -133,7 +133,13 @@ export default function PresentationPage() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
 
     const canvasRef = useRef<HTMLDivElement>(null);
-    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number, startRotation: number } | null>(null);
+    const initialDragState = useRef<{ 
+        x: number, y: number, 
+        elX: number, elY: number, 
+        elW: number, elH: number, 
+        startFontSize: number, startRotation: number,
+        p1?: {x: number, y: number}, p2?: {x: number, y: number}
+    } | null>(null);
     const initialTouchDistance = useRef(0);
     const initialElementSize = useRef<{ w: number, h: number, x: number, y: number, fs: number } | null>(null);
 
@@ -287,54 +293,40 @@ export default function PresentationPage() {
             setGuides({ x: guideX, y: guideY });
             updateElement(selectedElementId, { x: snappedX, y: snappedY });
         } else if (interactionMode === 'resize' && activeResizeHandle) {
-            if (selectedElement.type === 'line') {
-                // Line point logic
-                const angleRad = (selectedElement.styles.rotation || 0) * Math.PI / 180;
-                const cos = Math.cos(angleRad);
-                const sin = Math.sin(angleRad);
-                
-                const centerX = initialDragState.current.elX + initialDragState.current.elW / 2;
-                const centerY = initialDragState.current.elY + initialDragState.current.elH / 2;
-
-                const halfW = initialDragState.current.elW / 2;
-                
-                let p1x = centerX - halfW * cos;
-                let p1y = centerY - halfW * sin;
-                let p2x = centerX + halfW * cos;
-                let p2y = centerY + halfW * sin;
+            if (selectedElement.type === 'line' && initialDragState.current.p1 && initialDragState.current.p2) {
+                let p1 = { ...initialDragState.current.p1 };
+                let p2 = { ...initialDragState.current.p2 };
 
                 if (activeResizeHandle === 'line-start') {
-                    p1x = currentMouseX;
-                    p1y = currentMouseY;
+                    p1.x = currentMouseX;
+                    p1.y = currentMouseY;
                 } else {
-                    p2x = currentMouseX;
-                    p2y = currentMouseY;
+                    p2.x = currentMouseX;
+                    p2.y = currentMouseY;
                 }
 
-                const newCenterX = (p1x + p2x) / 2;
-                const newCenterY = (p1y + p2y) / 2;
-                const dx = p2x - p1x;
-                const dy = p2y - p1y;
-                const newWidth = Math.sqrt(dx*dx + dy*dy);
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const newWidth = Math.sqrt(dx * dx + dy * dy);
                 let newRot = Math.atan2(dy, dx) * 180 / Math.PI;
 
-                // Angle Snapping
+                // Snapping
                 const snapInterval = 45;
                 const snapThreshold = 5;
                 const roundedRot = Math.round(newRot / snapInterval) * snapInterval;
                 if (Math.abs(newRot - roundedRot) < snapThreshold) {
                     newRot = roundedRot;
+                    // Adjust position if snapped to keep points aligned visually
+                    // (Optional, simplified for now)
                 }
 
                 updateElement(selectedElementId, {
-                    x: newCenterX - newWidth / 2,
-                    y: newCenterY - (selectedElement.styles.borderWidth || 2) / 2,
+                    x: (p1.x + p2.x) / 2 - newWidth / 2,
+                    y: (p1.y + p2.y) / 2 - (selectedElement.styles.borderWidth || 4) / 2 / (rect.height / 100),
                     width: newWidth,
                 });
                 updateElementStyle(selectedElementId, { rotation: newRot });
-
             } else {
-                // Normal box resize
                 let { elX, elY, elW, elH, startFontSize } = initialDragState.current;
                 
                 if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
@@ -426,15 +418,31 @@ export default function PresentationPage() {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
+        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        let p1, p2;
+        if (selectedElement.type === 'line') {
+            const angleRad = (selectedElement.styles.rotation || 0) * Math.PI / 180;
+            const cos = Math.cos(angleRad);
+            const sin = Math.sin(angleRad);
+            const centerX = selectedElement.x + selectedElement.width / 2;
+            const centerY = selectedElement.y + selectedElement.height / 2;
+            const halfW = selectedElement.width / 2;
+            p1 = { x: centerX - halfW * cos, y: centerY - halfW * sin };
+            p2 = { x: centerX + halfW * cos, y: centerY + halfW * sin };
+        }
+
         initialDragState.current = {
-            x: ((e.clientX - rect.left) / rect.width) * 100,
-            y: ((e.clientY - rect.top) / rect.height) * 100,
+            x: currentX,
+            y: currentY,
             elX: selectedElement.x,
             elY: selectedElement.y,
             elW: selectedElement.width,
             elH: selectedElement.height,
             startFontSize: selectedElement.styles.fontSize || 24,
-            startRotation: selectedElement.styles.rotation || 0
+            startRotation: selectedElement.styles.rotation || 0,
+            p1, p2
         };
 
         setInteractionMode('resize');
@@ -639,7 +647,12 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onPointerDown={(e) => onPointerDown(e, el)}
-                onDoubleClick={() => { if(el.type === 'text') setIsEditingText(true); }}
+                onDoubleClick={(e) => { 
+                    if(el.type === 'text') {
+                        e.stopPropagation();
+                        setIsEditingText(true);
+                    }
+                }}
                 onContextMenu={(e) => handleContextMenu(e, el)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -650,7 +663,8 @@ export default function PresentationPage() {
                             fontSize: `${el.styles.fontSize || 24}px`,
                             fontFamily: el.styles.fontFamily || 'inherit',
                             textAlign: el.styles.textAlign || 'center',
-                            fontWeight: el.styles.fontWeight || 'bold' ? 'bold' : 'normal',
+                            fontWeight: el.styles.fontWeight === 'bold' ? 'bold' : 'normal',
+                            fontStyle: el.styles.fontStyle === 'italic' ? 'italic' : 'normal',
                             color: el.styles.color || '#000000',
                             width: '100%',
                             outline: 'none',
@@ -658,6 +672,9 @@ export default function PresentationPage() {
                         }}
                         contentEditable={isEditing}
                         suppressContentEditableWarning
+                        onPointerDown={(e) => {
+                            if (isEditing) e.stopPropagation();
+                        }}
                         onBlur={(e) => {
                             updateElement(el.id, { content: e.currentTarget.innerText });
                             setIsEditingText(false);
@@ -681,24 +698,24 @@ export default function PresentationPage() {
 
                         {el.type === 'line' ? (
                             <>
-                                <div className="absolute top-1/2 -left-3 -translate-y-1/2 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-start')}>
-                                    <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                <div className="absolute top-1/2 -left-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-start')}>
+                                    <div className="w-2 h-2 bg-primary rounded-full" />
                                 </div>
-                                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-end')}>
-                                    <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-end')}>
+                                    <div className="w-2 h-2 bg-primary rounded-full" />
                                 </div>
                             </>
                         ) : (
                             <>
-                                <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
-                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
-                                <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
-                                <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'br')} />
+                                <div className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
+                                <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
+                                <div className="absolute -bottom-1.5 -left-1.5 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
+                                <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'br')} />
                                 
-                                <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'l')} />
-                                <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'r')} />
-                                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 't')} />
-                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'b')} />
+                                <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-7 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'l')} />
+                                <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-7 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'r')} />
+                                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-7 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 't')} />
+                                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-7 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'b')} />
                             </>
                         )}
                     </>
@@ -719,7 +736,7 @@ export default function PresentationPage() {
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; user-select: none; }
                 .canvas-area { touch-action: none; }
-                [contenteditable="true"] { user-select: text !important; }
+                [contenteditable="true"] { user-select: text !important; cursor: text !important; }
                 .read-only-element { user-select: none !important; -webkit-user-select: none !important; }
             `}</style>
 
@@ -849,7 +866,11 @@ export default function PresentationPage() {
 
                 <section 
                     className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none canvas-area" 
-                    onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); setContextMenu({ ...contextMenu, open: false }); }}
+                    onPointerDown={() => { 
+                        setSelectedElementId(null); 
+                        setIsEditingText(false); 
+                        setContextMenu({ ...contextMenu, open: false }); 
+                    }}
                 >
                     <div 
                         ref={canvasRef}
@@ -858,10 +879,10 @@ export default function PresentationPage() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         {activeGuides.x !== null && (
-                            <div className="absolute top-0 bottom-0 w-[1px] bg-purple-500 z-[100] pointer-events-none" style={{ left: `${activeGuides.x}%` }} />
+                            <div className="absolute top-0 bottom-0 w-[1.5px] bg-purple-500 z-[100] pointer-events-none" style={{ left: `${activeGuides.x}%` }} />
                         )}
                         {activeGuides.y !== null && (
-                            <div className="absolute left-0 right-0 h-[1px] bg-purple-500 z-[100] pointer-events-none" style={{ top: `${activeGuides.y}%` }} />
+                            <div className="absolute left-0 right-0 h-[1.5px] bg-purple-500 z-[100] pointer-events-none" style={{ top: `${activeGuides.y}%` }} />
                         )}
 
                         {(currentSlide.elements || []).map(el => renderElement(el))}
