@@ -12,25 +12,26 @@ import {
     ChevronLeft, ChevronRight, X, 
     MoreHorizontal,
     Bold, Italic, Square, Circle, Minus, Type, 
-    Copy, Palette, RotateCcw
+    Copy, Palette, RotateCcw,
+    Layers, ArrowUp, ArrowDown, MoveUp, MoveDown
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -128,6 +129,9 @@ export default function PresentationPage() {
     const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
+    // Context Menu State
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
+
     const canvasRef = useRef<HTMLDivElement>(null);
     const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number } | null>(null);
     const initialTouchDistance = useRef(0);
@@ -338,6 +342,7 @@ export default function PresentationPage() {
     const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
         if (isPresenting) return;
         e.stopPropagation();
+        setContextMenu({ ...contextMenu, open: false });
 
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
@@ -406,6 +411,67 @@ export default function PresentationPage() {
         setInteractionMode('rotate');
     };
 
+    const handleContextMenu = (e: React.MouseEvent, element: SlideElement) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedElementId(element.id);
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            open: true,
+            elId: element.id
+        });
+    };
+
+    const duplicateElement = (elId: string) => {
+        const el = currentSlide.elements.find(e => e.id === elId);
+        if (!el) return;
+        const newEl = { 
+            ...JSON.parse(JSON.stringify(el)), 
+            id: 'e' + Math.random().toString(36).substr(2, 9), 
+            x: el.x + 2, 
+            y: el.y + 2 
+        };
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements.push(newEl);
+        setSlides(newSlides);
+        setSelectedElementId(newEl.id);
+        triggerAutoSave();
+    };
+
+    const deleteElement = (elId: string) => {
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== elId);
+        setSlides(newSlides);
+        setSelectedElementId(null);
+        triggerAutoSave();
+    };
+
+    const changeZIndex = (elId: string, action: 'front' | 'back' | 'forward' | 'backward') => {
+        const slide = slides[currentSlideIndex];
+        const elements = [...slide.elements];
+        const elIndex = elements.findIndex(e => e.id === elId);
+        if (elIndex === -1) return;
+
+        const maxZ = Math.max(...elements.map(e => e.styles.zIndex || 0), 0);
+        const minZ = Math.min(...elements.map(e => e.styles.zIndex || 0), 0);
+
+        if (action === 'front') {
+            elements[elIndex].styles.zIndex = maxZ + 1;
+        } else if (action === 'back') {
+            elements[elIndex].styles.zIndex = Math.max(0, minZ - 1);
+        } else if (action === 'forward') {
+            elements[elIndex].styles.zIndex += 1;
+        } else if (action === 'backward') {
+            elements[elIndex].styles.zIndex = Math.max(0, elements[elIndex].styles.zIndex - 1);
+        }
+
+        const newSlides = [...slides];
+        newSlides[currentSlideIndex].elements = elements;
+        setSlides(newSlides);
+        triggerAutoSave();
+    };
+
     const getDistance = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
         return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
     };
@@ -435,7 +501,6 @@ export default function PresentationPage() {
             
             const updates: Partial<SlideElement> = { width: newW, height: newH };
             
-            // Adjust position so it scales from center
             updates.x = initialElementSize.current.x - (newW - initialElementSize.current.w) / 2;
             updates.y = initialElementSize.current.y - (newH - initialElementSize.current.h) / 2;
 
@@ -503,7 +568,7 @@ export default function PresentationPage() {
             cursor: isPreview ? 'default' : (isEditing ? 'text' : 'pointer'),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary))' : 'none',
             transform: `rotate(${el.styles.rotation || 0}deg)`,
-            userSelect: 'none',
+            userSelect: isEditing ? 'text' : 'none',
             touchAction: 'none'
         };
 
@@ -518,6 +583,7 @@ export default function PresentationPage() {
                 style={style}
                 onPointerDown={(e) => onPointerDown(e, el)}
                 onDoubleClick={() => { if(el.type === 'text') setIsEditingText(true); }}
+                onContextMenu={(e) => handleContextMenu(e, el)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
             >
@@ -546,7 +612,6 @@ export default function PresentationPage() {
 
                 {isSelected && !isPreview && !isEditingText && (
                     <>
-                        {/* Rotation Handle */}
                         <div 
                             className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0 cursor-grab active:cursor-grabbing z-[100]"
                             onPointerDown={handleRotateHandleStart}
@@ -557,7 +622,6 @@ export default function PresentationPage() {
                             <div className="w-0.5 h-4 bg-primary" />
                         </div>
 
-                        {/* Resize Handles */}
                         <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
                         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
                         <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
@@ -583,8 +647,9 @@ export default function PresentationPage() {
                 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Dancing+Script:wght@400;700&family=Fira+Code:wght@400;700&family=Montserrat:wght@400;700;900&family=Playfair+Display:wght@400;700;900&display=swap');
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; }
+                body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; user-select: none; }
                 .canvas-area { touch-action: none; }
+                [contenteditable="true"] { user-select: text !important; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
@@ -662,22 +727,9 @@ export default function PresentationPage() {
                                 />
                             </div>
 
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                                const newEl = { ...JSON.parse(JSON.stringify(selectedElement)), id: 'e' + Math.random().toString(36).substr(2, 9), x: selectedElement.x + 2, y: selectedElement.y + 2 };
-                                const newSlides = [...slides];
-                                newSlides[currentSlideIndex].elements.push(newEl);
-                                setSlides(newSlides);
-                                setSelectedElementId(newEl.id);
-                                triggerAutoSave();
-                            }}><Copy className="h-3 w-3"/></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateElement(selectedElement.id)}><Copy className="h-3 w-3"/></Button>
                             
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
-                                const newSlides = [...slides];
-                                newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== selectedElementId);
-                                setSlides(newSlides);
-                                setSelectedElementId(null);
-                                triggerAutoSave();
-                            }}><Trash2 className="h-3 w-3"/></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="h-3 w-3"/></Button>
                         </div>
                     )}
                 </div>
@@ -726,7 +778,7 @@ export default function PresentationPage() {
 
                 <section 
                     className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none canvas-area" 
-                    onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); }}
+                    onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); setContextMenu({ ...contextMenu, open: false }); }}
                 >
                     <div 
                         ref={canvasRef}
@@ -745,6 +797,36 @@ export default function PresentationPage() {
                     </div>
                 </section>
             </main>
+
+            {contextMenu.open && contextMenu.elId && (
+                <div 
+                    className="fixed z-[1000] bg-popover border rounded-xl shadow-2xl p-1 w-56 animate-in fade-in zoom-in-95 duration-150"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-3 py-2 text-[10px] font-black uppercase text-muted-foreground border-b mb-1">Objekt-Optionen</div>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-lg flex items-center gap-2" onClick={() => { duplicateElement(contextMenu.elId!); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <Copy className="h-4 w-4" /> Duplizieren
+                    </button>
+                    <Separator className="my-1" />
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-lg flex items-center gap-2" onClick={() => { changeZIndex(contextMenu.elId!, 'front'); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <MoveUp className="h-4 w-4" /> Ganz nach vorne
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-lg flex items-center gap-2" onClick={() => { changeZIndex(contextMenu.elId!, 'forward'); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <ArrowUp className="h-4 w-4" /> Ebene nach vorne
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-lg flex items-center gap-2" onClick={() => { changeZIndex(contextMenu.elId!, 'backward'); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <ArrowDown className="h-4 w-4" /> Ebene nach hinten
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-lg flex items-center gap-2" onClick={() => { changeZIndex(contextMenu.elId!, 'back'); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <MoveDown className="h-4 w-4" /> Ganz nach hinten
+                    </button>
+                    <Separator className="my-1" />
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg flex items-center gap-2" onClick={() => { deleteElement(contextMenu.elId!); setContextMenu({ ...contextMenu, open: false }); }}>
+                        <Trash2 className="h-4 w-4" /> Löschen
+                    </button>
+                </div>
+            )}
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
