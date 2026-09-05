@@ -11,13 +11,8 @@ import {
     Loader2, ArrowLeft, Plus, Trash2, Play, Save, Check, 
     ChevronLeft, ChevronRight, X, 
     MoreHorizontal,
-    Bold, Italic, Underline, AlignCenter, 
-    Square, Circle, Minus, Type, 
-    Copy, Strikethrough,
-    Layers,
-    Type as FontIcon,
-    ChevronDown,
-    Palette
+    Bold, Italic, Square, Circle, Minus, Type, 
+    Copy, Palette
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -218,8 +213,9 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
+    // Global event listener for pointer move/up
     useEffect(() => {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
+        const handleGlobalPointerMove = (e: PointerEvent) => {
             if (!isDragging || !selectedElementId || !canvasRef.current) return;
 
             const rect = canvasRef.current.getBoundingClientRect();
@@ -229,35 +225,31 @@ export default function PresentationPage() {
             let newX = mouseX - dragOffset.current.x;
             let newY = mouseY - dragOffset.current.y;
 
-            // Constrain within a reasonable range (allow slightly off-canvas for UX)
-            newX = Math.max(-20, Math.min(110, newX));
-            newY = Math.max(-20, Math.min(110, newY));
-
             updateElement(selectedElementId, { x: newX, y: newY });
         };
 
-        const handleGlobalMouseUp = () => {
+        const handleGlobalPointerUp = () => {
             if (isDragging) {
                 setIsDragging(false);
             }
         };
 
         if (isDragging) {
-            window.addEventListener('mousemove', handleGlobalMouseMove);
-            window.addEventListener('mouseup', handleGlobalMouseUp);
+            window.addEventListener('pointermove', handleGlobalPointerMove);
+            window.addEventListener('pointerup', handleGlobalPointerUp);
         }
 
         return () => {
-            window.removeEventListener('mousemove', handleGlobalMouseMove);
-            window.removeEventListener('mouseup', handleGlobalMouseUp);
+            window.removeEventListener('pointermove', handleGlobalPointerMove);
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
         };
     }, [isDragging, selectedElementId, currentSlideIndex]);
 
-    const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
+    const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // 1st Click: Select
+        // 1st Step: Select if not already selected
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
@@ -279,13 +271,15 @@ export default function PresentationPage() {
         };
 
         setIsDragging(true);
+        // On touch devices, this prevents the browser from doing things like scrolling
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // 2nd Click (on already selected element): Edit text
+        // 2nd Step: If already selected, second tap/click enters text edit mode
         if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
             setIsEditingText(true);
         }
@@ -369,7 +363,7 @@ export default function PresentationPage() {
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden',
             userSelect: 'none',
-            touchAction: 'none'
+            touchAction: 'none' // Important for iPad drag
         };
 
         if (el.type === 'line') {
@@ -381,7 +375,7 @@ export default function PresentationPage() {
             <div 
                 key={el.id} 
                 style={style}
-                onMouseDown={(e) => onMouseDown(e, el)}
+                onPointerDown={(e) => onPointerDown(e, el)}
                 onClick={(e) => handleElementClick(e, el)}
             >
                 {el.type === 'text' && (
@@ -540,15 +534,20 @@ export default function PresentationPage() {
                 </aside>
 
                 <section 
-                    className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative" 
+                    className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none" 
                     onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
                 >
                     <div 
                         ref={canvasRef}
-                        className="aspect-video w-full max-w-5xl bg-white shadow-2xl rounded-2xl relative overflow-hidden border-4 border-white"
+                        className="aspect-video w-full max-w-5xl bg-white shadow-2xl rounded-2xl relative overflow-hidden border-4 border-white touch-none"
                         style={{ height: 'fit-content' }}
-                        onClick={(e) => e.stopPropagation()} // Click on white area also keeps element selected
+                        onClick={(e) => e.stopPropagation()}
                     >
+                        {/* Background for deselecting on click inside white area */}
+                        <div 
+                           className="absolute inset-0 z-0 bg-white" 
+                           onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
+                        />
                         {(currentSlide.elements || []).map(el => renderElement(el))}
                     </div>
                 </section>
