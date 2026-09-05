@@ -229,10 +229,16 @@ export default function PresentationPage() {
 
         const otherElements = currentSlide.elements.filter(e => e.id !== elId);
         
-        // Horizontal Snapping (Y-Axis guides)
-        const yPoints = [0, 50, 100 - selectedElement.height]; // Slide edges and center
+        // Vertical Snap Points (for horizontal lines)
+        const yPoints = [
+            0, // Top
+            50 - selectedElement.height / 2, // Center
+            100 - selectedElement.height // Bottom
+        ];
         otherElements.forEach(e => {
-            yPoints.push(e.y, e.y + (e.height - selectedElement.height) / 2, e.y + e.height - selectedElement.height);
+            yPoints.push(e.y); // Other top
+            yPoints.push(e.y + (e.height - selectedElement.height) / 2); // Other center
+            yPoints.push(e.y + e.height - selectedElement.height); // Other bottom
         });
 
         for (const py of yPoints) {
@@ -243,10 +249,16 @@ export default function PresentationPage() {
             }
         }
 
-        // Vertical Snapping (X-Axis guides)
-        const xPoints = [0, 50 - selectedElement.width / 2, 100 - selectedElement.width];
+        // Horizontal Snap Points (for vertical lines)
+        const xPoints = [
+            0, // Left
+            50 - selectedElement.width / 2, // Center
+            100 - selectedElement.width // Right
+        ];
         otherElements.forEach(e => {
-            xPoints.push(e.x, e.x + (e.width - selectedElement.width) / 2, e.x + e.width - selectedElement.width);
+            xPoints.push(e.x); // Other left
+            xPoints.push(e.x + (e.width - selectedElement.width) / 2); // Other center
+            xPoints.push(e.x + e.width - selectedElement.width); // Other right
         });
 
         for (const px of xPoints) {
@@ -577,32 +589,36 @@ export default function PresentationPage() {
             </div>
 
             <main className="flex-1 flex overflow-hidden bg-secondary/10 h-full">
-                <aside className="w-48 border-r bg-background overflow-y-auto p-3 space-y-3 shrink-0 no-scrollbar">
-                    {slides.map((slide, idx) => (
-                        <div key={slide.id} className="relative group">
-                            <div 
-                                className={cn(
-                                    "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm",
-                                    currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted"
-                                )}
-                                onClick={() => { 
-                                    setCurrentSlideIndex(idx); 
-                                    setSelectedElementId(null); 
-                                    setIsEditingText(false); 
-                                }}
-                            >
-                                <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
-                                    {(slide.elements || []).map(el => renderElement(el, true))}
+                <aside className="w-48 border-r bg-background flex flex-col shrink-0 overflow-hidden">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
+                        {slides.map((slide, idx) => (
+                            <div key={slide.id} className="relative group">
+                                <div 
+                                    className={cn(
+                                        "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm",
+                                        currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted"
+                                    )}
+                                    onClick={() => { 
+                                        setCurrentSlideIndex(idx); 
+                                        setSelectedElementId(null); 
+                                        setIsEditingText(false); 
+                                    }}
+                                >
+                                    <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
+                                        {(slide.elements || []).map(el => renderElement(el, true))}
+                                    </div>
                                 </div>
+                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); triggerAutoSave(); } }}>
+                                    <X className="h-3 w-3" />
+                                </Button>
                             </div>
-                            <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); triggerAutoSave(); } }}>
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </div>
-                    ))}
-                    <Button variant="outline" className="w-full border-dashed py-6 rounded-xl flex flex-col gap-1 text-[10px] font-black uppercase" onClick={() => { setSlides([...slides, { id: Math.random().toString(), title: 'Neue Folie', elements: [] }]); setCurrentSlideIndex(slides.length); triggerAutoSave(); }}>
-                        <Plus className="h-4 w-4" /> Neu
-                    </Button>
+                        ))}
+                    </div>
+                    <div className="p-3 border-t bg-background">
+                        <Button variant="outline" className="w-full border-dashed py-6 rounded-xl flex flex-col gap-1 text-[10px] font-black uppercase" onClick={() => { setSlides([...slides, { id: Math.random().toString(), title: 'Neue Folie', elements: [] }]); setCurrentSlideIndex(slides.length); triggerAutoSave(); }}>
+                            <Plus className="h-4 w-4" /> Neu
+                        </Button>
+                    </div>
                 </aside>
 
                 <section 
