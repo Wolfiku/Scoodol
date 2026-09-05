@@ -326,7 +326,7 @@ export default function PresentationPage() {
                 
                 if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
                 if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
-                if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
+                if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elW + deltaY);
                 if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
 
                 if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
@@ -415,16 +415,13 @@ export default function PresentationPage() {
             e.stopPropagation();
             setIsEditingText(true);
             
-            // Critical for iPad: Focus immediately in the same tick if possible, 
-            // but since React state update is async, we help it along
+            // Critical for iPad: Focus immediately in the same tick
             const target = e.currentTarget;
             const editable = target.querySelector('[contenteditable]') as HTMLElement;
             if (editable) {
-                // Ensure editable status is visible to the browser before focus
                 editable.setAttribute('contenteditable', 'true');
                 editable.focus();
                 
-                // Place cursor at end of text
                 const selection = window.getSelection();
                 const range = document.createRange();
                 range.selectNodeContents(editable);
@@ -620,13 +617,13 @@ export default function PresentationPage() {
 
         if (el.type === 'line') {
             const thickness = el.styles.borderWidth || 4;
-            const hitboxPadding = 15; // Increased hitbox for easier selection on touch
+            const hitboxPadding = 15; 
             style.height = `${thickness + (hitboxPadding * 2)}px`;
             style.backgroundColor = el.styles.borderColor || '#000000';
             style.borderTop = `${hitboxPadding}px solid transparent`;
             style.borderBottom = `${hitboxPadding}px solid transparent`;
             style.backgroundClip = 'padding-box';
-            style.marginTop = `-${hitboxPadding}px`; // Keep original visual vertical position
+            style.marginTop = `-${hitboxPadding}px`;
             if (isSelected) style.boxShadow = '0 0 10px hsla(var(--primary), 0.5)';
         }
 
@@ -679,10 +676,10 @@ export default function PresentationPage() {
 
                         {el.type === 'line' ? (
                             <>
-                                <div className="absolute top-1/2 -left-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-start')}>
+                                <div className="absolute top-1/2 -left-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center" onPointerDown={(e) => handleResizeStart(e, 'line-start')}>
                                     <div className="w-2 h-2 bg-primary rounded-full" />
                                 </div>
-                                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center hover:scale-110 transition-transform" onPointerDown={(e) => handleResizeStart(e, 'line-end')}>
+                                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-8 h-8 bg-white border-2 border-primary rounded-full cursor-crosshair z-50 shadow-lg flex items-center justify-center" onPointerDown={(e) => handleResizeStart(e, 'line-end')}>
                                     <div className="w-2 h-2 bg-primary rounded-full" />
                                 </div>
                             </>
@@ -718,7 +715,6 @@ export default function PresentationPage() {
                 body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; user-select: none; }
                 .canvas-area { touch-action: none; }
                 [contenteditable="true"] { user-select: text !important; cursor: text !important; }
-                .read-only-element { user-select: none !important; -webkit-user-select: none !important; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
@@ -816,7 +812,7 @@ export default function PresentationPage() {
                 </div>
             </div>
 
-            <main className="flex-1 flex overflow-hidden bg-secondary/10 h-full">
+            <main className="flex-1 flex overflow-hidden bg-secondary/10">
                 <aside className="w-48 border-r bg-background flex flex-col shrink-0 overflow-hidden">
                     <div className="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar">
                         {slides.map((slide, idx) => (
