@@ -307,6 +307,15 @@ export default function PresentationPage() {
             
             // Handle at top is -90deg from 0 (right). So add 90 to make handle pull it correctly.
             angleDeg += 90;
+
+            // Angle Snapping
+            const snapThreshold = 5;
+            const snapInterval = 45;
+            const roundedAngle = Math.round(angleDeg / snapInterval) * snapInterval;
+            
+            if (Math.abs(angleDeg - roundedAngle) < snapThreshold) {
+                angleDeg = roundedAngle;
+            }
             
             updateElementStyle(selectedElementId, { rotation: angleDeg });
         }
@@ -418,7 +427,18 @@ export default function PresentationPage() {
         if (e.touches.length === 2 && selectedElementId) {
             const currentAngle = getAngle(e.touches[0], e.touches[1]);
             const delta = currentAngle - initialTouchAngle.current;
-            updateElementStyle(selectedElementId, { rotation: initialRotation.current + delta });
+            let finalAngle = initialRotation.current + delta;
+
+            // Angle Snapping for touch
+            const snapThreshold = 5;
+            const snapInterval = 45;
+            const roundedAngle = Math.round(finalAngle / snapInterval) * snapInterval;
+            
+            if (Math.abs(finalAngle - roundedAngle) < snapThreshold) {
+                finalAngle = roundedAngle;
+            }
+
+            updateElementStyle(selectedElementId, { rotation: finalAngle });
         }
     };
 
