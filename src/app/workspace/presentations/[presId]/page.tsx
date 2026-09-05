@@ -12,7 +12,7 @@ import {
     ChevronLeft, ChevronRight, X, 
     MoreHorizontal,
     Bold, Italic, Square, Circle, Minus, Type, 
-    Copy, Palette
+    Copy, Palette, RotateCcw
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,6 +61,7 @@ interface SlideElement {
         textDecoration?: string;
         opacity?: number;
         zIndex: number;
+        rotation?: number;
     }
 }
 
@@ -109,7 +110,7 @@ export default function PresentationPage() {
                     type: 'text', 
                     x: 10, y: 30, width: 80, height: 20, 
                     content: 'Meine Präsentation', 
-                    styles: { fontSize: 48, fontWeight: '900', textAlign: 'center', zIndex: 1, color: '#000000', fontFamily: 'var(--font-pt-sans), sans-serif' } 
+                    styles: { fontSize: 48, fontWeight: '900', textAlign: 'center', zIndex: 1, color: '#000000', fontFamily: 'var(--font-pt-sans), sans-serif', rotation: 0 } 
                 }
             ] 
         }
@@ -122,9 +123,12 @@ export default function PresentationPage() {
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [isEditingText, setIsEditingText] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
     const canvasRef = useRef<HTMLDivElement>(null);
     const dragOffset = useRef({ x: 0, y: 0 });
+    const initialRotation = useRef(0);
+    const initialTouchAngle = useRef(0);
 
     const docRef = useMemoFirebase(() => 
         !isNewPres && user && typeof presId === 'string'
@@ -213,7 +217,71 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    // Global event listener for pointer move/up
+    // Smart Guides Logic
+    const calculateGuides = (elId: string, newX: number, newY: number) => {
+        if (!selectedElement) return { x: null, y: null, snappedX: newX, snappedY: newY };
+        
+        const threshold = 1.5; // Snap threshold in percent
+        let guideX: number | null = null;
+        let guideY: number | null = null;
+        let snappedX = newX;
+        let snappedY = newY;
+
+        const otherElements = currentSlide.elements.filter(e => e.id !== elId);
+        
+        // Horizontal Snapping (Y-Axis guides)
+        const yPoints = [0, 50, 100 - selectedElement.height]; // Slide edges and center
+        otherElements.forEach(e => {
+            yPoints.push(e.y, e.y + (e.height - selectedElement.height) / 2, e.y + e.height - selectedElement.height);
+        });
+
+        for (const py of yPoints) {
+            if (Math.abs(newY - py) < threshold) {
+                snappedY = py;
+                guideY = py + selectedElement.height / 2;
+                break;
+            }
+        }
+
+        // Vertical Snapping (X-Axis guides)
+        const xPoints = [0, 50 - selectedElement.width / 2, 100 - selectedElement.width];
+        otherElements.forEach(e => {
+            xPoints.push(e.x, e.x + (e.width - selectedElement.width) / 2, e.x + e.width - selectedElement.width);
+        });
+
+        for (const px of xPoints) {
+            if (Math.abs(newX - px) < threshold) {
+                snappedX = px;
+                guideX = px + selectedElement.width / 2;
+                break;
+            }
+        }
+
+        return { x: guideX, y: guideY, snappedX, snappedY };
+    };
+
+    // Multi-touch rotation logic
+    const getAngle = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
+        return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
+    };
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (isPresenting) return;
+        if (e.touches.length === 2 && selectedElement) {
+            initialRotation.current = selectedElement.styles.rotation || 0;
+            initialTouchAngle.current = getAngle(e.touches[0], e.touches[1]);
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (isPresenting) return;
+        if (e.touches.length === 2 && selectedElementId) {
+            const currentAngle = getAngle(e.touches[0], e.touches[1]);
+            const delta = currentAngle - initialTouchAngle.current;
+            updateElementStyle(selectedElementId, { rotation: initialRotation.current + delta });
+        }
+    };
+
     useEffect(() => {
         const handleGlobalPointerMove = (e: PointerEvent) => {
             if (!isDragging || !selectedElementId || !canvasRef.current) return;
@@ -222,15 +290,19 @@ export default function PresentationPage() {
             const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
             const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
 
-            let newX = mouseX - dragOffset.current.x;
-            let newY = mouseY - dragOffset.current.y;
+            const rawX = mouseX - dragOffset.current.x;
+            const rawY = mouseY - dragOffset.current.y;
 
-            updateElement(selectedElementId, { x: newX, y: newY });
+            const { x, y, snappedX, snappedY } = calculateGuides(selectedElementId, rawX, rawY);
+            
+            setGuides({ x, y });
+            updateElement(selectedElementId, { x: snappedX, y: snappedY });
         };
 
         const handleGlobalPointerUp = () => {
             if (isDragging) {
                 setIsDragging(false);
+                setGuides({ x: null, y: null });
             }
         };
 
@@ -243,20 +315,18 @@ export default function PresentationPage() {
             window.removeEventListener('pointermove', handleGlobalPointerMove);
             window.removeEventListener('pointerup', handleGlobalPointerUp);
         };
-    }, [isDragging, selectedElementId, currentSlideIndex]);
+    }, [isDragging, selectedElementId, currentSlideIndex, selectedElement]);
 
     const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // 1st Step: Select if not already selected
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
             return;
         }
 
-        // Already selected -> Prepare Drag (unless editing text)
         if (isEditingText) return;
 
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -271,7 +341,6 @@ export default function PresentationPage() {
         };
 
         setIsDragging(true);
-        // On touch devices, this prevents the browser from doing things like scrolling
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
@@ -279,7 +348,6 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
 
-        // 2nd Step: If already selected, second tap/click enters text edit mode
         if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
             setIsEditingText(true);
         }
@@ -303,7 +371,8 @@ export default function PresentationPage() {
                 borderWidth: 0,
                 borderColor: '#000000',
                 borderRadius: type === 'circle' ? 9999 : 0,
-                opacity: 1
+                opacity: 1,
+                rotation: 0
             }
         };
 
@@ -361,9 +430,10 @@ export default function PresentationPage() {
             justifyContent: 'center',
             cursor: isPreview ? 'default' : (isEditing ? 'text' : 'pointer'),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
+            transform: `rotate(${el.styles.rotation || 0}deg)`,
             overflow: 'hidden',
             userSelect: 'none',
-            touchAction: 'none' // Important for iPad drag
+            touchAction: 'none'
         };
 
         if (el.type === 'line') {
@@ -377,6 +447,8 @@ export default function PresentationPage() {
                 style={style}
                 onPointerDown={(e) => onPointerDown(e, el)}
                 onClick={(e) => handleElementClick(e, el)}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
             >
                 {el.type === 'text' && (
                     <div 
@@ -543,11 +615,19 @@ export default function PresentationPage() {
                         style={{ height: 'fit-content' }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Background for deselecting on click inside white area */}
                         <div 
                            className="absolute inset-0 z-0 bg-white" 
                            onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
                         />
+                        
+                        {/* Smart Guides Overlay */}
+                        {activeGuides.x !== null && (
+                            <div className="absolute top-0 bottom-0 w-[1px] bg-purple-500 z-50 pointer-events-none" style={{ left: `${activeGuides.x}%` }} />
+                        )}
+                        {activeGuides.y !== null && (
+                            <div className="absolute left-0 right-0 h-[1px] bg-purple-500 z-50 pointer-events-none" style={{ top: `${activeGuides.y}%` }} />
+                        )}
+
                         {(currentSlide.elements || []).map(el => renderElement(el))}
                     </div>
                 </section>
