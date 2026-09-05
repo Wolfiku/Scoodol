@@ -3,18 +3,19 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, where, getDocs } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useStorage } from '@/firebase';
+import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, query, where, getDocs, increment, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
     Loader2, ArrowLeft, Bold, Italic, Underline, Link as LinkIcon, 
-    Table as TableIcon, Image as ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
+    Table as TableIcon, ImageIcon, Video, AlignLeft, AlignCenter, AlignRight, 
     List, ListOrdered, Save, Check, MoreHorizontal, Trash2, ChevronDown,
     Strikethrough, Palette, Highlighter, PlusSquare, MinusSquare,
-    Indent, Outdent, Type as FontIcon, BookOpen, Edit, Lock, Unlock, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon,
-    Sparkles, Library, Code, BookmarkPlus, ExternalLink, CornerUpRight
+    Indent, Outdent, Type as FontIcon, BookOpen, Edit, FileText, Download, Info, Globe, QrCode, Copy, Send, Eraser, X as XIcon,
+    Sparkles, Library, Code, BookmarkPlus, ExternalLink, CornerUpRight, Upload, HardDrive
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -53,12 +54,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
+import { de } from 'de';
 import { Badge } from '@/components/ui/badge';
 import QRCode from 'qrcode';
 import { generateAiWritingAssistance } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Progress } from '@/components/ui/progress';
 
 type TextDocument = {
   title: string;
@@ -72,6 +74,8 @@ type TextDocument = {
 };
 
 type SaveStatus = 'idle' | 'dirty' | 'saving';
+
+const STORAGE_LIMIT_BYTES = 3 * 1024 * 1024 * 1024; // 3GB
 
 const FONTS = [
     { name: 'Standard (Sans)', family: 'var(--font-pt-sans), sans-serif' },
@@ -107,6 +111,7 @@ export default function TextDocumentPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { aiLanguage } = useTheme();
   
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -120,7 +125,7 @@ export default function TextDocumentPage() {
   const [isManifestOpen, setIsManifestOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isConfirmLiveUpdateOpen, setIsConfirmLiveUpdateOpen] = useState(false);
-  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link' | 'ext-link' | 'homework' | 'redirect', open: boolean}>({type: 'link', open: false});
+  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState<{type: 'image' | 'video' | 'link' | 'ext-link' | 'homework' | 'redirect' | 'upload', open: boolean}>({type: 'link', open: false});
   const [mediaUrl, setMediaUrl] = useState('');
   const [extLinkTitle, setExtLinkTitle] = useState('');
   const [extLinkDesc, setExtLinkDesc] = useState('');
@@ -132,6 +137,8 @@ export default function TextDocumentPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [publicDocs, setPublicDocs] = useState<{id: string, title: string, type: 'document' | 'quiz'}[]>([]);
   const [selectedRedirect, setSelectedRedirect] = useState<string | null>(null);
@@ -143,6 +150,9 @@ export default function TextDocumentPage() {
   , [firestore, user, docId, isNewDoc]);
 
   const { data: documentData, isLoading: isLoadingDoc } = useDoc<TextDocument>(docRef);
+  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: userProfile } = useDoc<any>(userDocRef);
+
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -150,10 +160,7 @@ export default function TextDocumentPage() {
       setTitle(documentData.title);
       setIsLocked(!!documentData.isLocked);
       setIsPublished(!!documentData.isPublished);
-      if (documentData.isLocked) {
-          setIsEditing(false);
-      }
-      
+      if (documentData.isLocked) setIsEditing(false);
       if (editorRef.current && editorRef.current.innerHTML !== documentData.content) {
         editorRef.current.innerHTML = documentData.content;
       }
@@ -165,88 +172,35 @@ export default function TextDocumentPage() {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
       if (!selection?.rangeCount) return;
-      
       const range = selection.getRangeAt(0);
-      if (editorRef.current?.contains(range.commonAncestorContainer)) {
-          savedRange.current = range.cloneRange();
-      }
-
+      if (editorRef.current?.contains(range.commonAncestorContainer)) savedRange.current = range.cloneRange();
       let node = range.startContainer;
       let tableFound = false;
       while (node && node !== editorRef.current) {
-        if (node.nodeName === 'TABLE') {
-          tableFound = true;
-          break;
-        }
+        if (node.nodeName === 'TABLE') { tableFound = true; break; }
         node = node.parentNode as Node;
       }
       setIsInTable(tableFound);
     };
-
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-          const selection = window.getSelection();
-          if (!selection || !selection.rangeCount) return;
-          
-          let node: Node | null = selection.getRangeAt(0).startContainer;
-          let preBlock: HTMLPreElement | null = null;
-          
-          while (node && node !== editorRef.current) {
-              if (node.nodeName === 'PRE') {
-                  preBlock = node as HTMLPreElement;
-                  break;
-              }
-              node = node.parentNode;
-          }
-
-          if (preBlock) {
-              e.preventDefault();
-              const range = selection.getRangeAt(0);
-              const textNode = document.createTextNode('\n');
-              range.deleteContents();
-              range.insertNode(textNode);
-              range.setStartAfter(textNode);
-              range.setEndAfter(textNode);
-              selection.removeAllRanges();
-              selection.addRange(range);
-              triggerAutoSave();
-          }
-      }
-  };
-
   const handleSave = useCallback(async () => {
     if (!firestore || !user || !title.trim() || isLocked) return;
     setSaveStatus('saving');
-
     const content = editorRef.current?.innerHTML || '';
     const authorName = user.displayName || user.email?.split('@')[0] || 'Anonym';
-
     try {
       if (isNewDoc) {
         const docsColRef = collection(firestore, `users/${user.uid}/documents`);
         const newDocRef = await addDoc(docsColRef, {
-          title,
-          content,
-          authorName,
-          ownerId: user.uid,
-          isLocked: false,
-          isPublished: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          title, content, authorName, ownerId: user.uid, isLocked: false, isPublished: false,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         });
         router.replace(`/workspace/documents/${newDocRef.id}`);
-      } else {
-        if (!docRef) return;
-        await setDoc(docRef, {
-          title,
-          content,
-          authorName,
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
+      } else if (docRef) {
+        await setDoc(docRef, { title, content, authorName, updatedAt: serverTimestamp() }, { merge: true });
       }
       setSaveStatus('idle');
       setIsConfirmLiveUpdateOpen(false);
@@ -258,49 +212,55 @@ export default function TextDocumentPage() {
   const triggerAutoSave = () => {
     if (isLocked) return;
     setSaveStatus('dirty');
-    
     if (isPublished) return;
-
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(handleSave, 2000);
   };
 
-  useEffect(() => {
-    const handleClick = async (e: MouseEvent) => {
-        const target = e.target as HTMLElement;
-        
-        const removeBtn = target.closest('.remove-block-btn') as HTMLButtonElement;
-        if (removeBtn && isEditing) {
-            const wrapper = removeBtn.closest('.special-block-wrapper') || removeBtn.closest('.table-container') || removeBtn.closest('.video-wrapper');
-            if (wrapper) {
-                wrapper.remove();
-                triggerAutoSave();
-                return;
-            }
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user || !userDocRef) return;
+    const currentUsage = userProfile?.storageUsage || 0;
+    if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
+        toast({ variant: 'destructive', title: 'Speicher voll', description: 'Du hast dein Limit von 3 GB erreicht.' });
+        return;
+    }
+    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : null;
+    if (!type) return;
+    const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
+    const fileRef = ref(storage, storageRefPath);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+    uploadTask.on('state_changed', 
+        snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 100),
+        err => { console.error(err); setUploadProgress(null); },
+        async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+            await addDoc(collection(firestore, `users/${user.uid}/media`), {
+                name: file.name, url, type, size: file.size, fullPath: storageRefPath, createdAt: serverTimestamp()
+            });
+            insertMediaBlock(type, url);
+            setUploadProgress(null);
+            toast({ title: 'Datei hochgeladen!' });
         }
+    );
+  };
 
-        if (isEditing || !user) return;
-        const hwBtn = target.closest('.add-hw-btn') as HTMLButtonElement;
-        if (hwBtn) {
-            const container = hwBtn.closest('.hw-template') as HTMLElement;
-            if (container) {
-                const subject = container.dataset.subject || 'Allgemein';
-                const task = container.dataset.task || 'Aufgabe';
-                const hwRef = collection(firestore, `users/${user.uid}/homeworks`);
-                await addDocumentNonBlocking(hwRef, {
-                    subject,
-                    task,
-                    done: false,
-                    dueDate: '',
-                    createdAt: Date.now()
-                });
-                toast({ title: "Hausaufgabe hinzugefügt!", description: task });
-            }
-        }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [isEditing, user, firestore, toast]);
+  const insertMediaBlock = (type: 'image' | 'video', url: string) => {
+    editorRef.current?.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    if (savedRange.current) { selection.removeAllRanges(); selection.addRange(savedRange.current); }
+    const range = selection.getRangeAt(0);
+    let content = '';
+    if (type === 'image') content = `<div style="text-align: center;"><img src="${url}" style="max-width: 100%; border-radius: 8px;" alt="Bild" /></div>`;
+    else content = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; border-radius: 16px; overflow: hidden;"><iframe src="${url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div>`;
+    const html = `<div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;"><button class="remove-block-btn" contenteditable="false">✕</button>${content}</div><p><br></p>`;
+    const fragment = range.createContextualFragment(html);
+    range.insertNode(fragment);
+    range.collapse(false);
+    triggerAutoSave();
+  };
 
   const execCommand = (command: string, value: string = '') => {
     if (!isEditing || isLocked) return;
@@ -314,41 +274,24 @@ export default function TextDocumentPage() {
     if (!isEditing || isLocked) return;
     editorRef.current?.focus();
     const selection = window.getSelection();
-    if (!selection) return;
-
-    if (savedRange.current && !editorRef.current?.contains(selection.anchorNode)) {
-        selection.removeAllRanges();
-        selection.addRange(savedRange.current);
-    }
-
-    if (!selection.rangeCount) return;
+    if (!selection || !selection.rangeCount) return;
     const range = selection.getRangeAt(0);
-
     document.execCommand('styleWithCSS', false, 'true');
-
     if (range.collapsed) {
         const span = document.createElement('span');
         if (styleKey === 'fontFamily') span.style.fontFamily = value;
-        if (styleKey === 'fontSize') {
-            span.style.fontSize = `${value}px`;
-            setFontSize(value);
-        }
+        if (styleKey === 'fontSize') { span.style.fontSize = `${value}px`; setFontSize(value); }
         span.appendChild(document.createTextNode('\u200B'));
         range.insertNode(span);
-        range.setStart(span.firstChild!, 1);
-        range.setEnd(span.firstChild!, 1);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        range.setStart(span.firstChild!, 1); range.setEnd(span.firstChild!, 1);
+        selection.removeAllRanges(); selection.addRange(range);
     } else {
-        if (styleKey === 'fontFamily') {
-            document.execCommand('fontName', false, value);
-        } else if (styleKey === 'fontSize') {
+        if (styleKey === 'fontFamily') document.execCommand('fontName', false, value);
+        else if (styleKey === 'fontSize') {
             document.execCommand('fontSize', false, '7'); 
-            const fonts = editorRef.current?.querySelectorAll('font[size="7"]');
-            fonts?.forEach(f => {
+            editorRef.current?.querySelectorAll('font[size="7"]').forEach(f => {
                 const s = document.createElement('span');
-                s.style.fontSize = `${value}px`;
-                s.innerHTML = f.innerHTML;
+                s.style.fontSize = `${value}px`; s.innerHTML = f.innerHTML;
                 f.parentNode?.replaceChild(s, f);
             });
             setFontSize(value);
@@ -357,659 +300,64 @@ export default function TextDocumentPage() {
     triggerAutoSave();
   };
 
-  const insertExtra = (type: 'code') => {
-      let html = '';
-      if (type === 'code') {
-          html = `
-            <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
-                <button class="remove-block-btn" contenteditable="false" title="Block löschen">✕</button>
-                <pre style="background-color: #121212; color: #e0e0e0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.9rem; line-height: 1.6; margin: 0; overflow-x: auto; white-space: pre-wrap; border: 1px solid #333; display: block; tab-size: 4;"><code>Code hier einfügen...</code></pre>
-            </div>
-            <p><br></p>`;
-      }
-      execCommand('insertHTML', html);
-  };
-
   const insertTable = () => {
-    const tableHtml = `
-      <div class="table-container special-block-wrapper" style="margin: 1.5em 0; overflow-x: auto; position: relative;">
-        <button class="remove-block-btn" contenteditable="false" title="Tabelle löschen">✕</button>
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #ddd; border-radius: 8px;">
-          <thead>
-            <tr style="background-color: #f4f4f5;">
-              <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Kopfzeile 1</th>
-              <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Kopfzeile 2</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="border: 1px solid #ddd; padding: 12px;">Inhalt 1</td>
-              <td style="border: 1px solid #ddd; padding: 12px;">Inhalt 2</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p><br></p>
-    `;
+    const tableHtml = `<div class="table-container special-block-wrapper" style="margin: 1.5em 0; position: relative;"><button class="remove-block-btn" contenteditable="false">✕</button><table style="width: 100%; border: 2px solid #ddd; border-radius: 8px;"><thead><tr style="background-color: #f4f4f5;"><th style="border: 1px solid #ddd; padding: 12px;">Spalte 1</th><th style="border: 1px solid #ddd; padding: 12px;">Spalte 2</th></tr></thead><tbody><tr><td style="border: 1px solid #ddd; padding: 12px;">...</td><td style="border: 1px solid #ddd; padding: 12px;">...</td></tr></tbody></table></div><p><br></p>`;
     execCommand('insertHTML', tableHtml);
   };
 
-  const getTableUnderCursor = () => {
+  const openMediaDialog = (type: any) => {
     const selection = window.getSelection();
-    if (!selection?.rangeCount) return null;
-    let node = selection.getRangeAt(0).startContainer;
-    while (node && node !== editorRef.current) {
-      if (node.nodeName === 'TABLE') return node as HTMLTableElement;
-      node = node.parentNode as Node;
-    }
-    return null;
+    if (selection && selection.rangeCount > 0) savedRange.current = selection.getRangeAt(0).cloneRange();
+    setIsMediaDialogOpen({ type, open: true });
   };
 
-  const addRow = () => {
-    const table = getTableUnderCursor();
-    if (!table) return;
-    const row = table.insertRow();
-    const cellCount = table.rows[0].cells.length;
-    for (let i = 0; i < cellCount; i++) {
-      const cell = row.insertCell();
-      cell.innerHTML = 'Neu';
-      cell.style.border = '1px solid #ddd';
-      cell.style.padding = '12px';
-    }
-    triggerAutoSave();
-  };
-
-  const addColumn = () => {
-    const table = getTableUnderCursor();
-    if (!table) return;
-    for (let i = 0; i < table.rows.length; i++) {
-      const cell = table.rows[i].insertCell();
-      cell.innerHTML = 'Neu';
-      cell.style.border = '1px solid #ddd';
-      cell.style.padding = '12px';
-      if (i === 0 && table.tHead) {
-          cell.style.backgroundColor = '#f4f4f5';
-          cell.style.fontWeight = 'bold';
-      }
-    }
-    triggerAutoSave();
-  };
-
-  const deleteCurrentTable = () => {
-    const table = getTableUnderCursor();
-    if (!table) return;
-    let container = table.parentElement;
-    while (container && container !== editorRef.current && !container.classList.contains('table-container')) {
-        container = container.parentElement;
-    }
-    if (container && container.classList.contains('table-container')) container.remove();
-    else table.remove();
-    setIsInTable(false);
-    triggerAutoSave();
-  };
-
-  const deleteRow = () => {
-      const selection = window.getSelection();
-      if (!selection?.rangeCount) return;
-      let node = selection.getRangeAt(0).startContainer;
-      while (node && node.nodeName !== 'TR' && node !== editorRef.current) node = node.parentNode as Node;
-      if (node && node.nodeName === 'TR') {
-          (node as HTMLTableRowElement).remove();
-          triggerAutoSave();
-      }
-  }
-
-  const handleMediaInsert = () => {
-    editorRef.current?.focus();
-    const selection = window.getSelection();
-    if (!selection) return;
-    
-    if (savedRange.current) {
-        selection.removeAllRanges();
-        selection.addRange(savedRange.current);
-    }
-    
-    if (!selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    let htmlToInsert = '';
-    
-    if (isMediaDialogOpen.type === 'link' && mediaUrl.trim()) {
-        document.execCommand('createLink', false, mediaUrl);
-    } else {
-        let blockContent = '';
-        if (isMediaDialogOpen.type === 'image' && mediaUrl.trim()) {
-            blockContent = `<div style="text-align: center;"><img src="${mediaUrl}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" alt="Bild" /></div>`;
-        } else if (isMediaDialogOpen.type === 'video' && mediaUrl.trim()) {
-            let embedUrl = mediaUrl;
-            if (mediaUrl.includes('youtube.com/watch?v=')) embedUrl = mediaUrl.replace('watch?v=', 'embed/');
-            else if (mediaUrl.includes('youtu.be/')) embedUrl = mediaUrl.replace('youtu.be/', 'youtube.com/embed/');
-            blockContent = `<div class="video-wrapper" style="position: relative; padding-bottom: 56.25%; height: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15);"><iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe></div>`;
-        } else if (isMediaDialogOpen.type === 'ext-link' && mediaUrl.trim()) {
-            blockContent = `
-                <div class="ext-link-card" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 0.75rem; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--primary)); font-family: inherit;">
-                    <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div>
-                    <div style="min-width: 0; flex: 1;">
-                        <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkTitle || 'Externer Link'}</div>
-                        <div style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; line-height: 1.4; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${extLinkDesc || mediaUrl}</div>
-                    </div>
-                    <a href="${mediaUrl}" target="_blank" style="background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; white-space: nowrap; transition: opacity 0.2s; margin-left: 0.5rem; display: inline-block;">Öffnen</a>
-                </div>
-            `;
-        } else if (isMediaDialogOpen.type === 'homework' && hwTask.trim()) {
-            blockContent = `
-                <div class="hw-template" data-subject="${hwSubject}" data-task="${hwTask}" style="border: 2px dashed hsla(var(--accent), 0.3); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-family: inherit;">
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: hsl(var(--accent)); margin-bottom: 2px; letter-spacing: 0.05em;">Hausaufgabe (${hwSubject || 'Allgemein'})</div>
-                        <div style="font-weight: 700; font-size: 1rem; color: hsl(var(--foreground)); line-height: 1.3; truncate;">${hwTask}</div>
-                    </div>
-                    <button class="add-hw-btn" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; flex-shrink: 0; height: fit-content; align-self: center;">➕ Einplanen</button>
-                </div>
-            `;
-        } else if (isMediaDialogOpen.type === 'redirect' && selectedRedirect) {
-            const item = publicDocs.find(d => d.id === selectedRedirect);
-            const url = `${window.location.origin}/public/${item?.type === 'document' ? 'document' : 'quiz'}/${user?.uid}/${item?.id}`;
-            const redirectIconSvg = item?.type === 'document' ? 
-                `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>` :
-                `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"></path></svg>`;
-            
-            blockContent = `
-                <div class="scoodol-redirect" style="border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); padding: 1rem; border-radius: 1rem; display: flex; align-items: center; gap: 1rem; border-left: 4px solid hsl(var(--accent)); font-family: inherit;">
-                    <div style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${redirectIconSvg}</div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 9px; text-transform: uppercase; font-weight: 800; color: hsl(var(--muted-foreground)); margin-bottom: 2px; letter-spacing: 0.05em;">Scoodol Datei</div>
-                        <div style="font-weight: 800; font-size: 1.1rem; color: hsl(var(--foreground)); line-height: 1.2; truncate;">${item?.title || 'Datei'}</div>
-                    </div>
-                    <a href="${url}" style="background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">Öffnen</a>
-                </div>
-            `;
-        }
-
-        if (blockContent) {
-            htmlToInsert = `
-                <div class="special-block-wrapper" style="position: relative; margin: 1.5rem 0;">
-                    <button class="remove-block-btn" contenteditable="false" title="Element löschen">✕</button>
-                    ${blockContent}
-                </div>
-                <p><br></p>
-            `;
-            const fragment = range.createContextualFragment(htmlToInsert);
-            range.insertNode(fragment);
-            range.collapse(false);
-        }
-    }
-    
-    setMediaUrl(''); setExtLinkTitle(''); setExtLinkDesc(''); setHwSubject(''); setHwTask(''); setSelectedRedirect(null);
-    setIsMediaDialogOpen({ ...isMediaDialogOpen, open: false });
-    triggerAutoSave();
-  };
-
-  const openMediaDialog = (type: 'image' | 'video' | 'link' | 'ext-link' | 'homework' | 'redirect') => {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) savedRange.current = selection.getRangeAt(0).cloneRange();
-      
-      if (type === 'redirect' && user) {
-          const fetchPublic = async () => {
-              const docsRef = collection(firestore, `users/${user.uid}/documents`);
-              const qDocs = query(docsRef, where('isPublished', '==', true));
-              const quizzesRef = collection(firestore, `users/${user.uid}/quizzes`);
-              const qQuiz = query(quizzesRef, where('isPublished', '==', true));
-              
-              const [snapDocs, snapQuiz] = await Promise.all([getDocs(qDocs), getDocs(qQuiz)]);
-              const items: any[] = [];
-              snapDocs.forEach(d => items.push({ id: d.id, title: d.data().title, type: 'document' }));
-              snapQuiz.forEach(d => items.push({ id: d.id, title: d.data().title, type: 'quiz' }));
-              setPublicDocs(items);
-          };
-          fetchPublic();
-      }
-      
-      setIsMediaDialogOpen({ type, open: true });
-  }
-
-  const handleAiAssistance = async (task: 'improve' | 'extend' | 'summarize') => {
-      const selection = window.getSelection();
-      let textToProcess = '';
-      let range: Range | null = null;
-
-      if (selection && selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
-          textToProcess = selection.toString();
-          range = selection.getRangeAt(0);
-      } else {
-          textToProcess = editorRef.current?.innerText || '';
-      }
-
-      if (!textToProcess.trim()) return;
-
-      setIsAiLoading(true);
-      const res = await generateAiWritingAssistance(textToProcess, task, aiLanguage);
-      setIsAiLoading(false);
-
-      if ('result' in res) {
-          if (range) {
-              range.deleteContents();
-              const fragment = range.createContextualFragment(res.result);
-              range.insertNode(fragment);
-          } else {
-              if (editorRef.current) {
-                  editorRef.current.innerHTML += `<p>${res.result}</p>`;
-              }
-          }
-          triggerAutoSave();
-          toast({ title: "KI-Hilfe abgeschlossen!" });
-      } else {
-          toast({ variant: 'destructive', title: "Fehler", description: res.error });
-      }
-  }
-
-  const handleDelete = async () => {
-    if (isNewDoc || !docRef) return;
-    await deleteDoc(docRef);
-    toast({ title: 'Dokument gelöscht' });
-    router.push('/workspace');
-  };
-
-  const togglePublish = async () => {
-      if (isNewDoc || !docRef) return;
-      const newPublishState = !isPublished;
-      setIsPublished(newPublishState);
-      await setDoc(docRef, { isPublished: newPublishState }, { merge: true });
-      toast({ 
-          title: newPublishState ? 'Dokument veröffentlicht!' : 'Dokument privat geschaltet',
-          description: newPublishState ? 'Dein Dokument ist nun über den öffentlichen Link erreichbar.' : 'Der öffentliche Zugriff wurde deaktiviert.'
-      });
-  };
-
-  const publicUrl = useMemo(() => {
-    if (typeof window === 'undefined' || !user || !docId) return '';
-    return `${window.location.origin}/public/document/${user.uid}/${docId}`;
-  }, [user, docId]);
-
-  const copyPublicLink = () => {
-    navigator.clipboard.writeText(publicUrl);
-    toast({ title: "Link kopiert!", description: "Du kannst ihn jetzt teilen." });
-  }
-
-  const handleShowQr = async () => {
-    try {
-        const url = await QRCode.toDataURL(publicUrl, {
-            width: 400,
-            margin: 2,
-            color: { dark: '#000000', light: '#ffffff' },
-        });
-        setQrCodeUrl(url);
-        setIsQrDialogOpen(true);
-    } catch (err) {
-        console.error(err);
-        toast({ variant: 'destructive', title: 'Fehler', description: 'QR-Code konnte nicht generiert werden.' });
-    }
-  };
-
-  const exportAsPDF = () => {
-      const content = editorRef.current?.innerHTML || '';
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-          printWindow.document.write(`
-              <html>
-                  <head>
-                      <title>${title}</title>
-                      <style>
-                          body { font-family: sans-serif; padding: 40px; line-height: 1.6; }
-                          h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-                          table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-                          td, th { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                          img { max-width: 100%; height: auto; border-radius: 8px; }
-                          .video-wrapper { display: none; }
-                          .remove-block-btn { display: none; }
-                      </style>
-                  </head>
-                  <body>
-                      <h1>${title}</h1>
-                      ${content}
-                  </body>
-              </html>
-          `);
-          printWindow.document.close();
-          printWindow.print();
-      }
-  };
-
-  const exportAsDocx = () => {
-      const content = editorRef.current?.innerHTML || '';
-      const html = `
-          <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-          <head><meta charset='utf-8'><title>${title}</title></head>
-          <body><h1>${title}</h1>${content}</body>
-          </html>
-      `;
-      const url = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(html);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${title || 'dokument'}.doc`;
-      link.click();
-  };
-
-  const preventDefault = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-  };
-
-  if (isUserLoading || (isLoadingDoc && !isNewDoc)) {
-    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
-  }
+  if (isUserLoading || (isLoadingDoc && !isNewDoc)) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@400;700&family=Comfortaa:wght@400;700&family=Dancing+Script:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@400;700&family=Inconsolata:wght@400;700&family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700;900&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700;900&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Raleway:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;700&family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Ubuntu:wght@400;700&display=swap');
-        [contenteditable]:empty:before { content: 'Beginne hier mit deinem Text...'; color: #a1a1aa; cursor: text; font-style: italic; }
-        table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-        table td, table th { min-width: 50px; border: 1px solid #ddd; padding: 12px; }
-        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #eee; }
-        ::selection { background-color: hsla(var(--primary), 0.3); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        pre { white-space: pre-wrap !important; word-break: break-all; }
-        .ext-link-card:hover { transform: translateY(-2px); transition: all 0.2s; }
-        .add-hw-btn:active { transform: scale(0.95); }
-        
-        .special-block-wrapper:hover .remove-block-btn {
-          display: flex !important;
-        }
-        .remove-block-btn {
-          position: absolute;
-          right: -10px;
-          top: -10px;
-          background: hsl(var(--destructive));
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 24px;
-          height: 24px;
-          cursor: pointer;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          z-index: 40;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          font-weight: bold;
-          font-size: 12px;
-          transition: transform 0.1s;
-        }
-        .remove-block-btn:hover {
-          transform: scale(1.1);
-        }
-        .read-only .remove-block-btn, .public-view .remove-block-btn {
-          display: none !important;
-        }
+        [contenteditable]:empty:before { content: 'Schreib etwas...'; color: #a1a1aa; font-style: italic; }
+        .remove-block-btn { position: absolute; right: -10px; top: -10px; background: red; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 40; }
+        .special-block-wrapper:hover .remove-block-btn { display: flex; }
       `}</style>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Dokument wirklich löschen?</AlertDialogTitle></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Löschen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={isConfirmLiveUpdateOpen} onOpenChange={setIsConfirmLiveUpdateOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Änderungen live schalten?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Dieses Dokument ist veröffentlicht. Sobald du speicherst, werden die Änderungen für alle Besucher sofort sichtbar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Noch nicht</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSave} className="bg-green-600 text-white hover:bg-green-700">Änderungen veröffentlichen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={isManifestOpen} onOpenChange={setIsManifestOpen}>
-          <DialogContent>
-              <DialogHeader>
-                  <DialogTitle>Dokument-Manifest</DialogTitle>
-                  <DialogDescription>Hintergrundinformationen zu dieser Datei.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="text-muted-foreground">Titel</div><div className="font-bold">{title || 'Unbenannt'}</div>
-                      <div className="text-muted-foreground">Autor</div><div className="font-bold">{documentData?.authorName || user?.displayName || user?.email || 'System'}</div>
-                      <div className="text-muted-foreground">Erstellt am</div><div className="font-bold">{documentData?.createdAt ? format(new Date(documentData.createdAt.seconds * 1000), 'PPP p', { locale: de }) : 'Gerade eben'}</div>
-                      <div className="text-muted-foreground">Letzte Änderung</div><div className="font-bold">{documentData?.updatedAt ? format(new Date(documentData.updatedAt.seconds * 1000), 'PPP p', { locale: de }) : 'Unbekannt'}</div>
-                      <div className="text-muted-foreground">Status</div><div className="flex gap-2"><Badge variant={isLocked ? 'destructive' : 'secondary'}>{isLocked ? 'Gesperrt' : 'Offen'}</Badge>{isPublished && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Öffentlich</Badge>}</div>
-                  </div>
-              </div>
-              <DialogFooter><Button onClick={() => setIsManifestOpen(false)}>Schließen</Button></DialogFooter>
-          </DialogContent>
-      </Dialog>
-
-      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>QR-Code für dein Dokument</DialogTitle><DialogDescription>Teile diesen Code, damit andere dein Dokument scannen und lesen können.</DialogDescription></DialogHeader>
-            <div className="flex flex-col items-center justify-center p-6 gap-4">{qrCodeUrl && (<div className="bg-white p-4 rounded-lg shadow-sm border"><img src={qrCodeUrl} alt="Doc QR Code" className="w-64 h-64" /></div>)}<Button onClick={() => { if(!qrCodeUrl) return; const link = document.createElement('a'); link.href = qrCodeUrl; link.download = 'doc-qr.png'; link.click(); }} className="w-full"><Download className="mr-2 h-4 w-4" /> Herunterladen (.png)</Button></div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isMediaDialogOpen.open} onOpenChange={(open) => setIsMediaDialogOpen({...isMediaDialogOpen, open})}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>
-                    {isMediaDialogOpen.type === 'link' ? 'Link einfügen' : 
-                     isMediaDialogOpen.type === 'image' ? 'Bild-URL einfügen' : 
-                     isMediaDialogOpen.type === 'video' ? 'Video-URL einfügen' : 
-                     isMediaDialogOpen.type === 'ext-link' ? 'Erweiterter Link' : 
-                     isMediaDialogOpen.type === 'homework' ? 'Hausaufgabe einplanen' : 'Scoodol Redirect'}
-                </DialogTitle>
-                <DialogDescription>Gib die Details für dein Element ein.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-                {(isMediaDialogOpen.type === 'link' || isMediaDialogOpen.type === 'image' || isMediaDialogOpen.type === 'video' || isMediaDialogOpen.type === 'ext-link') && (
-                    <div className="space-y-2">
-                        <Label htmlFor="url">URL</Label>
-                        <Input id="url" placeholder="https://..." value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} autoFocus />
-                    </div>
-                )}
-                {isMediaDialogOpen.type === 'ext-link' && (
-                    <>
-                        <div className="space-y-2"><Label>Anzeigename</Label><Input placeholder="Titel..." value={extLinkTitle} onChange={e => setExtLinkTitle(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Beschreibung</Label><Input placeholder="Kurzer Text..." value={extLinkDesc} onChange={e => setExtLinkDesc(e.target.value)} /></div>
-                    </>
-                )}
-                {isMediaDialogOpen.type === 'homework' && (
-                    <>
-                        <div className="space-y-2"><Label>Fach</Label><Input placeholder="z.B. Mathe" value={hwSubject} onChange={e => setHwSubject(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Aufgabe</Label><Input placeholder="S. 44 Nr. 1" value={hwTask} onChange={e => setHwTask(e.target.value)} /></div>
-                    </>
-                )}
-                {isMediaDialogOpen.type === 'redirect' && (
-                    <div className="space-y-2">
-                        <Label>Öffentliches Dokument wählen</Label>
-                        <Select value={selectedRedirect || ''} onValueChange={setSelectedRedirect}>
-                            <SelectTrigger><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                            <SelectContent>
-                                {publicDocs.map(d => (<SelectItem key={d.id} value={d.id}>{d.title} ({d.type === 'document' ? 'Doc' : 'Quiz'})</SelectItem>))}
-                                {publicDocs.length === 0 && <div className="p-2 text-xs text-muted-foreground">Keine öffentlichen Dateien gefunden.</div>}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsMediaDialogOpen({...isMediaDialogOpen, open: false})}>Abbrechen</Button>
-                <Button onClick={handleMediaInsert} disabled={(isMediaDialogOpen.type === 'redirect' && !selectedRedirect) || (isMediaDialogOpen.type === 'homework' && !hwTask.trim())}>Einfügen</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,video/*" />
 
       <header className="bg-background border-b sticky top-0 z-30 shadow-sm">
         <div className="flex items-center justify-between p-3 px-4">
             <div className="flex items-center gap-3 flex-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
-                <Input 
-                    placeholder="Titel..." 
-                    className="text-lg font-black border-0 shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent flex-1"
-                    value={title}
-                    onChange={e => { setTitle(e.target.value); triggerAutoSave(); }}
-                    readOnly={isLocked}
-                />
+                <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
+                <Input placeholder="Titel..." className="text-lg font-black border-0 shadow-none p-0 bg-transparent flex-1" value={title} onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} />
             </div>
             <div className="flex items-center gap-2">
-                {isPublished && (
-                    <Button variant="ghost" size="sm" className="text-[9px] uppercase font-black text-green-600 flex items-center gap-1 bg-green-100 px-2 py-0.5 rounded animate-pulse h-6" onClick={handleShowQr}>
-                        <Globe className="h-2.5 w-2.5" />
-                        Live
-                    </Button>
-                )}
-                
-                {isPublished && saveStatus === 'dirty' ? (
-                    <Button variant="default" size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 animate-in zoom-in duration-300" onClick={() => setIsConfirmLiveUpdateOpen(true)}>
-                        <Send className="h-3 w-3 mr-1" />
-                        Live schalten
-                    </Button>
-                ) : (
-                    <span className="text-[9px] uppercase font-black text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-0.5 rounded">
-                        {saveStatus === 'saving' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" />}
-                        {saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}
-                    </span>
-                )}
-
+                {uploadProgress !== null && <div className="w-24"><Progress value={uploadProgress} className="h-1" /></div>}
+                <Badge variant="outline" className="text-[9px] uppercase font-black">{saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}</Badge>
+                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} title="Upload"><Upload className="h-4 w-4" /></Button>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel>Dokument</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => setIsEditing(!isEditing)} disabled={isLocked}>
-                            {isEditing ? <><BookOpen className="mr-2 h-4 w-4" /> Lesemodus</> : <><Edit className="mr-2 h-4 w-4" /> Bearbeiten</>}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={togglePublish} disabled={isNewDoc}>
-                            {isPublished ? <><Globe className="mr-2 h-4 w-4" /> Privat schalten</> : <><Globe className="mr-2 h-4 w-4" /> Veröffentlichen</>}
-                        </DropdownMenuItem>
-                        {isPublished && <DropdownMenuItem onClick={handleShowQr}><QrCode className="mr-2 h-4 w-4" /> QR-Code anzeigen</DropdownMenuItem>}
-                        {isPublished && <DropdownMenuItem onClick={copyPublicLink}><Copy className="mr-2 h-4 w-4" /> Link kopieren</DropdownMenuItem>}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel>Export</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={exportAsPDF}><FileText className="mr-2 h-4 w-4" /> Als PDF (Drucken)</DropdownMenuItem>
-                        <DropdownMenuItem onClick={exportAsDocx}><Download className="mr-2 h-4 w-4" /> Als Word (.docx)</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setIsManifestOpen(true)} disabled={isNewDoc}><Info className="mr-2 h-4 w-4" /> Manifest-Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSave} disabled={saveStatus !== 'dirty' || isLocked}><Save className="mr-2 h-4 w-4" /> Jetzt speichern</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} disabled={isNewDoc || isLocked} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                    <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setIsEditing(!isEditing)}>{isEditing ? 'Lesemodus' : 'Bearbeiten'}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={insertTable}>Tabelle einfügen</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
         </div>
 
-        {isEditing && !isLocked && (
-            <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto no-scrollbar scroll-smooth flex-nowrap">
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px] font-bold" onMouseDown={preventDefault}><FontIcon className="h-3.5 w-3.5" /> <ChevronDown className="h-2.5 w-2.5 opacity-50" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="max-h-60 overflow-y-auto">
-                            {FONTS.map(font => (<DropdownMenuItem key={font.name} onClick={() => applyStyle('fontFamily', font.family)} style={{ fontFamily: font.family }}>{font.name}</DropdownMenuItem>))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <div className="flex items-center gap-1 ml-1"><span className="text-[10px] font-bold opacity-50">PX</span><Input type="number" min="1" max="100" value={fontSize} onChange={e => applyStyle('fontSize', e.target.value)} className="h-7 w-12 text-[11px] p-1 text-center bg-background border-none focus-visible:ring-1" /></div>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('strikethrough')}><Strikethrough className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="Formatierung löschen" onMouseDown={preventDefault} onClick={() => execCommand('removeFormat')}><Eraser className="h-3.5 w-3.5" /></Button>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" title="Farbe" onMouseDown={preventDefault}><Palette className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">{['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b', '#06b6d4', '#10b981'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('foreColor', color)} />))}</DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" title="Marker" onMouseDown={preventDefault}><Highlighter className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent className="grid grid-cols-5 gap-1 p-2">
-                            <button className="w-5 h-5 rounded-full border border-border flex items-center justify-center bg-background" onClick={() => execCommand('hiliteColor', 'transparent')} title="Keine Markierung"><XIcon className="w-3 h-3 text-destructive" /></button>
-                            {['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#ddd6fe', '#fed7aa', '#ccfbf1', '#f3f4f6', '#ffedd5'].map(color => (<button key={color} className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: color }} onClick={() => execCommand('hiliteColor', color)} />))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
-                    <Separator orientation="vertical" className="h-4 mx-1" />
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5" /></Button>
-                </div>
-                <div className="flex items-center gap-0.5 border-r pr-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5" /></Button>
-                </div>
-                <div className="flex items-center gap-0.5 shrink-0 pl-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('link')}><LinkIcon className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('image')}><ImageIcon className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onMouseDown={preventDefault} onClick={() => openMediaDialog('video')}><Video className="h-3.5 w-3.5" /></Button>
-                    <Separator orientation="vertical" className="h-4 mx-1" />
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onMouseDown={preventDefault} onClick={insertTable}><TableIcon className="h-3.5 w-3.5" /></Button>
-                    
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className={cn("h-7 w-7 text-primary ml-1", isAiLoading && "opacity-50 cursor-not-allowed")} onMouseDown={preventDefault}>
-                                <Sparkles className="h-3.5 w-3.5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('improve')}><Edit className="mr-2 h-4 w-4" /> Stil verbessern</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('extend')}><PlusSquare className="mr-2 h-4 w-4" /> Weiterschreiben</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAiAssistance('summarize')}><List className="mr-2 h-4 w-4" /> Zusammenfassen</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary ml-1" onMouseDown={preventDefault}>
-                                <Library className="h-3.5 w-3.5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => insertExtra('code')}><Code className="mr-2 h-4 w-4" /> Codefeld</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMediaDialog('ext-link')}><ExternalLink className="mr-2 h-4 w-4" /> Erw. Link</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMediaDialog('homework')}><BookmarkPlus className="mr-2 h-4 w-4" /> Hausivorlage</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMediaDialog('redirect')}><CornerUpRight className="mr-2 h-4 w-4" /> Scoodol-Link</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            </div>
-        )}
-
-        {isInTable && isEditing && !isLocked && (
-            <div className="flex items-center gap-2 p-1 px-4 bg-primary/10 border-t animate-in slide-in-from-top-1 duration-200">
-                <span className="text-[10px] font-black uppercase text-primary/70 mr-2 flex items-center gap-1"><TableIcon className="h-3 w-3" /> Tabelle</span>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onMouseDown={preventDefault} onClick={addRow}><PlusSquare className="h-3 w-3" /> Zeile unten</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2" onMouseDown={preventDefault} onClick={addColumn}><PlusSquare className="h-3 w-3" /> Spalte rechts</Button>
+        {isEditing && (
+            <div className="flex items-center gap-1 p-1 bg-secondary/10 border-t overflow-x-auto">
+                <Button variant="ghost" size="icon" onClick={() => execCommand('bold')}><Bold className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => execCommand('italic')}><Italic className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5" /></Button>
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive hover:text-destructive" onMouseDown={preventDefault} onClick={deleteRow}><MinusSquare className="h-3 w-3" /> Zeile löschen</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 px-2 text-destructive font-black hover:text-destructive" onMouseDown={preventDefault} onClick={deleteCurrentTable}><Trash2 className="h-3 w-3" /> Tabelle löschen</Button>
+                <Button variant="ghost" size="icon" onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></Button>
             </div>
         )}
       </header>
 
-      <main className={cn("flex-1 overflow-auto bg-background selection:bg-primary/30", !isEditing && "read-only")}>
-        <div className="w-full h-full p-6 md:p-12 max-w-5xl mx-auto">
-            <div 
-                ref={editorRef}
-                contentEditable={isEditing && !isLocked}
-                className={cn(
-                    "w-full min-h-[calc(100vh-200px)] outline-none prose dark:prose-invert max-w-none text-lg leading-relaxed focus:ring-0",
-                    !isEditing && "cursor-default"
-                )}
-                onInput={triggerAutoSave}
-                onKeyDown={handleKeyDown}
-                spellCheck="false"
-                style={{ fontFamily: 'inherit' }}
-            />
-        </div>
+      <main className={cn("flex-1 overflow-auto p-6 md:p-12 max-w-5xl mx-auto w-full")}>
+        <div ref={editorRef} contentEditable={isEditing && !isLocked} className="outline-none prose max-w-none text-lg leading-relaxed" onInput={triggerAutoSave} spellCheck="false" />
       </main>
     </div>
   );

@@ -447,7 +447,6 @@ export default function PresentationPage() {
         const file = event.target.files?.[0];
         if (!file || !user || !userDocRef) return;
 
-        // Check 3GB limit
         const currentUsage = userProfile?.storageUsage || 0;
         if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
             toast({ variant: 'destructive', title: 'Speicher voll', description: 'Du hast dein Limit von 3 GB erreicht.' });
@@ -473,11 +472,7 @@ export default function PresentationPage() {
             }, 
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                
-                // Track usage
                 await updateDoc(userDocRef, { storageUsage: increment(file.size) });
-                
-                // Track in central media collection
                 const mediaColRef = collection(firestore, `users/${user.uid}/media`);
                 await addDoc(mediaColRef, {
                     name: file.name,
@@ -487,16 +482,13 @@ export default function PresentationPage() {
                     fullPath: storageRefPath,
                     createdAt: serverTimestamp()
                 });
-                
                 if (type === 'image') addElement('image', { url: downloadURL });
                 else if (type === 'video') addElement('video', { url: downloadURL });
-                
                 setUploadProgress(null);
                 toast({ title: 'Datei hochgeladen und eingefügt!' });
             }
         );
-        
-        event.target.value = ''; // Reset input
+        event.target.value = '';
     };
 
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
@@ -614,7 +606,6 @@ export default function PresentationPage() {
                                 <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Medien</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleFileSelect('image')} className="gap-2"><Upload className="h-4 w-4"/> Bild hochladen</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleFileSelect('video')} className="gap-2"><Upload className="h-4 w-4"/> Video hochladen</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => addElement('image')} className="gap-2 opacity-50"><ImageIcon className="h-4 w-4"/> Bild von URL</DropdownMenuItem>
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
@@ -710,7 +701,7 @@ export default function PresentationPage() {
             )}
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
-                <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black"><DialogHeader className="sr-only"><DialogTitle>Präsentation Vollbild</DialogTitle></DialogHeader><div className="w-full h-full flex items-center justify-center relative bg-white"><Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button><div className="w-full aspect-video relative overflow-hidden">{(currentSlide.elements || []).map(el => renderElement(el, true))}</div><div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-black/10 backdrop-blur-md px-6 py-2 rounded-full opacity-0 hover:opacity-100 transition-opacity"><Button variant="ghost" size="icon" disabled={currentSlideIndex === 0} onClick={() => setCurrentSlideIndex(p => p - 1)}><ChevronLeft/></Button><span className="text-[10px] font-black uppercase tracking-widest">{currentSlideIndex + 1} / {slides.length}</span><Button variant="ghost" size="icon" disabled={currentSlideIndex === slides.length - 1} onClick={() => setCurrentSlideIndex(p => p + 1)}><ChevronRight/></Button></div></div></DialogContent>
+                <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black"><DialogHeader className="sr-only"><DialogTitle>Präsentation Vollbild</DialogTitle></DialogHeader><div className="w-full h-full flex items-center justify-center relative bg-white"><Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button><div className="w-full aspect-video relative overflow-hidden">{(currentSlide.elements || []).map(el => renderElement(el, true))}</div><div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-black/10 backdrop-blur-md px-6 py-2 rounded-full opacity-0 hover:opacity-100 transition-opacity"><Button variant="ghost" size="icon" disabled={currentSlideIndex === 0} onClick={() => setCurrentSlideIndex(p => p - 1)}><ChevronLeft/></Button><span className="text-[10px] font-black uppercase tracking-widest">{currentSlideIndex + 1} / {slides.length}</span><Button variant="ghost" size="icon" disabled={currentSlideIndex === slides.length - 1} onClick={() => setCurrentSlideIndex(p + 1)}><ChevronRight/></Button></div></div></DialogContent>
             </Dialog>
 
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

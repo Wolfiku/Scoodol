@@ -32,6 +32,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import ShareNoteDialog from '@/app/components/share-note-dialog';
+import { Badge } from '@/components/ui/badge';
 
 
 type UserProfile = {
@@ -208,8 +209,8 @@ export default function WorkspacePage() {
                     <p className="text-muted-foreground mt-1">Willkommen zurück in deiner kreativen Zentrale.</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" className="rounded-xl font-bold h-11" asChild>
-                        <Link href="/workspace/gallery"><ImageIcon className="mr-2 h-4 w-4" /> Galerie</Link>
+                    <Button variant="outline" size="icon" className="rounded-xl h-11 w-11" asChild title="Galerie">
+                        <Link href="/workspace/gallery"><ImageIcon className="h-5 w-5" /></Link>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

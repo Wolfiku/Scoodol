@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { 
     Loader2, ArrowLeft, Upload, Trash2, ImageIcon, Video, 
-    HardDrive, Search, Filter, PlayCircle, Eye, Plus
+    HardDrive, Search, PlayCircle, Eye
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -89,7 +89,6 @@ export default function GalleryPage() {
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                 
-                // Track in Firestore
                 await addDoc(mediaRef, {
                     name: file.name,
                     url: downloadURL,
@@ -99,7 +98,6 @@ export default function GalleryPage() {
                     createdAt: serverTimestamp()
                 });
 
-                // Update usage
                 await updateDoc(userDocRef, { storageUsage: increment(file.size) });
                 
                 setUploadProgress(null);
@@ -113,16 +111,10 @@ export default function GalleryPage() {
         if (!user || !userDocRef) return;
 
         try {
-            // Delete from Storage
             const fileRef = ref(storage, file.fullPath);
             await deleteObject(fileRef);
-
-            // Delete from Firestore
             await deleteDoc(doc(firestore, `users/${user.uid}/media`, file.id));
-
-            // Decrease usage
             await updateDoc(userDocRef, { storageUsage: increment(-file.size) });
-
             toast({ title: 'Datei gelöscht' });
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Fehler beim Löschen', description: error.message });
@@ -155,7 +147,7 @@ export default function GalleryPage() {
                     </Button>
                     <div>
                         <h1 className="text-4xl font-black tracking-tight">Galerie</h1>
-                        <p className="text-muted-foreground mt-1">Verwalte deine Bilder und Videos für Präsentationen.</p>
+                        <p className="text-muted-foreground mt-1">Verwalte deine Bilder und Videos.</p>
                     </div>
                 </div>
 
@@ -181,21 +173,9 @@ export default function GalleryPage() {
                     />
                 </div>
                 <div className="flex gap-2">
-                    <Button 
-                        variant={filterType === 'all' ? 'default' : 'outline'} 
-                        onClick={() => setFilterType('all')}
-                        className="h-12 rounded-xl px-6 font-bold"
-                    >Alle</Button>
-                    <Button 
-                        variant={filterType === 'image' ? 'default' : 'outline'} 
-                        onClick={() => setFilterType('image')}
-                        className="h-12 rounded-xl px-6 font-bold gap-2"
-                    ><ImageIcon className="h-4 w-4" /> Bilder</Button>
-                    <Button 
-                        variant={filterType === 'video' ? 'default' : 'outline'} 
-                        onClick={() => setFilterType('video')}
-                        className="h-12 rounded-xl px-6 font-bold gap-2"
-                    ><Video className="h-4 w-4" /> Videos</Button>
+                    <Button variant={filterType === 'all' ? 'default' : 'outline'} onClick={() => setFilterType('all')} className="h-12 rounded-xl px-6 font-bold">Alle</Button>
+                    <Button variant={filterType === 'image' ? 'default' : 'outline'} onClick={() => setFilterType('image')} className="h-12 rounded-xl px-6 font-bold gap-2"><ImageIcon className="h-4 w-4" /> Bilder</Button>
+                    <Button variant={filterType === 'video' ? 'default' : 'outline'} onClick={() => setFilterType('video')} className="h-12 rounded-xl px-6 font-bold gap-2"><Video className="h-4 w-4" /> Videos</Button>
                 </div>
                 <Button 
                     onClick={() => fileInputRef.current?.click()} 
@@ -214,7 +194,6 @@ export default function GalleryPage() {
                         <ImageIcon className="h-12 w-12 text-muted-foreground opacity-30" />
                     </div>
                     <h2 className="text-2xl font-bold">Keine Medien gefunden</h2>
-                    <p className="text-muted-foreground max-w-xs mx-auto">Lade deine ersten Bilder oder Videos hoch, um sie in deinen Projekten zu verwenden.</p>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="mt-2 font-bold">Jetzt Datei wählen</Button>
                 </div>
             ) : (
