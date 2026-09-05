@@ -9,6 +9,7 @@
         "displayName": { "type": "string" },
         "role": { "type": "string" },
         "groupId": { "type": "string" },
+        "storageUsage": { "type": "number", "description": "Total bytes used for uploaded media files" },
         "groupSettings": {
           "type": "object",
           "properties": {

@@ -3,8 +3,9 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useStorage } from '@/firebase';
+import { doc, setDoc, addDoc, collection, serverTimestamp, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import {
     Copy, Palette, RotateCcw,
     ArrowUp, ArrowDown, MoveUp, MoveDown,
     Triangle, Star as StarIcon, MoveRight, Diamond,
-    ImageIcon, Video, Ghost, Lightbulb, AlertTriangle, CheckCircle2, Info, GraduationCap, BookOpen, Search
+    ImageIcon, Video, Ghost, Lightbulb, AlertTriangle, CheckCircle2, Info, GraduationCap, BookOpen, Search, Upload, HardDrive
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -43,6 +44,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 
 interface SlideElement {
     id: string;
@@ -84,6 +86,8 @@ interface PresentationDoc {
     updatedAt: any;
 }
 
+const STORAGE_LIMIT_BYTES = 3 * 1024 * 1024 * 1024; // 3GB
+
 const FONTS = [
     { name: 'Standard', family: 'var(--font-pt-sans), sans-serif' },
     { name: 'Playfair Display', family: 'Playfair Display, serif' },
@@ -118,6 +122,7 @@ export default function PresentationPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
+    const storage = useStorage();
 
     const [title, setTitle] = useState('');
     const [slides, setSlides] = useState<Slide[]>([
@@ -146,6 +151,10 @@ export default function PresentationPage() {
     const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
+    
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadTypeRef = useRef<'image' | 'video' | null>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
     const hasDraggedRef = useRef(false);
@@ -166,6 +175,10 @@ export default function PresentationPage() {
     , [firestore, user, presId, isNewPres]);
 
     const { data: presentationData, isLoading: isLoadingPres } = useDoc<PresentationDoc>(docRef);
+    
+    const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+    const { data: userProfile } = useDoc<any>(userDocRef);
+
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -405,7 +418,7 @@ export default function PresentationPage() {
             type, x: 40, y: 40,
             width: (type === 'line' || type === 'arrow') ? 20 : (type === 'text' ? 30 : 20),
             height: (type === 'line') ? 1 : 15,
-            content: type === 'text' ? 'Neuer Text' : (type === 'image' ? 'https://picsum.photos/seed/1/600/400' : (type === 'video' ? 'https://www.youtube.com/embed/dQw4w9WgXcQ' : undefined)),
+            content: type === 'text' ? 'Neuer Text' : (type === 'image' ? (extra?.url || 'https://picsum.photos/seed/1/600/400') : (type === 'video' ? (extra?.url || 'https://www.youtube.com/embed/dQw4w9WgXcQ') : undefined)),
             iconName: type === 'icon' ? extra?.iconName || 'Star' : undefined,
             styles: {
                 backgroundColor: (type === 'text' || type === 'image' || type === 'video') ? 'transparent' : (type === 'icon' ? 'transparent' : '#3b82f6'),
@@ -421,6 +434,52 @@ export default function PresentationPage() {
         };
         const newSlides = [...slides]; if (!newSlides[currentSlideIndex].elements) newSlides[currentSlideIndex].elements = [];
         newSlides[currentSlideIndex].elements.push(newElement); setSlides(newSlides); setSelectedElementId(newElement.id); setIsEditingText(false); triggerAutoSave();
+    };
+
+    const handleFileSelect = (type: 'image' | 'video') => {
+        uploadTypeRef.current = type;
+        fileInputRef.current?.click();
+    };
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !user || !userDocRef) return;
+
+        // Check 3GB limit
+        const currentUsage = userProfile?.storageUsage || 0;
+        if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
+            toast({ variant: 'destructive', title: 'Speicher voll', description: 'Du hast dein Limit von 3 GB erreicht.' });
+            return;
+        }
+
+        const type = uploadTypeRef.current;
+        const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
+        const fileRef = ref(storage, storageRefPath);
+        const uploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+            }, 
+            (error) => {
+                console.error("Upload failed:", error);
+                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen' });
+                setUploadProgress(null);
+            }, 
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                
+                if (type === 'image') addElement('image', { url: downloadURL });
+                else if (type === 'video') addElement('video', { url: downloadURL });
+                
+                setUploadProgress(null);
+                toast({ title: 'Datei hochgeladen!' });
+            }
+        );
+        
+        event.target.value = ''; // Reset input
     };
 
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
@@ -455,7 +514,11 @@ export default function PresentationPage() {
                     const IconComp = ICONS.find(i => i.name === el.iconName)?.icon || StarIcon;
                     return <IconComp style={{ width: '100%', height: '100%', color: el.styles.color }} />;
                 case 'image': return <img src={el.content} className="w-full h-full object-cover pointer-events-none" style={{ borderRadius: 'inherit' }} alt="Slide Element" />;
-                case 'video': return <iframe src={el.content} className="w-full h-full pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen />;
+                case 'video': 
+                    if (el.content?.includes('youtube.com') || el.content?.includes('youtu.be')) {
+                        return <iframe src={el.content} className="w-full h-full pointer-events-none" frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen />;
+                    }
+                    return <video src={el.content} className="w-full h-full object-contain pointer-events-none" controls={isPresenting} />;
                 default: return null;
             }
         };
@@ -482,6 +545,9 @@ export default function PresentationPage() {
 
     if (isUserLoading || (isLoadingPres && !isNewPres)) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
 
+    const usedStorageMB = Math.round((userProfile?.storageUsage || 0) / 1024 / 1024);
+    const limitMB = Math.round(STORAGE_LIMIT_BYTES / 1024 / 1024);
+
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden" style={{ position: 'fixed', inset: 0 }}>
             <style jsx global>{`
@@ -492,6 +558,8 @@ export default function PresentationPage() {
                 .canvas-area { touch-action: none; }
                 [contenteditable="true"] { user-select: text !important; cursor: text !important; }
             `}</style>
+
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept={uploadTypeRef.current === 'image' ? "image/*" : "video/*"} />
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
@@ -527,8 +595,9 @@ export default function PresentationPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
                                 <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-50">Medien</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => addElement('image')} className="gap-2"><ImageIcon className="h-4 w-4"/> Bild einfügen</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => addElement('video')} className="gap-2"><Video className="h-4 w-4"/> Video einbetten</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleFileSelect('image')} className="gap-2"><Upload className="h-4 w-4"/> Bild hochladen</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleFileSelect('video')} className="gap-2"><Upload className="h-4 w-4"/> Video hochladen</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => addElement('image')} className="gap-2 opacity-50"><ImageIcon className="h-4 w-4"/> Bild von URL</DropdownMenuItem>
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
@@ -545,7 +614,10 @@ export default function PresentationPage() {
                     {selectedElement && (
                         <div className="flex items-center gap-1 border-l pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
                             {(selectedElement.type === 'image' || selectedElement.type === 'video') && (
-                                <Input value={selectedElement.content || ''} placeholder="URL einfügen..." onChange={e => updateElement(selectedElement.id, { content: e.target.value })} className="h-7 w-32 md:w-64 text-[10px] bg-background border-none focus-visible:ring-1 mr-1" />
+                                <div className="flex items-center gap-1">
+                                    <Input value={selectedElement.content || ''} placeholder="URL..." onChange={e => updateElement(selectedElement.id, { content: e.target.value })} className="h-7 w-32 md:w-48 text-[10px] bg-background border-none focus-visible:ring-1" />
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleFileSelect(selectedElement.type as any)} title="Datei ersetzen"><Upload className="h-3 w-3"/></Button>
+                                </div>
                             )}
                             {selectedElement.type === 'text' && (
                                 <>
@@ -566,7 +638,23 @@ export default function PresentationPage() {
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 px-2"><Button size="sm" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-8 rounded-full bg-primary hover:bg-primary/90 text-xs"><Play className="h-3 w-3 fill-current" /> Präsentieren</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+                <div className="flex items-center gap-4 shrink-0 px-2">
+                    {uploadProgress !== null && (
+                        <div className="w-32 flex flex-col gap-1">
+                            <span className="text-[8px] font-black uppercase text-primary animate-pulse">Upload: {Math.round(uploadProgress)}%</span>
+                            <Progress value={uploadProgress} className="h-1" />
+                        </div>
+                    )}
+                    <div className="flex flex-col items-end gap-0.5 border-r pr-4">
+                        <div className="flex items-center gap-1 text-[8px] font-black text-muted-foreground uppercase"><HardDrive className="h-2.5 w-2.5" /> Speicher</div>
+                        <span className="text-[9px] font-bold text-primary">{usedStorageMB} MB / {limitMB} MB</span>
+                    </div>
+                    <Button size="sm" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-8 rounded-full bg-primary hover:bg-primary/90 text-xs"><Play className="h-3 w-3 fill-current" /> Präsentieren</Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem></DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
 
             <main className="flex-1 flex overflow-hidden bg-secondary/10">
