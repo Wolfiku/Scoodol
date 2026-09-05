@@ -132,6 +132,7 @@ export default function PresentationPage() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
 
     const canvasRef = useRef<HTMLDivElement>(null);
+    const hasDraggedRef = useRef(false);
     const selectionAtStartOfPointerDown = useRef<string | null>(null);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
     const initialDragState = useRef<{ 
@@ -279,8 +280,10 @@ export default function PresentationPage() {
         const deltaX = currentMouseX - initialDragState.current.x;
         const deltaY = currentMouseY - initialDragState.current.y;
 
-        // Cancel long press if moving
-        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+        // Set hasDragged flag if movement exceeds a small threshold
+        if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+            hasDraggedRef.current = true;
+            // Cancel long press if moving
             if (longPressTimer.current) {
                 clearTimeout(longPressTimer.current);
                 longPressTimer.current = null;
@@ -392,6 +395,7 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
         setContextMenu({ ...contextMenu, open: false });
+        hasDraggedRef.current = false; // Reset for new interaction
 
         selectionAtStartOfPointerDown.current = selectedElementId;
 
@@ -429,7 +433,7 @@ export default function PresentationPage() {
     };
 
     const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
-        if (isPresenting) return;
+        if (isPresenting || hasDraggedRef.current) return;
         
         if (element.type === 'text' && selectionAtStartOfPointerDown.current === element.id && !isEditingText) {
             e.stopPropagation();
@@ -782,7 +786,7 @@ export default function PresentationPage() {
                                             type="number" 
                                             value={selectedElement.styles.fontSize || 24} 
                                             onChange={e => updateElementStyle(selectedElement.id, { fontSize: Number(e.target.value) })}
-                                            className="h-7 w-12 text-[10px] p-1 text-center bg-background border-none focus-visible:ring-1"
+                                            className="h-7 w-12 text-[10px] p-1 text-center bg-background border-none rounded-md focus-visible:ring-1"
                                         />
                                     </div>
                                     <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3 w-3" /></Button>
