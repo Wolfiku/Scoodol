@@ -133,6 +133,7 @@ export default function PresentationPage() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
 
     const canvasRef = useRef<HTMLDivElement>(null);
+    const selectionAtStartOfPointerDown = useRef<string | null>(null);
     const initialDragState = useRef<{ 
         x: number, y: number, 
         elX: number, elY: number, 
@@ -310,14 +311,11 @@ export default function PresentationPage() {
                 const newWidth = Math.sqrt(dx * dx + dy * dy);
                 let newRot = Math.atan2(dy, dx) * 180 / Math.PI;
 
-                // Snapping
                 const snapInterval = 45;
                 const snapThreshold = 5;
                 const roundedRot = Math.round(newRot / snapInterval) * snapInterval;
                 if (Math.abs(newRot - roundedRot) < snapThreshold) {
                     newRot = roundedRot;
-                    // Adjust position if snapped to keep points aligned visually
-                    // (Optional, simplified for now)
                 }
 
                 updateElement(selectedElementId, {
@@ -385,10 +383,11 @@ export default function PresentationPage() {
         e.stopPropagation();
         setContextMenu({ ...contextMenu, open: false });
 
+        selectionAtStartOfPointerDown.current = selectedElementId;
+
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
-            return;
         }
 
         if (isEditingText) return;
@@ -408,6 +407,17 @@ export default function PresentationPage() {
         };
 
         setInteractionMode('drag');
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    };
+
+    const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
+        if (isPresenting) return;
+        
+        // "Second Click" logic: if it was already selected before the pointerDown started, enter edit mode
+        if (element.type === 'text' && selectionAtStartOfPointerDown.current === element.id && !isEditingText) {
+            e.stopPropagation();
+            setIsEditingText(true);
+        }
     };
 
     const handleResizeStart = (e: React.PointerEvent, handle: ResizeHandle) => {
@@ -447,6 +457,7 @@ export default function PresentationPage() {
 
         setInteractionMode('resize');
         setActiveResizeHandle(handle);
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     const handleRotateHandleStart = (e: React.PointerEvent) => {
@@ -469,6 +480,7 @@ export default function PresentationPage() {
         };
 
         setInteractionMode('rotate');
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     const handleContextMenu = (e: React.MouseEvent, element: SlideElement) => {
@@ -647,12 +659,7 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onPointerDown={(e) => onPointerDown(e, el)}
-                onDoubleClick={(e) => { 
-                    if(el.type === 'text') {
-                        e.stopPropagation();
-                        setIsEditingText(true);
-                    }
-                }}
+                onClick={(e) => handleElementClick(e, el)}
                 onContextMenu={(e) => handleContextMenu(e, el)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -857,9 +864,9 @@ export default function PresentationPage() {
                             </div>
                         ))}
                     </div>
-                    <div className="p-3 border-t bg-background">
+                    <div className="p-3 border-t bg-background shrink-0 pb-8">
                         <button 
-                            className="w-full aspect-video border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors group"
+                            className="w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors group"
                             onClick={() => { 
                                 const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] };
                                 setSlides([...slides, newSlide]); 
@@ -958,3 +965,5 @@ export default function PresentationPage() {
         </div>
     );
 }
+
+const Separator = ({ className }: { className?: string }) => <div className={cn("h-px bg-border", className)} />;
