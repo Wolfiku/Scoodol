@@ -32,6 +32,19 @@
         "timetableSettings": { "type": "object" }
       }
     },
+    "MediaFile": {
+      "title": "Media File",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string", "enum": ["image", "video"] },
+        "size": { "type": "number" },
+        "fullPath": { "type": "string", "description": "Storage path for deletion" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["name", "url", "type", "size", "fullPath"]
+    },
     "Group": {
       "title": "Group",
       "type": "object",
@@ -163,6 +176,7 @@
   "auth": { "providers": ["password", "anonymous"] },
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" },
+    "/users/{userId}/media/{mediaId}": { "schema": { "$ref": "#/entities/MediaFile" }, "description": "Uploaded images and videos" },
     "/users/{userId}/homeworks/{hwId}": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" },
     "/users/{userId}/quickNotes/{noteId}": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" },
     "/users/{userId}/documents/{docId}": { "schema": { "$ref": "#/entities/TextDocument" }, "description": "Docs" },

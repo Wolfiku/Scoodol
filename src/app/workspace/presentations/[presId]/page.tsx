@@ -454,7 +454,9 @@ export default function PresentationPage() {
             return;
         }
 
-        const type = uploadType;
+        const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : null;
+        if (!type) return;
+
         const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
         const fileRef = ref(storage, storageRefPath);
         const uploadTask = uploadBytesResumable(fileRef, file);
@@ -471,13 +473,26 @@ export default function PresentationPage() {
             }, 
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                
+                // Track usage
                 await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                
+                // Track in central media collection
+                const mediaColRef = collection(firestore, `users/${user.uid}/media`);
+                await addDoc(mediaColRef, {
+                    name: file.name,
+                    url: downloadURL,
+                    type,
+                    size: file.size,
+                    fullPath: storageRefPath,
+                    createdAt: serverTimestamp()
+                });
                 
                 if (type === 'image') addElement('image', { url: downloadURL });
                 else if (type === 'video') addElement('video', { url: downloadURL });
                 
                 setUploadProgress(null);
-                toast({ title: 'Datei hochgeladen!' });
+                toast({ title: 'Datei hochgeladen und eingefügt!' });
             }
         );
         
