@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -131,8 +130,8 @@ export default function PresentationPage() {
     
     const canvasRef = useRef<HTMLDivElement>(null);
     const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number } | null>(null);
-    const initialRotation = useRef(0);
-    const initialTouchAngle = useRef(0);
+    const initialTouchDistance = useRef(0);
+    const initialElementSize = useRef<{ w: number, h: number, x: number, y: number, fs: number } | null>(null);
 
     const docRef = useMemoFirebase(() => 
         !isNewPres && user && typeof presId === 'string'
@@ -304,11 +303,8 @@ export default function PresentationPage() {
             
             const angleRad = Math.atan2(currentMouseY - centerY, currentMouseX - centerX);
             let angleDeg = (angleRad * 180) / Math.PI;
-            
-            // Handle at top is -90deg from 0 (right). So add 90 to make handle pull it correctly.
             angleDeg += 90;
 
-            // Angle Snapping
             const snapThreshold = 5;
             const snapInterval = 45;
             const roundedAngle = Math.round(angleDeg / snapInterval) * snapInterval;
@@ -410,35 +406,45 @@ export default function PresentationPage() {
         setInteractionMode('rotate');
     };
 
-    const getAngle = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
-        return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
+    const getDistance = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
+        return Math.sqrt(Math.pow(t2.clientX - t1.clientX, 2) + Math.pow(t2.clientY - t1.clientY, 2));
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {
         if (isPresenting) return;
         if (e.touches.length === 2 && selectedElement) {
-            initialRotation.current = selectedElement.styles.rotation || 0;
-            initialTouchAngle.current = getAngle(e.touches[0], e.touches[1]);
+            initialTouchDistance.current = getDistance(e.touches[0], e.touches[1]);
+            initialElementSize.current = {
+                w: selectedElement.width,
+                h: selectedElement.height,
+                x: selectedElement.x,
+                y: selectedElement.y,
+                fs: selectedElement.styles.fontSize || 24
+            };
         }
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
         if (isPresenting) return;
-        if (e.touches.length === 2 && selectedElementId) {
-            const currentAngle = getAngle(e.touches[0], e.touches[1]);
-            const delta = currentAngle - initialTouchAngle.current;
-            let finalAngle = initialRotation.current + delta;
-
-            // Angle Snapping for touch
-            const snapThreshold = 5;
-            const snapInterval = 45;
-            const roundedAngle = Math.round(finalAngle / snapInterval) * snapInterval;
+        if (e.touches.length === 2 && selectedElementId && initialElementSize.current) {
+            const currentDist = getDistance(e.touches[0], e.touches[1]);
+            const ratio = currentDist / initialTouchDistance.current;
             
-            if (Math.abs(finalAngle - roundedAngle) < snapThreshold) {
-                finalAngle = roundedAngle;
-            }
+            const newW = Math.max(1, initialElementSize.current.w * ratio);
+            const newH = Math.max(1, initialElementSize.current.h * ratio);
+            
+            const updates: Partial<SlideElement> = { width: newW, height: newH };
+            
+            // Adjust position so it scales from center
+            updates.x = initialElementSize.current.x - (newW - initialElementSize.current.w) / 2;
+            updates.y = initialElementSize.current.y - (newH - initialElementSize.current.h) / 2;
 
-            updateElementStyle(selectedElementId, { rotation: finalAngle });
+            updateElement(selectedElementId, updates);
+            
+            if (selectedElement?.type === 'text') {
+                const newFS = Math.round(initialElementSize.current.fs * ratio);
+                updateElementStyle(selectedElementId, { fontSize: Math.max(8, newFS) });
+            }
         }
     };
 
