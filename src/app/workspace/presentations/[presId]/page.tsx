@@ -858,9 +858,18 @@ export default function PresentationPage() {
                         ))}
                     </div>
                     <div className="p-3 border-t bg-background">
-                        <Button variant="outline" className="w-full border-dashed py-6 rounded-xl flex flex-col gap-1 text-[10px] font-black uppercase" onClick={() => { setSlides([...slides, { id: Math.random().toString(), title: 'Neue Folie', elements: [] }]); setCurrentSlideIndex(slides.length); triggerAutoSave(); }}>
-                            <Plus className="h-4 w-4" /> Neu
-                        </Button>
+                        <button 
+                            className="w-full aspect-video border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors group"
+                            onClick={() => { 
+                                const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] };
+                                setSlides([...slides, newSlide]); 
+                                setCurrentSlideIndex(slides.length); 
+                                triggerAutoSave(); 
+                            }}
+                        >
+                            <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span>
+                        </button>
                     </div>
                 </aside>
 
