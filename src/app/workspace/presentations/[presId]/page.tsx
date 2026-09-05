@@ -445,7 +445,7 @@ export default function PresentationPage() {
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !user || !userDocRef) return;
+        if (!file || !user || !userDocRef || !storage) return;
 
         const currentUsage = userProfile?.storageUsage || 0;
         if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
@@ -460,32 +460,42 @@ export default function PresentationPage() {
         const fileRef = ref(storage, storageRefPath);
         const uploadTask = uploadBytesResumable(fileRef, file);
 
+        setUploadProgress(0);
+
         uploadTask.on('state_changed', 
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(progress);
-            }, 
-            (error) => {
-                console.error("Upload failed:", error);
-                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: error.message });
-                setUploadProgress(null);
-            }, 
-            async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                await updateDoc(userDocRef, { storageUsage: increment(file.size) });
-                const mediaColRef = collection(firestore, `users/${user.uid}/media`);
-                await addDoc(mediaColRef, {
-                    name: file.name,
-                    url: downloadURL,
-                    type,
-                    size: file.size,
-                    fullPath: storageRefPath,
-                    createdAt: serverTimestamp()
-                });
-                if (type === 'image') addElement('image', { url: downloadURL });
-                else if (type === 'video') addElement('video', { url: downloadURL });
-                setUploadProgress(null);
-                toast({ title: 'Datei hochgeladen und eingefügt!' });
+            {
+                next: (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(Math.round(progress));
+                },
+                error: (error) => {
+                    console.error("Upload failed:", error);
+                    toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: error.message });
+                    setUploadProgress(null);
+                },
+                complete: async () => {
+                    try {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                        const mediaColRef = collection(firestore, `users/${user.uid}/media`);
+                        await addDoc(mediaColRef, {
+                            name: file.name,
+                            url: downloadURL,
+                            type,
+                            size: file.size,
+                            fullPath: storageRefPath,
+                            createdAt: serverTimestamp()
+                        });
+                        if (type === 'image') addElement('image', { url: downloadURL });
+                        else if (type === 'video') addElement('video', { url: downloadURL });
+                        setUploadProgress(null);
+                        toast({ title: 'Datei hochgeladen und eingefügt!' });
+                    } catch (err: any) {
+                        console.error("Finalization error:", err);
+                        toast({ variant: 'destructive', title: 'Fehler beim Speichern', description: err.message });
+                        setUploadProgress(null);
+                    }
+                }
             }
         );
         event.target.value = '';
@@ -649,7 +659,7 @@ export default function PresentationPage() {
                 <div className="flex items-center gap-4 shrink-0 px-2">
                     {uploadProgress !== null && (
                         <div className="w-32 flex flex-col gap-1">
-                            <span className="text-[8px] font-black uppercase text-primary animate-pulse">Upload: {Math.round(uploadProgress)}%</span>
+                            <span className="text-[8px] font-black uppercase text-primary animate-pulse">Upload: {uploadProgress}%</span>
                             <Progress value={uploadProgress} className="h-1" />
                         </div>
                     )}

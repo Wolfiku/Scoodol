@@ -39,7 +39,8 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp)
+    // Explicitly pass the bucket from config to avoid 'noDefaultBucket' errors
+    storage: getStorage(firebaseApp, firebaseConfig.storageBucket)
   };
 }
 

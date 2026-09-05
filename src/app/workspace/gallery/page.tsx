@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
@@ -58,7 +59,7 @@ export default function GalleryPage() {
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !user || !userDocRef || !mediaRef) return;
+        if (!file || !user || !userDocRef || !mediaRef || !storage) return;
 
         const currentUsage = userProfile?.storageUsage || 0;
         if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
@@ -79,35 +80,38 @@ export default function GalleryPage() {
         setUploadProgress(0);
 
         uploadTask.on('state_changed', 
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(Math.max(1, progress)); // At least 1% once started
-            }, 
-            (error) => {
-                console.error("Upload error:", error);
-                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: error.message });
-                setUploadProgress(null);
-            }, 
-            async () => {
-                try {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    
-                    await addDoc(mediaRef, {
-                        name: file.name,
-                        url: downloadURL,
-                        type,
-                        size: file.size,
-                        fullPath: storageRefPath,
-                        createdAt: serverTimestamp()
-                    });
+            {
+                next: (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(Math.round(progress));
+                },
+                error: (error) => {
+                    console.error("Upload failed with code:", error.code, "message:", error.message);
+                    toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: `Fehler: ${error.message}` });
+                    setUploadProgress(null);
+                },
+                complete: async () => {
+                    try {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        
+                        await addDoc(mediaRef, {
+                            name: file.name,
+                            url: downloadURL,
+                            type,
+                            size: file.size,
+                            fullPath: storageRefPath,
+                            createdAt: serverTimestamp()
+                        });
 
-                    await updateDoc(userDocRef, { storageUsage: increment(file.size) });
-                    
-                    setUploadProgress(null);
-                    toast({ title: 'Datei zur Galerie hinzugefügt!' });
-                } catch (err) {
-                    console.error("Finalization error:", err);
-                    setUploadProgress(null);
+                        await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                        
+                        setUploadProgress(null);
+                        toast({ title: 'Datei zur Galerie hinzugefügt!' });
+                    } catch (err: any) {
+                        console.error("Finalization error:", err);
+                        toast({ variant: 'destructive', title: 'Fehler beim Speichern', description: err.message });
+                        setUploadProgress(null);
+                    }
                 }
             }
         );
@@ -115,7 +119,7 @@ export default function GalleryPage() {
     };
 
     const handleDelete = async (file: MediaFile) => {
-        if (!user || !userDocRef) return;
+        if (!user || !userDocRef || !storage) return;
 
         try {
             const fileRef = ref(storage, file.fullPath);
@@ -190,7 +194,7 @@ export default function GalleryPage() {
                     className="h-12 rounded-xl px-8 font-black gap-2 bg-primary shadow-lg shadow-primary/20"
                 >
                     {uploadProgress !== null ? <Loader2 className="animate-spin h-5 w-5" /> : <Upload className="h-5 w-5" />}
-                    {uploadProgress !== null ? `${Math.round(uploadProgress)}%` : 'Hochladen'}
+                    {uploadProgress !== null ? `${uploadProgress}%` : 'Hochladen'}
                 </Button>
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} accept="image/*,video/*" />
             </div>

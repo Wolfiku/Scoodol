@@ -219,7 +219,7 @@ export default function TextDocumentPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user || !userDocRef) return;
+    if (!file || !user || !userDocRef || !storage) return;
     const currentUsage = userProfile?.storageUsage || 0;
     if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
         toast({ variant: 'destructive', title: 'Speicher voll', description: 'Du hast dein Limit von 3 GB erreicht.' });
@@ -227,21 +227,39 @@ export default function TextDocumentPage() {
     }
     const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : null;
     if (!type) return;
+
     const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
     const fileRef = ref(storage, storageRefPath);
     const uploadTask = uploadBytesResumable(fileRef, file);
+
+    setUploadProgress(0);
+
     uploadTask.on('state_changed', 
-        snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 100),
-        err => { console.error(err); setUploadProgress(null); },
-        async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            await updateDoc(userDocRef, { storageUsage: increment(file.size) });
-            await addDoc(collection(firestore, `users/${user.uid}/media`), {
-                name: file.name, url, type, size: file.size, fullPath: storageRefPath, createdAt: serverTimestamp()
-            });
-            insertMediaBlock(type, url);
-            setUploadProgress(null);
-            toast({ title: 'Datei hochgeladen!' });
+        {
+            next: (snap) => {
+                const progress = (snap.bytesTransferred / snap.totalBytes) * 100;
+                setUploadProgress(Math.round(progress));
+            },
+            error: (err) => {
+                console.error("Upload error:", err);
+                toast({ variant: 'destructive', title: 'Upload fehlgeschlagen', description: err.message });
+                setUploadProgress(null);
+            },
+            complete: async () => {
+                try {
+                    const url = await getDownloadURL(uploadTask.snapshot.ref);
+                    await updateDoc(userDocRef, { storageUsage: increment(file.size) });
+                    await addDoc(collection(firestore, `users/${user.uid}/media`), {
+                        name: file.name, url, type, size: file.size, fullPath: storageRefPath, createdAt: serverTimestamp()
+                    });
+                    insertMediaBlock(type, url);
+                    setUploadProgress(null);
+                    toast({ title: 'Datei hochgeladen!' });
+                } catch (err: any) {
+                    console.error("Finalization error:", err);
+                    setUploadProgress(null);
+                }
+            }
         }
     );
   };
@@ -331,7 +349,12 @@ export default function TextDocumentPage() {
                 <Input placeholder="Titel..." className="text-lg font-black border-0 shadow-none p-0 bg-transparent flex-1" value={title} onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} />
             </div>
             <div className="flex items-center gap-2">
-                {uploadProgress !== null && <div className="w-24"><Progress value={uploadProgress} className="h-1" /></div>}
+                {uploadProgress !== null && (
+                    <div className="w-24 flex flex-col gap-1 mr-2">
+                        <span className="text-[8px] font-black uppercase text-primary text-center">Upload {uploadProgress}%</span>
+                        <Progress value={uploadProgress} className="h-1" />
+                    </div>
+                )}
                 <Badge variant="outline" className="text-[9px] uppercase font-black">{saveStatus === 'saving' ? 'Auto-Save' : 'Gespeichert'}</Badge>
                 <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} title="Upload"><Upload className="h-4 w-4" /></Button>
                 <DropdownMenu>
