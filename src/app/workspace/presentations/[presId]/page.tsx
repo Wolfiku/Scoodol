@@ -141,8 +141,6 @@ export default function PresentationPage() {
         startFontSize: number, startRotation: number,
         p1?: {x: number, y: number}, p2?: {x: number, y: number}
     } | null>(null);
-    const initialTouchDistance = useRef(0);
-    const initialElementSize = useRef<{ w: number, h: number, x: number, y: number, fs: number } | null>(null);
 
     const docRef = useMemoFirebase(() => 
         !isNewPres && user && typeof presId === 'string'
@@ -417,6 +415,22 @@ export default function PresentationPage() {
         if (element.type === 'text' && selectionAtStartOfPointerDown.current === element.id && !isEditingText) {
             e.stopPropagation();
             setIsEditingText(true);
+            
+            // Critical for iPad: explicitly focus the contentEditable area after state update
+            const target = e.currentTarget;
+            setTimeout(() => {
+                const editable = target.querySelector('[contenteditable="true"]') as HTMLElement;
+                if (editable) {
+                    editable.focus();
+                    // Place cursor at end of text
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(editable);
+                    range.collapse(false);
+                    selection?.removeAllRanges();
+                    selection?.addRange(range);
+                }
+            }, 0);
         }
     };
 
@@ -544,51 +558,6 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (isPresenting) return;
-        if (e.touches.length === 2 && selectedElement) {
-            initialTouchDistance.current = Math.sqrt(
-                Math.pow(e.touches[1].clientX - e.touches[0].clientX, 2) + 
-                Math.pow(e.touches[1].clientY - e.touches[0].clientY, 2)
-            );
-            initialElementSize.current = {
-                w: selectedElement.width,
-                h: selectedElement.height,
-                x: selectedElement.x,
-                y: selectedElement.y,
-                fs: selectedElement.styles.fontSize || 24
-            };
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (isPresenting) return;
-        if (e.touches.length === 2 && selectedElementId && initialElementSize.current) {
-            const currentDist = Math.sqrt(
-                Math.pow(e.touches[1].clientX - e.touches[0].clientX, 2) + 
-                Math.pow(e.touches[1].clientY - e.touches[0].clientY, 2)
-            );
-            const ratio = currentDist / initialTouchDistance.current;
-            
-            const newW = Math.max(1, initialElementSize.current.w * ratio);
-            const newH = Math.max(1, initialElementSize.current.h * ratio);
-            
-            const updates: Partial<SlideElement> = { 
-                width: newW, 
-                height: newH,
-                x: initialElementSize.current.x - (newW - initialElementSize.current.w) / 2,
-                y: initialElementSize.current.y - (newH - initialElementSize.current.h) / 2
-            };
-
-            updateElement(selectedElementId, updates);
-            
-            if (selectedElement?.type === 'text') {
-                const newFS = Math.round(initialElementSize.current.fs * ratio);
-                updateElementStyle(selectedElementId, { fontSize: Math.max(8, newFS) });
-            }
-        }
-    };
-
     const addElement = (type: SlideElement['type']) => {
         const newElement: SlideElement = {
             id: 'e' + Math.random().toString(36).substr(2, 9),
@@ -661,8 +630,6 @@ export default function PresentationPage() {
                 onPointerDown={(e) => onPointerDown(e, el)}
                 onClick={(e) => handleElementClick(e, el)}
                 onContextMenu={(e) => handleContextMenu(e, el)}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
             >
                 {el.type === 'text' && (
                     <div 
@@ -864,7 +831,7 @@ export default function PresentationPage() {
                             </div>
                         ))}
                     </div>
-                    <div className="p-3 border-t bg-background shrink-0 pb-8">
+                    <div className="p-3 border-t bg-background shrink-0 pb-8 min-h-[120px]">
                         <button 
                             className="w-full h-24 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-secondary/50 transition-colors group"
                             onClick={() => { 
