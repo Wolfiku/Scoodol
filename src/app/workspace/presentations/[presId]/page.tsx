@@ -229,14 +229,17 @@ export default function PresentationPage() {
             let newX = mouseX - dragOffset.current.x;
             let newY = mouseY - dragOffset.current.y;
 
-            newX = Math.max(-10, Math.min(100, newX));
-            newY = Math.max(-10, Math.min(100, newY));
+            // Constrain within a reasonable range (allow slightly off-canvas for UX)
+            newX = Math.max(-20, Math.min(110, newX));
+            newY = Math.max(-20, Math.min(110, newY));
 
             updateElement(selectedElementId, { x: newX, y: newY });
         };
 
         const handleGlobalMouseUp = () => {
-            setIsDragging(false);
+            if (isDragging) {
+                setIsDragging(false);
+            }
         };
 
         if (isDragging) {
@@ -252,21 +255,18 @@ export default function PresentationPage() {
 
     const onMouseDown = (e: React.MouseEvent, element: SlideElement) => {
         if (isPresenting) return;
+        e.stopPropagation();
 
-        // TWO-STEP INTERACTION: 
-        // 1. Click to select.
-        // 2. Click and hold on selected element to drag.
+        // 1st Click: Select
         if (selectedElementId !== element.id) {
             setSelectedElementId(element.id);
             setIsEditingText(false);
-            e.stopPropagation();
             return;
         }
 
+        // Already selected -> Prepare Drag (unless editing text)
         if (isEditingText) return;
 
-        e.stopPropagation();
-        
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
@@ -285,6 +285,7 @@ export default function PresentationPage() {
         if (isPresenting) return;
         e.stopPropagation();
 
+        // 2nd Click (on already selected element): Edit text
         if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
             setIsEditingText(true);
         }
@@ -364,7 +365,7 @@ export default function PresentationPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: isPreview ? 'default' : (isEditing ? 'text' : (isDragging && isSelected ? 'grabbing' : 'grab')),
+            cursor: isPreview ? 'default' : (isEditing ? 'text' : 'pointer'),
             boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
             overflow: 'hidden',
             userSelect: 'none',
@@ -382,7 +383,6 @@ export default function PresentationPage() {
                 style={style}
                 onMouseDown={(e) => onMouseDown(e, el)}
                 onClick={(e) => handleElementClick(e, el)}
-                className="group"
             >
                 {el.type === 'text' && (
                     <div 
@@ -396,6 +396,7 @@ export default function PresentationPage() {
                             color: el.styles.color || '#000000',
                             width: '100%',
                             outline: 'none',
+                            userSelect: isEditing ? 'text' : 'none'
                         }}
                         contentEditable={isEditing}
                         suppressContentEditableWarning
@@ -416,11 +417,12 @@ export default function PresentationPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-background overflow-hidden">
+        <div className="flex flex-col h-screen bg-background overflow-hidden" style={{ position: 'fixed', inset: 0 }}>
             <style jsx global>{`
                 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Dancing+Script:wght@400;700&family=Fira+Code:wght@400;700&family=Montserrat:wght@400;700;900&family=Playfair+Display:wght@400;700;900&display=swap');
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
@@ -508,7 +510,7 @@ export default function PresentationPage() {
                 </div>
             </div>
 
-            <main className="flex-1 flex overflow-hidden bg-secondary/10 h-[calc(100vh-50px)]">
+            <main className="flex-1 flex overflow-hidden bg-secondary/10 h-full">
                 <aside className="w-48 border-r bg-background overflow-y-auto p-3 space-y-3 shrink-0 no-scrollbar">
                     {slides.map((slide, idx) => (
                         <div key={slide.id} className="relative group">
@@ -517,7 +519,11 @@ export default function PresentationPage() {
                                     "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm",
                                     currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted"
                                 )}
-                                onClick={() => { setCurrentSlideIndex(idx); setSelectedElementId(null); setIsEditingText(false); }}
+                                onClick={() => { 
+                                    setCurrentSlideIndex(idx); 
+                                    setSelectedElementId(null); 
+                                    setIsEditingText(false); 
+                                }}
                             >
                                 <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
                                     {(slide.elements || []).map(el => renderElement(el, true))}
@@ -533,12 +539,15 @@ export default function PresentationPage() {
                     </Button>
                 </aside>
 
-                <section className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative" onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}>
+                <section 
+                    className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative" 
+                    onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
+                >
                     <div 
                         ref={canvasRef}
                         className="aspect-video w-full max-w-5xl bg-white shadow-2xl rounded-2xl relative overflow-hidden border-4 border-white"
                         style={{ height: 'fit-content' }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()} // Click on white area also keeps element selected
                     >
                         {(currentSlide.elements || []).map(el => renderElement(el))}
                     </div>
