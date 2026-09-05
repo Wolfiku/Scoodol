@@ -110,7 +110,7 @@ export default function PresentationPage() {
                 { 
                     id: 'e1', 
                     type: 'text', 
-                    x: 10, y: 30, width: 80, height: 20, 
+                    x: 10, y: 35, width: 80, height: 20, 
                     content: 'Meine Präsentation', 
                     styles: { fontSize: 48, fontWeight: '900', textAlign: 'center', zIndex: 1, color: '#000000', fontFamily: 'var(--font-pt-sans), sans-serif', rotation: 0 } 
                 }
@@ -129,7 +129,7 @@ export default function PresentationPage() {
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
     const canvasRef = useRef<HTMLDivElement>(null);
-    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number } | null>(null);
+    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number, startFontSize: number } | null>(null);
     const initialRotation = useRef(0);
     const initialTouchAngle = useRef(0);
 
@@ -220,7 +220,6 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    // Smart Guides Logic
     const calculateGuides = (elId: string, newX: number, newY: number, newW: number, newH: number) => {
         const threshold = 1.0; 
         let guideX: number | null = null;
@@ -228,7 +227,7 @@ export default function PresentationPage() {
         let snappedX = newX;
         let snappedY = newY;
 
-        const otherElements = currentSlide.elements.filter(e => e.id !== elId);
+        const otherElements = (currentSlide.elements || []).filter(e => e.id !== elId);
         
         const xPoints = [0, 50 - newW / 2, 100 - newW];
         const yPoints = [0, 50 - newH / 2, 100 - newH];
@@ -284,20 +283,22 @@ export default function PresentationPage() {
             setGuides({ x: guideX, y: guideY });
             updateElement(selectedElementId, { x: snappedX, y: snappedY });
         } else if (interactionMode === 'resize' && activeResizeHandle) {
-            let { elX, elY, elW, elH } = initialDragState.current;
+            let { elX, elY, elW, elH, startFontSize } = initialDragState.current;
             
-            if (activeResizeHandle.includes('r')) elW += deltaX;
-            if (activeResizeHandle.includes('l')) { elX += deltaX; elW -= deltaX; }
-            if (activeResizeHandle.includes('b')) elH += deltaY;
-            if (activeResizeHandle.includes('t')) { elY += deltaY; elH -= deltaY; }
+            if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
+            if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
+            if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
+            if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
 
-            // Min size 1%
-            if (elW < 1) elW = 1;
-            if (elH < 1) elH = 1;
+            if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
+                const scaleFactor = elH / initialDragState.current.elH;
+                const newFontSize = Math.round(startFontSize * scaleFactor);
+                updateElementStyle(selectedElementId, { fontSize: Math.max(8, newFontSize) });
+            }
 
             updateElement(selectedElementId, { x: elX, y: elY, width: elW, height: elH });
         }
-    }, [interactionMode, selectedElementId, activeResizeHandle, currentSlideIndex]);
+    }, [interactionMode, selectedElementId, activeResizeHandle, currentSlideIndex, selectedElement]);
 
     const handleGlobalPointerUp = useCallback(() => {
         setInteractionMode('none');
@@ -308,7 +309,7 @@ export default function PresentationPage() {
 
     useEffect(() => {
         if (interactionMode !== 'none') {
-            window.addEventListener('pointermove', handleGlobalPointerMove);
+            window.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
             window.addEventListener('pointerup', handleGlobalPointerUp);
         }
         return () => {
@@ -338,7 +339,8 @@ export default function PresentationPage() {
             elX: element.x,
             elY: element.y,
             elW: element.width,
-            elH: element.height
+            elH: element.height,
+            startFontSize: element.styles.fontSize || 24
         };
 
         setInteractionMode('drag');
@@ -347,6 +349,7 @@ export default function PresentationPage() {
     const handleResizeStart = (e: React.PointerEvent, handle: ResizeHandle) => {
         if (isPresenting || !selectedElement) return;
         e.stopPropagation();
+        e.preventDefault();
         
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -357,7 +360,8 @@ export default function PresentationPage() {
             elX: selectedElement.x,
             elY: selectedElement.y,
             elW: selectedElement.width,
-            elH: selectedElement.height
+            elH: selectedElement.height,
+            startFontSize: selectedElement.styles.fontSize || 24
         };
 
         setInteractionMode('resize');
@@ -481,18 +485,17 @@ export default function PresentationPage() {
                     </div>
                 )}
 
-                {/* Resize Handles */}
                 {isSelected && !isPreview && !isEditingText && (
                     <>
-                        <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
-                        <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'br')} />
+                        <div className="absolute -top-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
+                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
+                        <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
+                        <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'br')} />
                         
-                        <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-4 bg-white border border-primary rounded cursor-ew-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'l')} />
-                        <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-4 bg-white border border-primary rounded cursor-ew-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'r')} />
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border border-primary rounded cursor-ns-resize z-50" onPointerDown={(e) => handleResizeStart(e, 't')} />
-                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border border-primary rounded cursor-ns-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'b')} />
+                        <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'l')} />
+                        <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-5 bg-white border border-primary rounded cursor-ew-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'r')} />
+                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 't')} />
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-3 bg-white border border-primary rounded cursor-ns-resize z-50 shadow-sm" onPointerDown={(e) => handleResizeStart(e, 'b')} />
                     </>
                 )}
             </div>
@@ -510,6 +513,7 @@ export default function PresentationPage() {
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; }
+                .canvas-area { touch-action: none; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar gap-4">
@@ -552,6 +556,15 @@ export default function PresentationPage() {
                                         <SelectTrigger className="h-7 w-24 text-[10px]"><SelectValue /></SelectTrigger>
                                         <SelectContent>{FONTS.map(f => <SelectItem key={f.name} value={f.family} style={{fontFamily: f.family}}>{f.name}</SelectItem>)}</SelectContent>
                                     </Select>
+                                    <div className="flex items-center gap-1 ml-1">
+                                        <span className="text-[10px] font-black opacity-30 px-1">PX</span>
+                                        <Input 
+                                            type="number" 
+                                            value={selectedElement.styles.fontSize || 24} 
+                                            onChange={e => updateElementStyle(selectedElement.id, { fontSize: Number(e.target.value) })}
+                                            className="h-7 w-12 text-[10px] p-1 text-center bg-background border-none focus-visible:ring-1"
+                                        />
+                                    </div>
                                     <Button variant={selectedElement.styles.fontWeight === 'bold' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontWeight: selectedElement.styles.fontWeight === 'bold' ? 'normal' : 'bold' })}><Bold className="h-3 w-3" /></Button>
                                     <Button variant={selectedElement.styles.fontStyle === 'italic' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => updateElementStyle(selectedElement.id, { fontStyle: selectedElement.styles.fontStyle === 'italic' ? 'normal' : 'italic' })}><Italic className="h-3 w-3" /></Button>
                                 </>
@@ -589,7 +602,7 @@ export default function PresentationPage() {
                             
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
                                 const newSlides = [...slides];
-                                newSlides[currentSlideIndex].elements = newSlides[currentSlideIndex].elements.filter(e => e.id !== selectedElementId);
+                                newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== selectedElementId);
                                 setSlides(newSlides);
                                 setSelectedElementId(null);
                                 triggerAutoSave();
@@ -641,7 +654,7 @@ export default function PresentationPage() {
                 </aside>
 
                 <section 
-                    className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none" 
+                    className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none canvas-area" 
                     onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); }}
                 >
                     <div 
