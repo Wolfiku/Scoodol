@@ -89,6 +89,8 @@ const FONTS = [
 
 const COLORS = ['transparent', '#000000', '#ffffff', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
 
+type ResizeHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r';
+
 export default function PresentationPage() {
     const router = useRouter();
     const params = useParams();
@@ -122,11 +124,12 @@ export default function PresentationPage() {
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [isEditingText, setIsEditingText] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
+    const [interactionMode, setInteractionMode] = useState<'none' | 'drag' | 'resize'>('none');
+    const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
     
     const canvasRef = useRef<HTMLDivElement>(null);
-    const dragOffset = useRef({ x: 0, y: 0 });
+    const initialDragState = useRef<{ x: number, y: number, elX: number, elY: number, elW: number, elH: number } | null>(null);
     const initialRotation = useRef(0);
     const initialTouchAngle = useRef(0);
 
@@ -218,10 +221,8 @@ export default function PresentationPage() {
     };
 
     // Smart Guides Logic
-    const calculateGuides = (elId: string, newX: number, newY: number) => {
-        if (!selectedElement) return { x: null, y: null, snappedX: newX, snappedY: newY };
-        
-        const threshold = 1.5; // Snap threshold in percent
+    const calculateGuides = (elId: string, newX: number, newY: number, newW: number, newH: number) => {
+        const threshold = 1.0; 
         let guideX: number | null = null;
         let guideY: number | null = null;
         let snappedX = newX;
@@ -229,50 +230,140 @@ export default function PresentationPage() {
 
         const otherElements = currentSlide.elements.filter(e => e.id !== elId);
         
-        // Vertical Snap Points (for horizontal lines)
-        const yPoints = [
-            0, // Top
-            50 - selectedElement.height / 2, // Center
-            100 - selectedElement.height // Bottom
-        ];
+        const xPoints = [0, 50 - newW / 2, 100 - newW];
+        const yPoints = [0, 50 - newH / 2, 100 - newH];
+
         otherElements.forEach(e => {
-            yPoints.push(e.y); // Other top
-            yPoints.push(e.y + (e.height - selectedElement.height) / 2); // Other center
-            yPoints.push(e.y + e.height - selectedElement.height); // Other bottom
+            xPoints.push(e.x);
+            xPoints.push(e.x + (e.width - newW) / 2);
+            xPoints.push(e.x + e.width - newW);
+            yPoints.push(e.y);
+            yPoints.push(e.y + (e.height - newH) / 2);
+            yPoints.push(e.y + e.height - newH);
         });
 
         for (const py of yPoints) {
             if (Math.abs(newY - py) < threshold) {
                 snappedY = py;
-                guideY = py + selectedElement.height / 2;
+                guideY = py + newH / 2;
                 break;
             }
         }
-
-        // Horizontal Snap Points (for vertical lines)
-        const xPoints = [
-            0, // Left
-            50 - selectedElement.width / 2, // Center
-            100 - selectedElement.width // Right
-        ];
-        otherElements.forEach(e => {
-            xPoints.push(e.x); // Other left
-            xPoints.push(e.x + (e.width - selectedElement.width) / 2); // Other center
-            xPoints.push(e.x + e.width - selectedElement.width); // Other right
-        });
 
         for (const px of xPoints) {
             if (Math.abs(newX - px) < threshold) {
                 snappedX = px;
-                guideX = px + selectedElement.width / 2;
+                guideX = px + newW / 2;
                 break;
             }
         }
 
-        return { x: guideX, y: guideY, snappedX, snappedY };
+        return { guideX, guideY, snappedX, snappedY };
     };
 
-    // Multi-touch rotation logic
+    const handleGlobalPointerMove = useCallback((e: PointerEvent) => {
+        if (interactionMode === 'none' || !selectedElementId || !canvasRef.current || !initialDragState.current) return;
+
+        const rect = canvasRef.current.getBoundingClientRect();
+        const currentMouseX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentMouseY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const deltaX = currentMouseX - initialDragState.current.x;
+        const deltaY = currentMouseY - initialDragState.current.y;
+
+        if (interactionMode === 'drag') {
+            const rawX = initialDragState.current.elX + deltaX;
+            const rawY = initialDragState.current.elY + deltaY;
+            const { guideX, guideY, snappedX, snappedY } = calculateGuides(
+                selectedElementId, 
+                rawX, 
+                rawY, 
+                initialDragState.current.elW, 
+                initialDragState.current.elH
+            );
+            setGuides({ x: guideX, y: guideY });
+            updateElement(selectedElementId, { x: snappedX, y: snappedY });
+        } else if (interactionMode === 'resize' && activeResizeHandle) {
+            let { elX, elY, elW, elH } = initialDragState.current;
+            
+            if (activeResizeHandle.includes('r')) elW += deltaX;
+            if (activeResizeHandle.includes('l')) { elX += deltaX; elW -= deltaX; }
+            if (activeResizeHandle.includes('b')) elH += deltaY;
+            if (activeResizeHandle.includes('t')) { elY += deltaY; elH -= deltaY; }
+
+            // Min size 1%
+            if (elW < 1) elW = 1;
+            if (elH < 1) elH = 1;
+
+            updateElement(selectedElementId, { x: elX, y: elY, width: elW, height: elH });
+        }
+    }, [interactionMode, selectedElementId, activeResizeHandle, currentSlideIndex]);
+
+    const handleGlobalPointerUp = useCallback(() => {
+        setInteractionMode('none');
+        setActiveResizeHandle(null);
+        setGuides({ x: null, y: null });
+        initialDragState.current = null;
+    }, []);
+
+    useEffect(() => {
+        if (interactionMode !== 'none') {
+            window.addEventListener('pointermove', handleGlobalPointerMove);
+            window.addEventListener('pointerup', handleGlobalPointerUp);
+        }
+        return () => {
+            window.removeEventListener('pointermove', handleGlobalPointerMove);
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+        };
+    }, [interactionMode, handleGlobalPointerMove, handleGlobalPointerUp]);
+
+    const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
+        if (isPresenting) return;
+        e.stopPropagation();
+
+        if (selectedElementId !== element.id) {
+            setSelectedElementId(element.id);
+            setIsEditingText(false);
+            return;
+        }
+
+        if (isEditingText) return;
+
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        initialDragState.current = {
+            x: ((e.clientX - rect.left) / rect.width) * 100,
+            y: ((e.clientY - rect.top) / rect.height) * 100,
+            elX: element.x,
+            elY: element.y,
+            elW: element.width,
+            elH: element.height
+        };
+
+        setInteractionMode('drag');
+    };
+
+    const handleResizeStart = (e: React.PointerEvent, handle: ResizeHandle) => {
+        if (isPresenting || !selectedElement) return;
+        e.stopPropagation();
+        
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        initialDragState.current = {
+            x: ((e.clientX - rect.left) / rect.width) * 100,
+            y: ((e.clientY - rect.top) / rect.height) * 100,
+            elX: selectedElement.x,
+            elY: selectedElement.y,
+            elW: selectedElement.width,
+            elH: selectedElement.height
+        };
+
+        setInteractionMode('resize');
+        setActiveResizeHandle(handle);
+    };
+
     const getAngle = (t1: React.Touch | Touch, t2: React.Touch | Touch) => {
         return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
     };
@@ -294,84 +385,13 @@ export default function PresentationPage() {
         }
     };
 
-    useEffect(() => {
-        const handleGlobalPointerMove = (e: PointerEvent) => {
-            if (!isDragging || !selectedElementId || !canvasRef.current) return;
-
-            const rect = canvasRef.current.getBoundingClientRect();
-            const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-            const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-
-            const rawX = mouseX - dragOffset.current.x;
-            const rawY = mouseY - dragOffset.current.y;
-
-            const { x, y, snappedX, snappedY } = calculateGuides(selectedElementId, rawX, rawY);
-            
-            setGuides({ x, y });
-            updateElement(selectedElementId, { x: snappedX, y: snappedY });
-        };
-
-        const handleGlobalPointerUp = () => {
-            if (isDragging) {
-                setIsDragging(false);
-                setGuides({ x: null, y: null });
-            }
-        };
-
-        if (isDragging) {
-            window.addEventListener('pointermove', handleGlobalPointerMove);
-            window.addEventListener('pointerup', handleGlobalPointerUp);
-        }
-
-        return () => {
-            window.removeEventListener('pointermove', handleGlobalPointerMove);
-            window.removeEventListener('pointerup', handleGlobalPointerUp);
-        };
-    }, [isDragging, selectedElementId, currentSlideIndex, selectedElement]);
-
-    const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
-        if (isPresenting) return;
-        e.stopPropagation();
-
-        if (selectedElementId !== element.id) {
-            setSelectedElementId(element.id);
-            setIsEditingText(false);
-            return;
-        }
-
-        if (isEditingText) return;
-
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-
-        const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-        const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-
-        dragOffset.current = {
-            x: mouseX - element.x,
-            y: mouseY - element.y
-        };
-
-        setIsDragging(true);
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    };
-
-    const handleElementClick = (e: React.MouseEvent, element: SlideElement) => {
-        if (isPresenting) return;
-        e.stopPropagation();
-
-        if (selectedElementId === element.id && element.type === 'text' && !isDragging) {
-            setIsEditingText(true);
-        }
-    };
-
     const addElement = (type: SlideElement['type']) => {
         const newElement: SlideElement = {
             id: 'e' + Math.random().toString(36).substr(2, 9),
             type,
-            x: 35, y: 35,
-            width: type === 'line' ? 30 : 25,
-            height: type === 'line' ? 1 : 20,
+            x: 40, y: 40,
+            width: type === 'line' ? 20 : 20,
+            height: type === 'line' ? 1 : 15,
             content: type === 'text' ? 'Neuer Text' : undefined,
             styles: {
                 backgroundColor: type === 'text' ? 'transparent' : '#3b82f6',
@@ -397,29 +417,6 @@ export default function PresentationPage() {
         triggerAutoSave();
     };
 
-    const deleteElement = (id: string) => {
-        const newSlides = [...slides];
-        newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== id);
-        setSlides(newSlides);
-        setSelectedElementId(null);
-        triggerAutoSave();
-    };
-
-    const duplicateElement = () => {
-        if (!selectedElement) return;
-        const newElement = { 
-            ...JSON.parse(JSON.stringify(selectedElement)), 
-            id: 'e' + Math.random().toString(36).substr(2, 9), 
-            x: selectedElement.x + 2, 
-            y: selectedElement.y + 2 
-        };
-        const newSlides = [...slides];
-        newSlides[currentSlideIndex].elements.push(newElement);
-        setSlides(newSlides);
-        setSelectedElementId(newElement.id);
-        triggerAutoSave();
-    };
-
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
         const isSelected = !isPreview && selectedElementId === el.id;
         const isEditing = isSelected && isEditingText;
@@ -441,9 +438,8 @@ export default function PresentationPage() {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: isPreview ? 'default' : (isEditing ? 'text' : 'pointer'),
-            boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary)), 0 0 0 4px rgba(59, 130, 246, 0.3)' : 'none',
+            boxShadow: isSelected ? '0 0 0 2px hsl(var(--primary))' : 'none',
             transform: `rotate(${el.styles.rotation || 0}deg)`,
-            overflow: 'hidden',
             userSelect: 'none',
             touchAction: 'none'
         };
@@ -458,7 +454,7 @@ export default function PresentationPage() {
                 key={el.id} 
                 style={style}
                 onPointerDown={(e) => onPointerDown(e, el)}
-                onClick={(e) => handleElementClick(e, el)}
+                onDoubleClick={() => { if(el.type === 'text') setIsEditingText(true); }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
             >
@@ -468,9 +464,7 @@ export default function PresentationPage() {
                             fontSize: `${el.styles.fontSize || 24}px`,
                             fontFamily: el.styles.fontFamily || 'inherit',
                             textAlign: el.styles.textAlign || 'center',
-                            fontWeight: el.styles.fontWeight || 'normal',
-                            fontStyle: el.styles.fontStyle || 'normal',
-                            textDecoration: el.styles.textDecoration || 'none',
+                            fontWeight: el.styles.fontWeight || 'bold' ? 'bold' : 'normal',
                             color: el.styles.color || '#000000',
                             width: '100%',
                             outline: 'none',
@@ -485,6 +479,21 @@ export default function PresentationPage() {
                     >
                         {el.content}
                     </div>
+                )}
+
+                {/* Resize Handles */}
+                {isSelected && !isPreview && !isEditingText && (
+                    <>
+                        <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'tl')} />
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'tr')} />
+                        <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nesw-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'bl')} />
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border-2 border-primary rounded-full cursor-nwse-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'br')} />
+                        
+                        <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-4 bg-white border border-primary rounded cursor-ew-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'l')} />
+                        <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-4 bg-white border border-primary rounded cursor-ew-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'r')} />
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border border-primary rounded cursor-ns-resize z-50" onPointerDown={(e) => handleResizeStart(e, 't')} />
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border border-primary rounded cursor-ns-resize z-50" onPointerDown={(e) => handleResizeStart(e, 'b')} />
+                    </>
                 )}
             </div>
         );
@@ -569,8 +578,22 @@ export default function PresentationPage() {
                                 />
                             </div>
 
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={duplicateElement}><Copy className="h-3 w-3"/></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="h-3 w-3"/></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                                const newEl = { ...JSON.parse(JSON.stringify(selectedElement)), id: 'e' + Math.random().toString(36).substr(2, 9), x: selectedElement.x + 2, y: selectedElement.y + 2 };
+                                const newSlides = [...slides];
+                                newSlides[currentSlideIndex].elements.push(newEl);
+                                setSlides(newSlides);
+                                setSelectedElementId(newEl.id);
+                                triggerAutoSave();
+                            }}><Copy className="h-3 w-3"/></Button>
+                            
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => {
+                                const newSlides = [...slides];
+                                newSlides[currentSlideIndex].elements = newSlides[currentSlideIndex].elements.filter(e => e.id !== selectedElementId);
+                                setSlides(newSlides);
+                                setSelectedElementId(null);
+                                triggerAutoSave();
+                            }}><Trash2 className="h-3 w-3"/></Button>
                         </div>
                     )}
                 </div>
@@ -598,11 +621,7 @@ export default function PresentationPage() {
                                         "aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm",
                                         currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted"
                                     )}
-                                    onClick={() => { 
-                                        setCurrentSlideIndex(idx); 
-                                        setSelectedElementId(null); 
-                                        setIsEditingText(false); 
-                                    }}
+                                    onClick={() => { setCurrentSlideIndex(idx); setSelectedElementId(null); setIsEditingText(false); }}
                                 >
                                     <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">
                                         {(slide.elements || []).map(el => renderElement(el, true))}
@@ -623,7 +642,7 @@ export default function PresentationPage() {
 
                 <section 
                     className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative touch-none" 
-                    onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
+                    onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); }}
                 >
                     <div 
                         ref={canvasRef}
@@ -631,17 +650,11 @@ export default function PresentationPage() {
                         style={{ height: 'fit-content' }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div 
-                           className="absolute inset-0 z-0 bg-white" 
-                           onClick={() => { setSelectedElementId(null); setIsEditingText(false); }}
-                        />
-                        
-                        {/* Smart Guides Overlay */}
                         {activeGuides.x !== null && (
-                            <div className="absolute top-0 bottom-0 w-[1px] bg-purple-500 z-50 pointer-events-none" style={{ left: `${activeGuides.x}%` }} />
+                            <div className="absolute top-0 bottom-0 w-[1px] bg-purple-500 z-[100] pointer-events-none" style={{ left: `${activeGuides.x}%` }} />
                         )}
                         {activeGuides.y !== null && (
-                            <div className="absolute left-0 right-0 h-[1px] bg-purple-500 z-50 pointer-events-none" style={{ top: `${activeGuides.y}%` }} />
+                            <div className="absolute left-0 right-0 h-[1px] bg-purple-500 z-[100] pointer-events-none" style={{ top: `${activeGuides.y}%` }} />
                         )}
 
                         {(currentSlide.elements || []).map(el => renderElement(el))}
