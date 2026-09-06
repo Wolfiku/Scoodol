@@ -179,7 +179,6 @@ export default function PresentationPage() {
     const { data: presentationData, isLoading: isLoadingPres } = useDoc<PresentationDoc>(docRef);
     
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: userProfile } = useDoc<any>(userDocRef);
 
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -322,7 +321,7 @@ export default function PresentationPage() {
                 if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
                 if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
                 if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
-                if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elW - deltaY); }
+                if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
                 if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
                     updateElementStyle(selectedElementId, { fontSize: Math.max(8, Math.round(startFontSize * (elH / initialDragState.current.elH))) });
                 }
@@ -466,12 +465,6 @@ export default function PresentationPage() {
         const file = event.target.files?.[0];
         if (!file || !user || !userDocRef || !storage) return;
 
-        const currentUsage = userProfile?.storageUsage || 0;
-        if (currentUsage + file.size > STORAGE_LIMIT_BYTES) {
-            toast({ variant: 'destructive', title: 'Speicher voll', description: 'Du hast dein Limit von 3 GB erreicht.' });
-            return;
-        }
-
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : null;
         if (!type) return;
 
@@ -485,7 +478,7 @@ export default function PresentationPage() {
             {
                 next: (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(Math.round(progress));
+                    setUploadProgress(progress);
                 },
                 error: (error) => {
                     console.error("Upload failed:", error);
@@ -675,7 +668,7 @@ export default function PresentationPage() {
                 <div className="flex items-center gap-4 shrink-0 px-2">
                     {uploadProgress !== null && (
                         <div className="w-32 flex flex-col gap-1">
-                            <span className="text-[8px] font-black uppercase text-primary animate-pulse">Upload: {uploadProgress}%</span>
+                            <span className="text-[8px] font-black uppercase text-primary animate-pulse">Upload: {Math.round(uploadProgress)}%</span>
                             <Progress value={uploadProgress} className="h-1" />
                         </div>
                     )}
@@ -695,12 +688,12 @@ export default function PresentationPage() {
                                 <div className={cn("aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm", currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted")} onClick={() => { setCurrentSlideIndex(idx); setSelectedElementId(null); setIsEditingText(false); }}>
                                     <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">{(slide.elements || []).map(el => renderElement(el, true))}</div>
                                 </div>
-                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); } }}><X className="h-3 w-3" /></Button>
+                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); triggerAutoSave(); } }}><X className="h-3 w-3" /></Button>
                             </div>
                         ))}
                     </div>
                     <div className="p-3 border-t bg-background shrink-0 pb-10">
-                        <button className="w-full h-20 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-secondary/50 transition-colors group" onClick={() => { const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] }; setSlides([...slides, newSlide]); setCurrentSlideIndex(slides.length); }}><Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" /><span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span></button>
+                        <button className="w-full h-20 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-secondary/50 transition-colors group" onClick={() => { const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] }; setSlides([...slides, newSlide]); setCurrentSlideIndex(slides.length); triggerAutoSave(); }}><Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" /><span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span></button>
                     </div>
                 </aside>
 

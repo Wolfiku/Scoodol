@@ -34,7 +34,6 @@ import { useToast } from '@/hooks/use-toast';
 import ShareNoteDialog from '@/app/components/share-note-dialog';
 import { Badge } from '@/components/ui/badge';
 
-
 type UserProfile = {
   role?: 'user' | 'admin' | 'workspace_plus_user';
 }
@@ -134,8 +133,8 @@ export default function WorkspacePage() {
 
         const allItems = [...notesWithType, ...docsWithType, ...todosWithType, ...quizzesWithType, ...statsWithType, ...presWithType];
         allItems.sort((a, b) => {
-            const timeA = a.updatedAt?.seconds || 0;
-            const timeB = b.updatedAt?.seconds || 0;
+            const timeA = a.updatedAt?.seconds || Date.now() / 1000;
+            const timeB = b.updatedAt?.seconds || Date.now() / 1000;
             return timeB - timeA;
         });
         
