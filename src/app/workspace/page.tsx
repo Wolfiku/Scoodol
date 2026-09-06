@@ -86,32 +86,32 @@ export default function WorkspacePage() {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
     const notesQuery = useMemoFirebase(() =>
-      user ? query(collection(firestore, `users/${user.uid}/quickNotes`), orderBy('updatedAt', 'desc'), limit(5)) : null
+      user ? query(collection(firestore, `users/${user.uid}/quickNotes`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentNotes, isLoading: isLoadingNotes } = useCollection<QuickNote>(notesQuery);
 
     const docsQuery = useMemoFirebase(() =>
-        user ? query(collection(firestore, `users/${user.uid}/documents`), orderBy('updatedAt', 'desc'), limit(5)) : null
+        user ? query(collection(firestore, `users/${user.uid}/documents`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentDocs, isLoading: isLoadingDocs } = useCollection<TextDocument>(docsQuery);
 
     const todosQuery = useMemoFirebase(() =>
-      user ? query(collection(firestore, `users/${user.uid}/todoLists`), orderBy('updatedAt', 'desc'), limit(5)) : null
+      user ? query(collection(firestore, `users/${user.uid}/todoLists`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentTodoLists, isLoading: isLoadingTodos } = useCollection<TodoList>(todosQuery);
 
     const quizzesQuery = useMemoFirebase(() =>
-        user ? query(collection(firestore, `users/${user.uid}/quizzes`), orderBy('updatedAt', 'desc'), limit(5)) : null
+        user ? query(collection(firestore, `users/${user.uid}/quizzes`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentQuizzes, isLoading: isLoadingQuizzes } = useCollection<Quiz>(quizzesQuery);
 
     const statsQuery = useMemoFirebase(() =>
-        user ? query(collection(firestore, `users/${user.uid}/statistics`), orderBy('updatedAt', 'desc'), limit(5)) : null
+        user ? query(collection(firestore, `users/${user.uid}/statistics`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentStats, isLoading: isLoadingStats } = useCollection<Statistic>(statsQuery);
 
     const presentationsQuery = useMemoFirebase(() =>
-        user ? query(collection(firestore, `users/${user.uid}/presentations`), orderBy('updatedAt', 'desc'), limit(5)) : null
+        user ? query(collection(firestore, `users/${user.uid}/presentations`), orderBy('updatedAt', 'desc'), limit(10)) : null
     , [firestore, user]);
     const { data: recentPresentations, isLoading: isLoadingPresentations } = useCollection<PresentationDoc>(presentationsQuery);
     
@@ -138,7 +138,7 @@ export default function WorkspacePage() {
             return timeB - timeA;
         });
         
-        return allItems.slice(0, 12);
+        return allItems.slice(0, 24);
 
     }, [recentNotes, recentDocs, recentTodoLists, recentQuizzes, recentStats, recentPresentations]);
 
@@ -272,11 +272,11 @@ export default function WorkspacePage() {
             <div className="space-y-8">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <Loader2 className="w-5 h-5 text-primary" /> 
-                    Zuletzt geöffnet
+                    Deine Dokumente
                 </h2>
                 {(isLoadingNotes || isLoadingDocs || isLoadingTodos || isLoadingQuizzes || isLoadingStats || isLoadingPresentations) ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                             <Card key={i} className="h-32 animate-pulse bg-secondary/20" />
                         ))}
                     </div>

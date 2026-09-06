@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -14,9 +15,8 @@ import {
     MoreHorizontal,
     Bold, Italic, Square, Circle, Minus, Type, 
     Copy, Palette, RotateCcw,
-    ArrowUp, ArrowDown, MoveUp, MoveDown,
-    Triangle, Star as StarIcon, MoveRight, Diamond,
-    ImageIcon, Video, Ghost, Lightbulb, AlertTriangle, CheckCircle2, Info, GraduationCap, BookOpen, Search, Upload, Library, LayoutGrid,
+    Triangle, Star as StarIcon, MoveRight,
+    ImageIcon, Video, Ghost, Lightbulb, AlertTriangle, CheckCircle2, Info, GraduationCap, BookOpen, Search, Library, LayoutGrid,
     Smile, Flag, Heart, Zap, Settings, MousePointer2
 } from 'lucide-react';
 import {
@@ -26,7 +26,6 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
     DropdownMenuLabel,
-    DropdownMenuGroup
 } from '@/components/ui/dropdown-menu';
 import {
     AlertDialog,
@@ -38,13 +37,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SlideElement {
@@ -115,7 +113,7 @@ const ICONS = [
     { name: 'Settings', icon: Settings },
 ];
 
-type ResizeHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r' | 'line-start' | 'line-end';
+type ResizeHandle = 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r';
 
 export default function PresentationPage() {
     const router = useRouter();
@@ -154,24 +152,18 @@ export default function PresentationPage() {
     const [interactionMode, setInteractionMode] = useState<'none' | 'drag' | 'resize' | 'rotate'>('none');
     const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
     const [activeGuides, setGuides] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, open: boolean, elId: string | null }>({ x: 0, y: 0, open: false, elId: null });
     
-    // Vollbild-Menü Zustände
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
     const hasDraggedRef = useRef(false);
     const selectionAtStartOfPointerDown = useRef<string | null>(null);
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
     const initialDragState = useRef<{ 
         x: number, y: number, 
         elX: number, elY: number, 
         elW: number, elH: number, 
-        startFontSize: number, startRotation: number,
-        p1?: {x: number, y: number}, p2?: {x: number, y: number}
+        startFontSize: number, startRotation: number
     } | null>(null);
 
     const hasInitialized = useRef(false);
@@ -183,9 +175,6 @@ export default function PresentationPage() {
     , [firestore, user, presId, isNewPres]);
 
     const { data: presentationData, isLoading: isLoadingPres } = useDoc<PresentationDoc>(docRef);
-    const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-
-    // Medien für Galerie-Menü laden
     const mediaRef = useMemoFirebase(() => user ? collection(firestore, `users/${user.uid}/media`) : null, [firestore, user]);
     const mediaQuery = useMemoFirebase(() => mediaRef ? query(mediaRef, orderBy('createdAt', 'desc')) : null, [mediaRef]);
     const { data: userMedia } = useCollection<any>(mediaQuery);
@@ -195,7 +184,7 @@ export default function PresentationPage() {
     useEffect(() => {
         if (presentationData && !hasInitialized.current) {
             setTitle(presentationData.title || '');
-            setSlides(presentationData.slides || []);
+            setSlides(Array.isArray(presentationData.slides) ? presentationData.slides : slides);
             setSaveStatus('idle');
             hasInitialized.current = true;
         }
@@ -228,7 +217,7 @@ export default function PresentationPage() {
     }, [title, slides, isNewPres, handleSave]);
 
     const currentSlide = useMemo(() => slides[currentSlideIndex] || { id: 'fallback', title: '', elements: [] }, [slides, currentSlideIndex]);
-    const selectedElement = useMemo(() => currentSlide.elements?.find(e => e.id === selectedElementId), [currentSlide, selectedElementId]);
+    const selectedElement = useMemo(() => (currentSlide?.elements || []).find(e => e.id === selectedElementId), [currentSlide, selectedElementId]);
 
     const updateElement = (elementId: string, updates: Partial<SlideElement>) => {
         setSlides(prevSlides => {
@@ -250,7 +239,7 @@ export default function PresentationPage() {
         });
     };
 
-    const calculateGuides = (elId: string, newX: number, newY: number, newW: number, newH: number) => {
+    const calculateGuides = (newX: number, newY: number, newW: number, newH: number) => {
         const threshold = 1.0; 
         let guideX: number | null = null, guideY: number | null = null, snappedX = newX, snappedY = newY;
         const xPoints = [0, 50 - newW / 2, 100 - newW], yPoints = [0, 50 - newH / 2, 100 - newH];
@@ -267,12 +256,11 @@ export default function PresentationPage() {
 
         if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
             hasDraggedRef.current = true;
-            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
         }
 
         if (interactionMode === 'drag') {
             const rawX = initialDragState.current.elX + deltaX, rawY = initialDragState.current.elY + deltaY;
-            const { guideX, guideY, snappedX, snappedY } = calculateGuides(selectedElementId, rawX, rawY, initialDragState.current.elW, initialDragState.current.elH);
+            const { guideX, guideY, snappedX, snappedY } = calculateGuides(rawX, rawY, initialDragState.current.elW, initialDragState.current.elH);
             setGuides({ x: guideX, y: guideY });
             updateElement(selectedElementId, { x: snappedX, y: snappedY });
         } else if (interactionMode === 'resize' && activeResizeHandle) {
@@ -296,7 +284,6 @@ export default function PresentationPage() {
     const handleGlobalPointerUp = useCallback(() => {
         setInteractionMode('none'); setActiveResizeHandle(null); setGuides({ x: null, y: null });
         initialDragState.current = null;
-        if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     }, []);
 
     useEffect(() => {
@@ -309,12 +296,11 @@ export default function PresentationPage() {
 
     const onPointerDown = (e: React.PointerEvent, element: SlideElement) => {
         if (isPresenting) return;
-        e.stopPropagation(); setContextMenu({ ...contextMenu, open: false }); hasDraggedRef.current = false;
+        e.stopPropagation(); hasDraggedRef.current = false;
         selectionAtStartOfPointerDown.current = selectedElementId;
         if (selectedElementId !== element.id) { setSelectedElementId(element.id); setIsEditingText(false); }
         if (isEditingText) return;
         const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return;
-        longPressTimer.current = setTimeout(() => { setContextMenu({ x: e.clientX, y: e.clientY, open: true, elId: element.id }); }, 500);
         initialDragState.current = { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100, elX: element.x, elY: element.y, elW: element.width, elH: element.height, startFontSize: element.styles.fontSize || 24, startRotation: element.styles.rotation || 0 };
         setInteractionMode('drag');
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -367,13 +353,14 @@ export default function PresentationPage() {
                 fontSize: type === 'icon' ? 60 : 24,
                 fontFamily: 'var(--font-pt-sans), sans-serif',
                 textAlign: 'center',
-                zIndex: (currentSlide.elements?.length || 0) + 1,
+                zIndex: (currentSlide?.elements?.length || 0) + 1,
                 borderWidth: type === 'line' ? 4 : (['rect', 'circle', 'image', 'text'].includes(type) ? 0 : 2),
                 borderColor: '#000000', borderRadius: type === 'circle' ? 9999 : (type === 'image' ? 12 : 0),
                 opacity: 1, rotation: 0
             }
         };
         const newSlides = [...slides];
+        if (!newSlides[currentSlideIndex].elements) newSlides[currentSlideIndex].elements = [];
         newSlides[currentSlideIndex].elements.push(newElement);
         setSlides(newSlides); setSelectedElementId(newElement.id); setIsEditingText(false);
         setIsGalleryOpen(false); setIsLibraryOpen(false);
@@ -389,16 +376,6 @@ export default function PresentationPage() {
     const deleteElement = (elId: string) => {
         const newSlides = [...slides]; newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== elId);
         setSlides(newSlides); setSelectedElementId(null);
-    };
-
-    const changeZIndex = (elId: string, action: 'front' | 'back' | 'forward' | 'backward') => {
-        const elements = [...slides[currentSlideIndex].elements]; const elIndex = elements.findIndex(e => e.id === elId); if (elIndex === -1) return;
-        const maxZ = Math.max(...elements.map(e => e.styles.zIndex || 0), 0), minZ = Math.min(...elements.map(e => e.styles.zIndex || 0), 0);
-        if (action === 'front') elements[elIndex].styles.zIndex = maxZ + 1;
-        else if (action === 'back') elements[elIndex].styles.zIndex = Math.max(0, minZ - 1);
-        else if (action === 'forward') elements[elIndex].styles.zIndex += 1;
-        else if (action === 'backward') elements[elIndex].styles.zIndex = Math.max(0, elements[elIndex].styles.zIndex - 1);
-        const newSlides = [...slides]; newSlides[currentSlideIndex].elements = elements; setSlides(newSlides);
     };
 
     const renderElement = (el: SlideElement, isPreview: boolean = false) => {
@@ -417,7 +394,6 @@ export default function PresentationPage() {
         if (el.type === 'line') {
             const thickness = el.styles.borderWidth || 4;
             style.height = `${thickness}px`; style.backgroundColor = el.styles.borderColor || '#000000';
-            if (isSelected) style.boxShadow = '0 0 10px hsla(var(--primary), 0.5)';
         }
 
         const renderShape = () => {
@@ -426,11 +402,10 @@ export default function PresentationPage() {
                 case 'triangle': return <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="50,5 5,95 95,95" {...strokeProps} /></svg>;
                 case 'star': return <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="50,5 61,35 98,35 68,57 79,91 50,70 21,91 32,57 2,35 39,35" {...strokeProps} /></svg>;
                 case 'arrow': return <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="5,30 65,30 65,10 95,50 65,90 65,70 5,70" {...strokeProps} /></svg>;
-                case 'diamond': return <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="50,5 95,50 50,95 5,50" {...strokeProps} /></svg>;
                 case 'icon':
                     const IconComp = ICONS.find(i => i.name === el.iconName)?.icon || StarIcon;
                     return <IconComp style={{ width: '100%', height: '100%', color: el.styles.color }} />;
-                case 'image': return <img src={el.content} className="w-full h-full object-cover pointer-events-none" style={{ borderRadius: 'inherit' }} alt="Slide Element" />;
+                case 'image': return <img src={el.content} className="w-full h-full object-cover pointer-events-none" style={{ borderRadius: 'inherit' }} alt="" />;
                 case 'video': 
                     if (el.content?.includes('youtube.com') || el.content?.includes('youtu.be')) {
                         return <iframe src={el.content} className="w-full h-full pointer-events-none" frameBorder="0" allowFullScreen />;
@@ -442,9 +417,9 @@ export default function PresentationPage() {
 
         return (
             <div key={el.id} style={style} onPointerDown={(e) => onPointerDown(e, el)} onClick={(e) => handleElementClick(e, el)}>
-                {['triangle', 'star', 'arrow', 'diamond', 'icon', 'image', 'video'].includes(el.type) && renderShape()}
+                {['triangle', 'star', 'arrow', 'icon', 'image', 'video'].includes(el.type) && renderShape()}
                 {el.type === 'text' && (
-                    <div style={{ fontSize: `${el.styles.fontSize || 24}px`, fontFamily: el.styles.fontFamily || 'inherit', textAlign: el.styles.textAlign || 'center', fontWeight: el.styles.fontWeight === 'bold' ? 'bold' : 'normal', fontStyle: el.styles.fontStyle === 'italic' ? 'italic' : 'normal', color: el.styles.color || '#000000', width: '100%', outline: 'none', userSelect: isEditing ? 'text' : 'none' }} contentEditable={isEditing} suppressContentEditableWarning onPointerDown={(e) => { if (isEditing) e.stopPropagation(); }} onBlur={(e) => { updateElement(el.id, { content: e.currentTarget.innerText }); setIsEditingText(false); }}>{el.content}</div>
+                    <div style={{ fontSize: `${el.styles.fontSize || 24}px`, fontFamily: el.styles.fontFamily || 'inherit', textAlign: el.styles.textAlign || 'center', fontWeight: el.styles.fontWeight === 'bold' ? 'bold' : 'normal', fontStyle: el.styles.fontStyle === 'italic' ? 'italic' : 'normal', color: el.styles.color || '#000000', width: '100%', outline: 'none' }} contentEditable={isEditing} suppressContentEditableWarning onBlur={(e) => { updateElement(el.id, { content: e.currentTarget.innerText }); setIsEditingText(false); }}>{el.content}</div>
                 )}
                 {isSelected && !isPreview && !isEditingText && (
                     <>
@@ -466,15 +441,13 @@ export default function PresentationPage() {
             <style jsx global>{`
                 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Dancing+Script:wght@400;700&family=Fira+Code:wght@400;700&family=Montserrat:wght@400;700;900&family=Playfair+Display:wght@400;700;900&display=swap');
                 body { overflow: hidden !important; touch-action: none; overscroll-behavior: none; user-select: none; }
-                .canvas-area { touch-action: none; }
-                [contenteditable="true"] { user-select: text !important; cursor: text !important; }
             `}</style>
 
             <div className="bg-background border-b p-2 flex items-center justify-between sticky top-0 z-30 shadow-sm gap-4">
                 <div className="flex items-center gap-3 shrink-0 px-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
                     <div className="flex flex-col">
-                        <Input value={title} placeholder="Titel..." onChange={e => { setTitle(e.target.value); }} className="h-6 text-sm font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent w-32 md:w-48" />
+                        <Input value={title} placeholder="Titel..." onChange={e => setTitle(e.target.value)} className="h-6 text-sm font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent w-32 md:w-48" />
                         <div className="flex items-center gap-1.5 opacity-40 text-[9px] font-black uppercase"><span>Folie {currentSlideIndex + 1}/{slides.length}</span><span>• {saveStatus === 'saving' ? 'Speichert...' : 'Gespeichert'}</span></div>
                     </div>
                 </div>
@@ -536,10 +509,10 @@ export default function PresentationPage() {
                 <aside className="w-48 border-r bg-background flex flex-col shrink-0">
                     <ScrollArea className="flex-1 p-3">
                         <div className="space-y-3">
-                            {slides.map((slide, idx) => (
+                            {Array.isArray(slides) && slides.map((slide, idx) => (
                                 <div key={slide.id} className="relative group">
                                     <div className={cn("aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm", currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted")} onClick={() => { setCurrentSlideIndex(idx); setSelectedElementId(null); setIsEditingText(false); }}>
-                                        <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">{(slide.elements || []).map(el => renderElement(el, true))}</div>
+                                        <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">{Array.isArray(slide.elements) && slide.elements.map(el => renderElement(el, true))}</div>
                                     </div>
                                     <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); } }}><X className="h-3 w-3" /></Button>
                                 </div>
@@ -551,16 +524,15 @@ export default function PresentationPage() {
                     </div>
                 </aside>
 
-                <section className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative canvas-area" onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); }}>
+                <section className="flex-1 overflow-hidden p-4 md:p-8 flex items-center justify-center relative" onPointerDown={() => { setSelectedElementId(null); setIsEditingText(false); }}>
                     <div ref={canvasRef} className="aspect-video w-full max-w-5xl bg-white shadow-2xl rounded-2xl relative overflow-hidden border-4 border-white touch-none" style={{ height: 'fit-content' }}>
                         {activeGuides.x !== null && <div className="absolute top-0 bottom-0 w-[1.5px] bg-purple-500 z-[100] pointer-events-none" style={{ left: `${activeGuides.x}%` }} />}
                         {activeGuides.y !== null && <div className="absolute left-0 right-0 h-[1.5px] bg-purple-500 z-[100] pointer-events-none" style={{ top: `${activeGuides.y}%` }} />}
-                        {(currentSlide.elements || []).map(el => renderElement(el))}
+                        {Array.isArray(currentSlide?.elements) && currentSlide.elements.map(el => renderElement(el))}
                     </div>
                 </section>
             </main>
 
-            {/* VOLLBILD MENÜ: GALERIE */}
             <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-background flex flex-col">
                     <DialogHeader className="p-6 border-b flex flex-row justify-between items-center space-y-0">
@@ -572,10 +544,10 @@ export default function PresentationPage() {
                     </DialogHeader>
                     <ScrollArea className="flex-1 p-8 bg-secondary/10">
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-7xl mx-auto">
-                            {userMedia && userMedia.length > 0 ? userMedia.map((media: any) => (
+                            {Array.isArray(userMedia) && userMedia.length > 0 ? userMedia.map((media: any) => (
                                 <Card key={media.id} className="cursor-pointer hover:ring-4 hover:ring-primary/40 transition-all rounded-2xl overflow-hidden group shadow-sm bg-card" onClick={() => addElement(media.type, { url: media.url })}>
                                     <div className="aspect-video relative bg-muted">
-                                        {media.type === 'image' ? <img src={media.url} className="w-full h-full object-cover" alt={media.name} /> : <video src={media.url} className="w-full h-full object-cover" />}
+                                        {media.type === 'image' ? <img src={media.url} className="w-full h-full object-cover" alt="" /> : <video src={media.url} className="w-full h-full object-cover" />}
                                         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Plus className="h-8 w-8 text-white drop-shadow-md" /></div>
                                     </div>
                                     <div className="p-3 text-[10px] font-black uppercase tracking-tight text-center truncate bg-background border-t">{media.name}</div>
@@ -588,7 +560,6 @@ export default function PresentationPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* VOLLBILD MENÜ: BIBLIOTHEK */}
             <Dialog open={isLibraryOpen} onOpenChange={setIsLibraryOpen}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-background flex flex-col">
                     <DialogHeader className="p-6 border-b flex flex-row justify-between items-center space-y-0">
@@ -633,7 +604,7 @@ export default function PresentationPage() {
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
                     <div className="w-full h-full flex items-center justify-center relative bg-white">
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button>
-                        <div className="w-full aspect-video relative overflow-hidden">{(currentSlide.elements || []).map(el => renderElement(el, true))}</div>
+                        <div className="w-full aspect-video relative overflow-hidden">{Array.isArray(currentSlide?.elements) && currentSlide.elements.map(el => renderElement(el, true))}</div>
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-black/10 backdrop-blur-md px-6 py-2 rounded-full opacity-0 hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" disabled={currentSlideIndex === 0} onClick={() => setCurrentSlideIndex(p => p - 1)}><ChevronLeft/></Button>
                             <span className="text-[10px] font-black uppercase tracking-widest">{currentSlideIndex + 1} / {slides.length}</span>
