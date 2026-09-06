@@ -216,14 +216,14 @@ export default function PresentationPage() {
         return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
     }, [title, slides, isNewPres, handleSave]);
 
-    const currentSlide = useMemo(() => slides[currentSlideIndex] || { id: 'fallback', title: '', elements: [] }, [slides, currentSlideIndex]);
-    const selectedElement = useMemo(() => (currentSlide?.elements || []).find(e => e.id === selectedElementId), [currentSlide, selectedElementId]);
+    const currentSlide = useMemo(() => (Array.isArray(slides) && slides[currentSlideIndex]) || { id: 'fallback', title: '', elements: [] }, [slides, currentSlideIndex]);
+    const selectedElement = useMemo(() => (Array.isArray(currentSlide?.elements) ? currentSlide.elements.find(e => e.id === selectedElementId) : null), [currentSlide, selectedElementId]);
 
     const updateElement = (elementId: string, updates: Partial<SlideElement>) => {
         setSlides(prevSlides => {
             const newSlides = [...prevSlides];
             const slide = { ...newSlides[currentSlideIndex] };
-            slide.elements = (slide.elements || []).map(el => el.id === elementId ? { ...el, ...updates } : el);
+            slide.elements = (Array.isArray(slide.elements) ? slide.elements.map(el => el.id === elementId ? { ...el, ...updates } : el) : []);
             newSlides[currentSlideIndex] = slide;
             return newSlides;
         });
@@ -233,7 +233,7 @@ export default function PresentationPage() {
         setSlides(prevSlides => {
             const newSlides = [...prevSlides];
             const slide = { ...newSlides[currentSlideIndex] };
-            slide.elements = (slide.elements || []).map(el => el.id === elementId ? { ...el, styles: { ...el.styles, ...styleUpdates } } : el);
+            slide.elements = (Array.isArray(slide.elements) ? slide.elements.map(el => el.id === elementId ? { ...el, styles: { ...el.styles, ...styleUpdates } } : el) : []);
             newSlides[currentSlideIndex] = slide;
             return newSlides;
         });
@@ -353,14 +353,14 @@ export default function PresentationPage() {
                 fontSize: type === 'icon' ? 60 : 24,
                 fontFamily: 'var(--font-pt-sans), sans-serif',
                 textAlign: 'center',
-                zIndex: (currentSlide?.elements?.length || 0) + 1,
+                zIndex: (Array.isArray(currentSlide?.elements) ? currentSlide.elements.length : 0) + 1,
                 borderWidth: type === 'line' ? 4 : (['rect', 'circle', 'image', 'text'].includes(type) ? 0 : 2),
                 borderColor: '#000000', borderRadius: type === 'circle' ? 9999 : (type === 'image' ? 12 : 0),
                 opacity: 1, rotation: 0
             }
         };
         const newSlides = [...slides];
-        if (!newSlides[currentSlideIndex].elements) newSlides[currentSlideIndex].elements = [];
+        if (!Array.isArray(newSlides[currentSlideIndex].elements)) newSlides[currentSlideIndex].elements = [];
         newSlides[currentSlideIndex].elements.push(newElement);
         setSlides(newSlides); setSelectedElementId(newElement.id); setIsEditingText(false);
         setIsGalleryOpen(false); setIsLibraryOpen(false);
@@ -374,7 +374,7 @@ export default function PresentationPage() {
     };
 
     const deleteElement = (elId: string) => {
-        const newSlides = [...slides]; newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== elId);
+        const newSlides = [...slides]; newSlides[currentSlideIndex].elements = (Array.isArray(newSlides[currentSlideIndex].elements) ? newSlides[currentSlideIndex].elements.filter(e => e.id !== elId) : []);
         setSlides(newSlides); setSelectedElementId(null);
     };
 
@@ -602,6 +602,8 @@ export default function PresentationPage() {
 
             <Dialog open={isPresenting} onOpenChange={setIsPresenting}>
                 <DialogContent className="max-w-none w-screen h-screen p-0 border-0 rounded-none bg-black">
+                    <DialogTitle className="sr-only">Präsentation: {title}</DialogTitle>
+                    <DialogDescription className="sr-only">Vollbild-Präsentationsmodus</DialogDescription>
                     <div className="w-full h-full flex items-center justify-center relative bg-white">
                         <Button variant="ghost" size="icon" className="absolute top-6 right-6 rounded-full h-10 w-10 z-50 mix-blend-difference text-white" onClick={() => setIsPresenting(false)}><X className="h-6 w-6" /></Button>
                         <div className="w-full aspect-video relative overflow-hidden">{Array.isArray(currentSlide?.elements) && currentSlide.elements.map(el => renderElement(el, true))}</div>
@@ -615,7 +617,16 @@ export default function PresentationPage() {
             </Dialog>
 
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Präsentation löschen?</AlertDialogTitle><AlertDialogDescription>Möchtest du "{title}" wirklich löschen?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Abbrechen</AlertDialogCancel><AlertDialogAction onClick={async () => { if (docRef) { await deleteDoc(docRef); router.push('/workspace'); } }} className="bg-destructive text-white">Löschen</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Präsentation löschen?</AlertDialogTitle>
+                        <AlertDialogDescription>Möchtest du "{title}" wirklich löschen?</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction onClick={async () => { if (docRef) { await deleteDoc(docRef); router.push('/workspace'); } }} className="bg-destructive text-white">Löschen</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
             </AlertDialog>
         </div>
     );
