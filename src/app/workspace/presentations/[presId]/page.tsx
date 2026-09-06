@@ -168,6 +168,8 @@ export default function PresentationPage() {
         p1?: {x: number, y: number}, p2?: {x: number, y: number}
     } | null>(null);
 
+    const hasInitialized = useRef(false);
+
     const docRef = useMemoFirebase(() => 
         !isNewPres && user && typeof presId === 'string'
             ? doc(firestore, `users/${user.uid}/presentations`, presId)
@@ -181,11 +183,13 @@ export default function PresentationPage() {
 
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
+    // Initial load from server
     useEffect(() => {
-        if (presentationData) {
+        if (presentationData && !hasInitialized.current) {
             setTitle(presentationData.title || '');
             setSlides(presentationData.slides || []);
             setSaveStatus('idle');
+            hasInitialized.current = true;
         }
     }, [presentationData]);
 
@@ -193,19 +197,23 @@ export default function PresentationPage() {
         if (!firestore || !user || !title.trim()) return;
         setSaveStatus('saving');
 
+        const dataToSave = {
+            title,
+            slides,
+            ownerId: user.uid,
+            updatedAt: serverTimestamp(),
+        };
+
         try {
             if (isNewPres) {
                 const colRef = collection(firestore, `users/${user.uid}/presentations`);
                 const newDoc = await addDoc(colRef, {
-                    title,
-                    slides,
-                    ownerId: user.uid,
+                    ...dataToSave,
                     createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
                 });
                 router.replace(`/workspace/presentations/${newDoc.id}`);
             } else if (docRef) {
-                await setDoc(docRef, { title, slides, updatedAt: serverTimestamp() }, { merge: true });
+                await setDoc(docRef, dataToSave, { merge: true });
             }
             setSaveStatus('idle');
         } catch (error) {
@@ -213,11 +221,22 @@ export default function PresentationPage() {
         }
     }, [firestore, user, title, slides, isNewPres, docRef, router]);
 
-    const triggerAutoSave = () => {
-        setSaveStatus('dirty');
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
-        debounceTimer.current = setTimeout(handleSave, 2000);
-    };
+    // Trigger auto-save on changes
+    useEffect(() => {
+        if (!hasInitialized.current && !isNewPres) return;
+
+        const isDirty = !presentationData || 
+            title !== presentationData.title || 
+            JSON.stringify(slides) !== JSON.stringify(presentationData.slides);
+
+        if (isDirty) {
+            setSaveStatus('dirty');
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+            debounceTimer.current = setTimeout(handleSave, 2000);
+        }
+
+        return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+    }, [title, slides, presentationData, isNewPres, handleSave]);
 
     const currentSlide = useMemo(() => 
         slides[currentSlideIndex] || { id: 'fallback', title: '', elements: [] },
@@ -230,25 +249,25 @@ export default function PresentationPage() {
     const updateElement = (elementId: string, updates: Partial<SlideElement>) => {
         setSlides(prevSlides => {
             const newSlides = [...prevSlides];
-            const slide = { ...newSlides[currentSlideIndex] };
+            const slideIndex = currentSlideIndex;
+            const slide = { ...newSlides[slideIndex] };
             if (!slide) return prevSlides;
             slide.elements = (slide.elements || []).map(el => el.id === elementId ? { ...el, ...updates } : el);
-            newSlides[currentSlideIndex] = slide;
+            newSlides[slideIndex] = slide;
             return newSlides;
         });
-        triggerAutoSave();
     };
 
     const updateElementStyle = (elementId: string, styleUpdates: Partial<SlideElement['styles']>) => {
         setSlides(prevSlides => {
             const newSlides = [...prevSlides];
-            const slide = { ...newSlides[currentSlideIndex] };
+            const slideIndex = currentSlideIndex;
+            const slide = { ...newSlides[slideIndex] };
             if (!slide) return prevSlides;
             slide.elements = (slide.elements || []).map(el => el.id === elementId ? { ...el, styles: { ...el.styles, ...styleUpdates } } : el);
-            newSlides[currentSlideIndex] = slide;
+            newSlides[slideIndex] = slide;
             return newSlides;
         });
-        triggerAutoSave();
     };
 
     const calculateGuides = (elId: string, newX: number, newY: number, newW: number, newH: number) => {
@@ -394,12 +413,12 @@ export default function PresentationPage() {
         const el = currentSlide.elements.find(e => e.id === elId); if (!el) return;
         const newEl = { ...JSON.parse(JSON.stringify(el)), id: 'e' + Math.random().toString(36).substr(2, 9), x: el.x + 2, y: el.y + 2 };
         const newSlides = [...slides]; newSlides[currentSlideIndex].elements.push(newEl);
-        setSlides(newSlides); setSelectedElementId(newEl.id); triggerAutoSave();
+        setSlides(newSlides); setSelectedElementId(newEl.id);
     };
 
     const deleteElement = (elId: string) => {
         const newSlides = [...slides]; newSlides[currentSlideIndex].elements = (newSlides[currentSlideIndex].elements || []).filter(e => e.id !== elId);
-        setSlides(newSlides); setSelectedElementId(null); triggerAutoSave();
+        setSlides(newSlides); setSelectedElementId(null);
     };
 
     const changeZIndex = (elId: string, action: 'front' | 'back' | 'forward' | 'backward') => {
@@ -409,7 +428,7 @@ export default function PresentationPage() {
         else if (action === 'back') elements[elIndex].styles.zIndex = Math.max(0, minZ - 1);
         else if (action === 'forward') elements[elIndex].styles.zIndex += 1;
         else if (action === 'backward') elements[elIndex].styles.zIndex = Math.max(0, elements[elIndex].styles.zIndex - 1);
-        const newSlides = [...slides]; newSlides[currentSlideIndex].elements = elements; setSlides(newSlides); triggerAutoSave();
+        const newSlides = [...slides]; newSlides[currentSlideIndex].elements = elements; setSlides(newSlides);
     };
 
     const addElement = (type: SlideElement['type'], extra?: any) => {
@@ -433,7 +452,7 @@ export default function PresentationPage() {
             }
         };
         const newSlides = [...slides]; if (!newSlides[currentSlideIndex].elements) newSlides[currentSlideIndex].elements = [];
-        newSlides[currentSlideIndex].elements.push(newElement); setSlides(newSlides); setSelectedElementId(newElement.id); setIsEditingText(false); triggerAutoSave();
+        newSlides[currentSlideIndex].elements.push(newElement); setSlides(newSlides); setSelectedElementId(newElement.id); setIsEditingText(false);
     };
 
     const handleFileSelect = (type: 'image' | 'video') => {
@@ -458,7 +477,7 @@ export default function PresentationPage() {
 
         const storageRefPath = `users/${user.uid}/media/${Date.now()}_${file.name}`;
         const fileRef = ref(storage, storageRefPath);
-        const uploadTask = uploadBytesResumable(fileRef, file);
+        const uploadTask = uploadBytesResumable(fileRef, file, { contentType: file.type });
 
         setUploadProgress(0);
 
@@ -581,8 +600,8 @@ export default function PresentationPage() {
                 <div className="flex items-center gap-3 shrink-0 px-2">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => router.push('/workspace')}><ArrowLeft className="h-4 w-4" /></Button>
                     <div className="flex flex-col">
-                        <Input value={title} placeholder="Titel..." onChange={e => { setTitle(e.target.value); triggerAutoSave(); }} className="h-6 text-sm font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent w-32 md:w-48" />
-                        <div className="flex items-center gap-1.5 opacity-40 text-[9px] font-black uppercase"><span>Folie {currentSlideIndex + 1}/{slides.length}</span><span>• {saveStatus === 'saving' ? 'Speichert' : 'Gespeichert'}</span></div>
+                        <Input value={title} placeholder="Titel..." onChange={e => { setTitle(e.target.value); }} className="h-6 text-sm font-black border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent w-32 md:w-48" />
+                        <div className="flex items-center gap-1.5 opacity-40 text-[9px] font-black uppercase"><span>Folie {currentSlideIndex + 1}/{slides.length}</span><span>• {saveStatus === 'saving' ? 'Speichert...' : saveStatus === 'dirty' ? 'Geändert' : 'Gespeichert'}</span></div>
                     </div>
                 </div>
 
@@ -676,12 +695,12 @@ export default function PresentationPage() {
                                 <div className={cn("aspect-video border-2 rounded-lg cursor-pointer transition-all overflow-hidden bg-card relative shadow-sm", currentSlideIndex === idx ? "border-primary ring-2 ring-primary/10" : "hover:border-primary/40 border-muted")} onClick={() => { setCurrentSlideIndex(idx); setSelectedElementId(null); setIsEditingText(false); }}>
                                     <div className="absolute inset-0 scale-[0.25] origin-top-left pointer-events-none w-[400%] h-[400%]">{(slide.elements || []).map(el => renderElement(el, true))}</div>
                                 </div>
-                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); triggerAutoSave(); } }}><X className="h-3 w-3" /></Button>
+                                <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full scale-0 group-hover:scale-100 transition-transform shadow-lg" onClick={(e) => { e.stopPropagation(); if(slides.length > 1) { setSlides(slides.filter(s => s.id !== slide.id)); if(currentSlideIndex >= slides.length - 1) setCurrentSlideIndex(slides.length - 2); } }}><X className="h-3 w-3" /></Button>
                             </div>
                         ))}
                     </div>
                     <div className="p-3 border-t bg-background shrink-0 pb-10">
-                        <button className="w-full h-20 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-secondary/50 transition-colors group" onClick={() => { const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] }; setSlides([...slides, newSlide]); setCurrentSlideIndex(slides.length); triggerAutoSave(); }}><Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" /><span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span></button>
+                        <button className="w-full h-20 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-secondary/50 transition-colors group" onClick={() => { const newSlide: Slide = { id: Math.random().toString(36).substr(2, 9), title: 'Neue Folie', elements: [] }; setSlides([...slides, newSlide]); setCurrentSlideIndex(slides.length); }}><Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" /><span className="text-[10px] font-black uppercase text-muted-foreground group-hover:text-primary">Neue Folie</span></button>
                     </div>
                 </aside>
 
