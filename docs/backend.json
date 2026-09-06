@@ -32,6 +32,20 @@
         "timetableSettings": { "type": "object" }
       }
     },
+    "School": {
+      "title": "School",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "zip": { "type": "string" },
+        "adminUid": { "type": "string" },
+        "managementId": { "type": "string", "description": "Unique ID for school association" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["name", "adminUid", "managementId"]
+    },
     "MediaFile": {
       "title": "Media File",
       "type": "object",
@@ -176,6 +190,7 @@
   "auth": { "providers": ["password", "anonymous"] },
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profile" },
+    "/schools/{schoolId}": { "schema": { "$ref": "#/entities/School" }, "description": "School registration data" },
     "/users/{userId}/media/{mediaId}": { "schema": { "$ref": "#/entities/MediaFile" }, "description": "Uploaded images and videos" },
     "/users/{userId}/homeworks/{hwId}": { "schema": { "$ref": "#/entities/Homework" }, "description": "Homework" },
     "/users/{userId}/quickNotes/{noteId}": { "schema": { "$ref": "#/entities/QuickNote" }, "description": "Notes" },
