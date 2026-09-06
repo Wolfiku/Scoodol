@@ -303,7 +303,7 @@ export default function PresentationPage() {
                 if (activeResizeHandle.includes('r')) elW = Math.max(1, initialDragState.current.elW + deltaX);
                 if (activeResizeHandle.includes('l')) { elX = initialDragState.current.elX + deltaX; elW = Math.max(1, initialDragState.current.elW - deltaX); }
                 if (activeResizeHandle.includes('b')) elH = Math.max(1, initialDragState.current.elH + deltaY);
-                if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elH - deltaY); }
+                if (activeResizeHandle.includes('t')) { elY = initialDragState.current.elY + deltaY; elH = Math.max(1, initialDragState.current.elW - deltaY); }
                 if (selectedElement?.type === 'text' && ['tl', 'tr', 'bl', 'br'].includes(activeResizeHandle)) {
                     updateElementStyle(selectedElementId, { fontSize: Math.max(8, Math.round(startFontSize * (elH / initialDragState.current.elH))) });
                 }
@@ -564,9 +564,6 @@ export default function PresentationPage() {
 
     if (isUserLoading || (isLoadingPres && !isNewPres)) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
 
-    const usedStorageMB = Math.round((userProfile?.storageUsage || 0) / 1024 / 1024);
-    const limitMB = Math.round(STORAGE_LIMIT_BYTES / 1024 / 1024);
-
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden" style={{ position: 'fixed', inset: 0 }}>
             <style jsx global>{`
@@ -663,10 +660,6 @@ export default function PresentationPage() {
                             <Progress value={uploadProgress} className="h-1" />
                         </div>
                     )}
-                    <div className="flex flex-col items-end gap-0.5 border-r pr-4">
-                        <div className="flex items-center gap-1 text-[8px] font-black text-muted-foreground uppercase"><HardDrive className="h-2.5 w-2.5" /> Speicher</div>
-                        <span className="text-[9px] font-bold text-primary">{usedStorageMB} MB / {limitMB} MB</span>
-                    </div>
                     <Button size="sm" onClick={() => { setIsPresenting(true); setCurrentSlideIndex(0); }} className="font-black gap-2 h-8 rounded-full bg-primary hover:bg-primary/90 text-xs"><Play className="h-3 w-3 fill-current" /> Präsentieren</Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
