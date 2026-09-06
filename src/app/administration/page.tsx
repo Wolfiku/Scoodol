@@ -92,28 +92,29 @@ export default function AdministrationPage() {
 
   if (isUserLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50/50">
-        <Loader2 className="animate-spin text-primary w-10 h-10" />
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600 w-10 h-10" />
       </div>
     );
   }
 
+  // Fallback rendering for unauthenticated users
   if (!user || user.isAnonymous) {
       return (
-        <div className="container mx-auto p-4 md:p-8 max-w-lg min-h-screen flex flex-col justify-center">
-            <Card className="shadow-2xl border-none ring-1 ring-black/5">
+        <div className="container mx-auto p-4 md:p-8 max-w-lg min-h-screen flex flex-col justify-center bg-slate-50">
+            <Card className="shadow-2xl border-none ring-1 ring-slate-200">
                 <CardHeader className="text-center">
-                    <div className="mx-auto bg-primary/10 p-3 rounded-xl w-fit mb-4">
-                        <ShieldAlert className="w-8 h-8 text-primary" />
+                    <div className="mx-auto bg-blue-50 p-3 rounded-xl w-fit mb-4">
+                        <ShieldAlert className="w-8 h-8 text-blue-600" />
                     </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight">Autorisierung erforderlich</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Autorisierung erforderlich</CardTitle>
+                    <CardDescription className="text-slate-500">
                         Bitte melden Sie sich an, um den Registrierungsprozess für Ihre Einrichtung zu starten.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground text-center">Administratoren benötigen ein verifiziertes Benutzerkonto, um rechtlich bindende Zuweisungen für Schulen vorzunehmen.</p>
-                    <Button asChild className="w-full h-12 font-bold text-base rounded-xl">
+                    <p className="text-sm text-slate-600 text-center">Administratoren benötigen ein verifiziertes Benutzerkonto, um rechtlich bindende Zuweisungen für Schulen vorzunehmen.</p>
+                    <Button asChild className="w-full h-12 font-bold text-base rounded-xl bg-blue-600 hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-200">
                         <Link href="/login?redirect=/administration">Zum Login-Portal</Link>
                     </Button>
                 </CardContent>
@@ -122,24 +123,25 @@ export default function AdministrationPage() {
       );
   }
 
+  // Success view
   if (registeredId) {
       return (
-        <div className="container mx-auto p-4 md:p-8 max-w-2xl min-h-screen flex flex-col justify-center">
-            <Card className="shadow-2xl border-2 border-green-100 overflow-hidden rounded-3xl">
-                <div className="bg-green-600 h-3 w-full" />
-                <CardHeader className="text-center pt-10">
-                    <div className="mx-auto bg-green-50 p-5 rounded-full w-fit mb-6">
-                        <CheckCircle2 className="w-16 h-16 text-green-600" />
+        <div className="container mx-auto p-4 md:p-8 max-w-2xl min-h-screen flex flex-col justify-center bg-slate-50">
+            <Card className="shadow-2xl border-2 border-emerald-100 overflow-hidden rounded-3xl bg-white">
+                <div className="bg-emerald-600 h-3 w-full" />
+                <CardHeader className="text-center pt-10 px-10">
+                    <div className="mx-auto bg-emerald-50 p-5 rounded-full w-fit mb-6">
+                        <CheckCircle2 className="w-16 h-16 text-emerald-600" />
                     </div>
                     <CardTitle className="text-3xl font-black text-slate-900">Einrichtung aktiviert</CardTitle>
-                    <CardDescription className="text-lg">Der administrative Zugang wurde erfolgreich konfiguriert.</CardDescription>
+                    <CardDescription className="text-lg text-slate-500">Der administrative Zugang wurde erfolgreich konfiguriert.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-10 p-10">
                     <div className="p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Offizielle Verwaltungs-ID</p>
-                        <p className="text-5xl font-mono font-black text-primary tracking-tight">{registeredId}</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Offizielle Verwaltungs-ID</p>
+                        <p className="text-5xl font-mono font-black text-blue-600 tracking-tight">{registeredId}</p>
                         <div className="pt-2">
-                            <Button onClick={copyId} variant="secondary" className="gap-2 rounded-xl h-12 px-6">
+                            <Button onClick={copyId} variant="outline" className="gap-2 rounded-xl h-12 px-6 border-slate-300 text-slate-700 hover:bg-white hover:text-blue-600 shadow-sm transition-all">
                                 <Copy className="h-4 w-4" /> Kennung kopieren
                             </Button>
                         </div>
@@ -147,13 +149,13 @@ export default function AdministrationPage() {
                     <div className="bg-blue-50/50 p-6 rounded-2xl flex gap-5 items-start border border-blue-100">
                         <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
                         <div className="text-sm space-y-2">
-                            <p className="font-bold text-blue-900">Administrator-Status bestätigt</p>
-                            <p className="text-blue-800/80 leading-relaxed">Sie verfügen nun über die Berechtigung, schulspezifische Parameter zu verwalten. Kommunizieren Sie die obige Kennung an Ihre Lehrkräfte und Schüler, um die digitale Vernetzung zu initiieren.</p>
+                            <p className="font-bold text-slate-900">Administrator-Status bestätigt</p>
+                            <p className="text-slate-600 leading-relaxed">Sie verfügen nun über die Berechtigung, schulspezifische Parameter zu verwalten. Kommunizieren Sie die obige Kennung an Ihre Lehrkräfte und Schüler, um die digitale Vernetzung zu initiieren.</p>
                         </div>
                     </div>
                 </CardContent>
                 <CardFooter className="bg-slate-50 p-8">
-                    <Button asChild className="w-full h-14 font-black text-lg rounded-2xl">
+                    <Button asChild className="w-full h-14 font-black text-lg rounded-2xl bg-slate-900 hover:bg-slate-800 text-white border-none shadow-xl">
                         <Link href="/">Zentrale aufrufen</Link>
                     </Button>
                 </CardFooter>
@@ -162,22 +164,23 @@ export default function AdministrationPage() {
       );
   }
 
+  // Already an admin
   if (userProfile?.role === 'school_admin') {
        return (
-        <div className="container mx-auto p-4 md:p-8 max-w-2xl min-h-screen flex flex-col justify-center">
-            <Card className="text-center p-10 rounded-3xl shadow-xl border-none ring-1 ring-black/5">
+        <div className="container mx-auto p-4 md:p-8 max-w-2xl min-h-screen flex flex-col justify-center bg-slate-50">
+            <Card className="text-center p-10 rounded-3xl shadow-xl border-none ring-1 ring-slate-200 bg-white">
                  <CardHeader>
-                    <div className="mx-auto bg-primary/10 p-4 rounded-2xl w-fit mb-6">
-                        <Building2 className="w-12 h-12 text-primary" />
+                    <div className="mx-auto bg-blue-50 p-4 rounded-2xl w-fit mb-6">
+                        <Building2 className="w-12 h-12 text-blue-600" />
                     </div>
-                    <CardTitle className="text-3xl font-black">Aktive Administration</CardTitle>
-                    <CardDescription className="text-base">Ihr Profil ist bereits mit einer aktiven Einrichtung verknüpft.</CardDescription>
+                    <CardTitle className="text-3xl font-black text-slate-900">Aktive Administration</CardTitle>
+                    <CardDescription className="text-base text-slate-500">Ihr Profil ist bereits mit einer aktiven Einrichtung verknüpft.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-xs font-bold text-slate-600">
-                        VERWALTUNGS-ID: <span className="font-mono text-primary">{userProfile.managementId}</span>
+                        VERWALTUNGS-ID: <span className="font-mono text-blue-600">{userProfile.managementId}</span>
                     </div>
-                    <Button asChild className="w-full font-black h-14 rounded-2xl text-lg">
+                    <Button asChild className="w-full font-black h-14 rounded-2xl text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100">
                         <Link href="/">Zum Management-Dashboard</Link>
                     </Button>
                 </CardContent>
@@ -186,107 +189,118 @@ export default function AdministrationPage() {
       );
   }
 
+  // Standard Registration Form
   return (
-    <div className="container mx-auto p-4 md:p-8 max-w-2xl min-h-screen flex flex-col justify-center">
-      <div className="flex items-center gap-4 mb-10">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="rounded-full h-12 w-12 hover:bg-slate-100">
-            <ArrowLeft className="h-6 w-6" />
-        </Button>
-        <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">Einrichtungs-Management</h1>
-            <p className="text-slate-500 font-medium">Registrierung und administrative Kontrolle</p>
-        </div>
-      </div>
-
-      <Card className="shadow-2xl border-none rounded-3xl ring-1 ring-black/5 overflow-hidden">
-          <div className="bg-primary h-2 w-full" />
-          <CardHeader className="p-8 pb-4">
-            <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
-                    <School className="w-8 h-8" />
-                </div>
-                <div>
-                    <CardTitle className="text-2xl font-bold">Neue Registrierung</CardTitle>
-                    <CardDescription className="text-sm">
-                        Hinterlegen Sie Ihre Bildungseinrichtung im zentralen Scoodol-Verzeichnis.
-                    </CardDescription>
-                </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-2xl mx-auto w-full">
+        <div className="flex items-center gap-4 mb-10">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="rounded-full h-12 w-12 hover:bg-white text-slate-400 hover:text-slate-900 transition-all">
+                <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <div>
+                <h1 className="text-4xl font-black tracking-tight text-slate-900">Einrichtungs-Management</h1>
+                <p className="text-slate-500 font-medium">Registrierung und administrative Kontrolle</p>
             </div>
-          </CardHeader>
-          <CardContent className="p-8 pt-0">
-             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                    <div className="space-y-5">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="font-bold text-slate-700">Offizieller Name der Einrichtung</FormLabel>
-                                <FormControl><Input placeholder="z. B. Gymnasium Musterstadt" className="h-12 rounded-xl border-slate-200 focus:ring-primary/20" {...field} disabled={isLoading} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="address"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="font-bold text-slate-700">Straße und Hausnummer</FormLabel>
-                                <FormControl><Input placeholder="Akademiestraße 1" className="h-12 rounded-xl border-slate-200 focus:ring-primary/20" {...field} disabled={isLoading} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-3 gap-5">
-                            <div className="col-span-1">
-                                <FormField
-                                    control={form.control}
-                                    name="zip"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="font-bold text-slate-700">Postleitzahl</FormLabel>
-                                        <FormControl><Input placeholder="12345" className="h-12 rounded-xl border-slate-200 focus:ring-primary/20" {...field} disabled={isLoading} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="col-span-2">
-                                <FormField
-                                    control={form.control}
-                                    name="city"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="font-bold text-slate-700">Ort / Standort</FormLabel>
-                                        <FormControl><Input placeholder="Musterstadt" className="h-12 rounded-xl border-slate-200 focus:ring-primary/20" {...field} disabled={isLoading} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
+        </div>
+
+        <Card className="shadow-2xl border-none rounded-3xl ring-1 ring-slate-200 overflow-hidden bg-white">
+            <div className="bg-blue-600 h-2 w-full" />
+            <CardHeader className="p-10 pb-6">
+                <div className="flex items-center gap-5 mb-6">
+                    <div className="p-4 bg-blue-50 rounded-2xl text-blue-600">
+                        <School className="w-10 h-10" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-2xl font-bold text-slate-900">Neue Registrierung</CardTitle>
+                        <CardDescription className="text-sm text-slate-500">
+                            Hinterlegen Sie Ihre Bildungseinrichtung im zentralen Verzeichnis.
+                        </CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-10 pt-0">
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        <div className="space-y-6">
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="font-bold text-slate-700">Offizieller Name der Einrichtung</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="z. B. Gymnasium Musterstadt" className="h-14 rounded-xl border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-300" {...field} disabled={isLoading} />
+                                    </FormControl>
+                                    <FormMessage className="text-rose-600" />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="address"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="font-bold text-slate-700">Straße und Hausnummer</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Akademiestraße 1" className="h-14 rounded-xl border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-300" {...field} disabled={isLoading} />
+                                    </FormControl>
+                                    <FormMessage className="text-rose-600" />
+                                </FormItem>
+                                )}
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div className="sm:col-span-1">
+                                    <FormField
+                                        control={form.control}
+                                        name="zip"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="font-bold text-slate-700">Postleitzahl</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="12345" className="h-14 rounded-xl border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-300" {...field} disabled={isLoading} />
+                                            </FormControl>
+                                            <FormMessage className="text-rose-600" />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="city"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="font-bold text-slate-700">Ort / Standort</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Musterstadt" className="h-14 rounded-xl border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 placeholder:text-slate-300" {...field} disabled={isLoading} />
+                                            </FormControl>
+                                            <FormMessage className="text-rose-600" />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="p-5 bg-amber-50/50 border border-amber-200 rounded-2xl flex items-start gap-4 shadow-sm shadow-amber-100">
-                        <Info className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="text-sm text-amber-900/80 space-y-1.5 leading-relaxed">
-                            <p className="font-black text-amber-900 uppercase text-[10px] tracking-widest">Wichtiger Hinweis</p>
-                            <p>Durch die Registrierung wird eine eindeutige Kennung erzeugt. Diese dient als autorisiertes Bindeglied zwischen Schüler-Konten und Ihrer Verwaltungsebene.</p>
+                        <div className="p-6 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4 shadow-sm">
+                            <Info className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="text-sm text-amber-900/80 space-y-1.5 leading-relaxed">
+                                <p className="font-black text-amber-900 uppercase text-[10px] tracking-widest">Rechtlicher Hinweis</p>
+                                <p>Durch den Abschluss dieser Registrierung erklären Sie sich als autorisierter Vertreter der Einrichtung. Es wird eine eindeutige Kennung erzeugt, die als Bindeglied zwischen Schüler-Konten und Ihrer Verwaltungsebene fungiert.</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <Button type="submit" disabled={isLoading} className="w-full h-16 text-lg font-black rounded-2xl shadow-xl shadow-primary/20 transition-transform active:scale-[0.98]">
-                        {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : 'Registrierung jetzt finalisieren'}
-                    </Button>
-                </form>
-            </Form>
-          </CardContent>
-          <CardFooter className="justify-center bg-slate-50 border-t py-6 text-[10px] text-slate-400 uppercase font-black tracking-widest">
-              Offizielle Bestätigung der Vertretungsbefugnis erforderlich
-          </CardFooter>
+                        <Button type="submit" disabled={isLoading} className="w-full h-16 text-lg font-black rounded-2xl bg-blue-600 hover:bg-blue-700 text-white border-none shadow-xl shadow-blue-600/20 transition-all active:scale-[0.98]">
+                            {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : 'Registrierung jetzt finalisieren'}
+                        </Button>
+                    </form>
+                </Form>
+            </CardContent>
+            <CardFooter className="justify-center bg-slate-50 border-t border-slate-100 py-8 text-[10px] text-slate-400 uppercase font-black tracking-widest">
+                Sicherheitszertifizierte Datenübertragung
+            </CardFooter>
         </Card>
+      </div>
     </div>
   );
 }
