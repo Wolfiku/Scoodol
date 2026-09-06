@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook, Sparkles, Wand2, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Calculator as CalculatorIcon, Scale, BookText, Atom, FileText, Timer as TimerIcon, Notebook, Sparkles, Wand2, LayoutGrid, AlertCircle } from 'lucide-react';
 import Calculator from './tools/calculator';
 import GradeCalculator from './tools/grade-calculator';
 import FormulaCollection from './tools/formula-collection';
@@ -17,12 +17,13 @@ import TextSimplifier from './tools/text-simplifier';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 
 type Tool = 'calculator' | 'grade-calculator' | 'formula-collection' | 'periodic-table' | 'report-card-analyzer' | 'timer' | 'stopwatch' | 'notes' | 'text-simplifier' | 'workspace';
 
 const allTools: { id: Tool; title: string; description: string; icon: React.ReactNode; isBeta?: boolean; requiresAuth?: boolean }[] = [
-    { id: 'workspace', title: 'Scoodol Workspace', description: 'Dein persönlicher Bereich mit KI-Chat & mehr.', icon: <LayoutGrid className="w-8 h-8" />, requiresAuth: true },
+    { id: 'workspace', title: 'Scoodol Workspace', description: 'Dein persönlicher Bereich mit KI-Chat & mehr.', icon: <LayoutGrid className="w-8 h-8" />, requiresAuth: true, isBeta: true },
     { id: 'text-simplifier', title: 'Text-Vereinfacher', description: 'Vereinfache komplizierte Texte & Aufgaben.', icon: <Wand2 className="w-8 h-8" /> },
     { id: 'calculator', title: 'Taschenrechner', description: 'Ein einfacher Rechner für schnelle Berechnungen.', icon: <CalculatorIcon className="w-8 h-8" /> },
     { id: 'grade-calculator', title: 'Notenrechner', description: 'Berechne deinen Notendurchschnitt.', icon: <Scale className="w-8 h-8" /> },
@@ -108,7 +109,7 @@ export default function SmartToolsView() {
                     <Card 
                         key={tool.id} 
                         className={cn(
-                            "cursor-pointer hover:shadow-lg transition-shadow",
+                            "cursor-pointer hover:shadow-lg transition-shadow overflow-hidden",
                             isWorkspace && "bg-gradient-to-br from-primary/20 to-background border-primary col-span-1 md:col-span-2 lg:col-span-3"
                         )}
                         onClick={() => handleToolClick(tool.id)}
@@ -120,11 +121,27 @@ export default function SmartToolsView() {
                             )}>
                                 <div className="text-primary">{tool.icon}</div>
                             </div>
-                            <div>
-                                <CardTitle>{tool.title}</CardTitle>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <CardTitle>{tool.title}</CardTitle>
+                                    {tool.isBeta && <Badge variant="destructive" className="text-[10px] h-4 uppercase font-black">Beta</Badge>}
+                                </div>
                                 <CardDescription>{tool.description}</CardDescription>
                             </div>
                         </CardHeader>
+                        {isWorkspace && (
+                             <CardContent className="pt-0">
+                                <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 flex items-start gap-4">
+                                    <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                                    <div className="text-sm space-y-1">
+                                        <p className="font-bold">Beta-Information</p>
+                                        <p className="text-muted-foreground leading-relaxed">
+                                            Der Workspace befindet sich in einer frühen Testphase. Viele Funktionen wie Text-Dokumente, Quizzes und Statistiken können noch Fehler enthalten. Deine Daten werden zwar gespeichert, aber wir empfehlen regelmäßige Backups.
+                                        </p>
+                                    </div>
+                                </div>
+                             </CardContent>
+                        )}
                     </Card>
                 )
             })}
