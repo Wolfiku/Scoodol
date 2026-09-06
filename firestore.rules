@@ -46,7 +46,10 @@ service cloud.firestore {
     }
     
     match /groups/{groupId} {
-      allow read: if request.auth != null && (request.auth.uid in resource.data.members);
+      // Ermöglicht angemeldeten Nutzern das Abrufen (get) von Gruppen-Metadaten (wichtig für Beitritt/Sync)
+      allow get: if request.auth != null;
+      // Das Auflisten (list) aller Gruppen bleibt Mitgliedern vorbehalten
+      allow list: if request.auth != null && (request.auth.uid in resource.data.members);
       allow create: if request.auth != null;
       allow update: if request.auth != null && (
         isAdmin(groupId, request.auth.uid) || 
