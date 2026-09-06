@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useTheme } from "@/hooks/use-theme"
-import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check, Link2, RefreshCw } from "lucide-react"
+import { Sun, Moon, Sparkles, Droplets, Sunset, Trees, Edit, Briefcase, ListChecks, CalendarDays, Upload, Download, Trash2, HelpCircle, Smartphone, Tablet, Laptop, Shield, Wand2, Languages, Clock, Rss, Save, AlertTriangle, User, LogOut, Settings as SettingsIcon, Users, Copy, Check, Link2, RefreshCw, Loader2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -393,27 +394,40 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                     <CardContent className="space-y-4">
                         {user && !user.isAnonymous ? (
                             userProfile?.groupId ? (
-                                <div>
-                                    <p className="font-semibold mb-2">Du bist in einer Gruppe.</p>
-                                    <Button asChild>
+                                <div className="space-y-4">
+                                    <div className="p-4 rounded-2xl bg-secondary/30 border border-border flex items-center gap-4">
+                                        <div className="p-3 bg-primary/10 rounded-xl text-primary shrink-0">
+                                            <Users className="w-6 h-6" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-0.5 tracking-widest">Du bist in</p>
+                                            <h3 className="font-bold text-lg truncate leading-tight">
+                                                {groupData ? groupData.name : <Loader2 className="w-4 h-4 animate-spin inline-block" />}
+                                            </h3>
+                                            {groupData?.schoolName && (
+                                                <p className="text-xs text-muted-foreground truncate">{groupData.schoolName}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <Button asChild className="w-full font-bold h-12 rounded-xl shadow-lg shadow-primary/10">
                                         <Link href={`/groups/${userProfile.groupId}`}>
-                                            <Users className="mr-2"/> Gruppen-Dashboard anzeigen
+                                            <Users className="mr-2 h-4 w-4"/> Gruppen-Dashboard öffnen
                                         </Link>
                                     </Button>
                                 </div>
                             ) : (
                                 <div>
-                                    <p className="text-muted-foreground mb-4">Du bist in keiner Gruppe.</p>
-                                    <Button asChild>
+                                    <p className="text-muted-foreground mb-4 text-sm">Du bist momentan kein Mitglied einer digitalen Klasse.</p>
+                                    <Button asChild variant="outline" className="w-full border-dashed border-2">
                                         <Link href="/groups">
-                                            <Users className="mr-2"/> Gruppe erstellen oder suchen
+                                            <Plus className="mr-2 h-4 w-4"/> Gruppe erstellen oder suchen
                                         </Link>
                                     </Button>
                                 </div>
                             )
                         ) : (
-                            <p className="text-muted-foreground">
-                                <Link href="/login" className="text-primary underline">Melde dich an</Link>, um Gruppen beizutreten oder zu erstellen.
+                            <p className="text-muted-foreground text-sm italic">
+                                <Link href="/login" className="text-primary underline">Melde dich an</Link>, um Gruppenfunktionen zu nutzen.
                             </p>
                         )}
                     </CardContent>
