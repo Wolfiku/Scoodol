@@ -16,6 +16,7 @@ import previewTimetableData from "@/app/data/preview-timetable.json";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { APP_VERSION } from '@/app/lib/version';
+import { ReleaseNotesDialog } from '@/components/release-notes-dialog';
 
 type TimetableEntry = {
   id: string;
@@ -273,7 +274,12 @@ export default function Page() {
   const hasNoData = (!user && !hasLocalData && !view) || (user && !isUserDataLoading && (!userData?.timetable || Object.keys(userData.timetable).length === 0) && !hasLocalData && !view);
   
   if (!view && hasNoData) {
-    return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />;
+    return (
+        <>
+            <ReleaseNotesDialog />
+            <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />
+        </>
+    );
   }
 
   const renderView = () => {
@@ -300,6 +306,7 @@ export default function Page() {
 
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
+      <ReleaseNotesDialog />
       {renderView()}
       {view !== 'edit' && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50">
