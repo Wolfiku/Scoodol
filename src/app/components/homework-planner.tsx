@@ -488,7 +488,7 @@ export default function HomeworkPlanner() {
                   <span className="sr-only">Hausaufgabe scannen</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-[95vw] sm:max-w-[500px]">
+              <DialogContent className="max-w-[95vw] sm:max-w-[500px] overflow-x-hidden">
                   <DialogHeader>
                     <DialogTitle>Hausaufgabe scannen</DialogTitle>
                     <DialogDescription>
@@ -520,7 +520,7 @@ export default function HomeworkPlanner() {
                   <Plus className="mr-2" /> Neue Aufgabe
                 </Button>
               </DialogTrigger>
-              <DialogContent onEscapeKeyDown={handleCloseDialog} className="max-w-[95vw] sm:max-w-[550px] max-h-[95vh] overflow-y-auto">
+              <DialogContent onEscapeKeyDown={handleCloseDialog} className="max-w-[95vw] sm:max-w-[550px] max-h-[95vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader>
                   <DialogTitle>{editingHomework ? 'Hausaufgabe bearbeiten' : 'Neue Hausaufgabe hinzufügen'}</DialogTitle>
                   <DialogDescription>
