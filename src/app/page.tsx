@@ -17,6 +17,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { APP_VERSION } from '@/app/lib/version';
 import { ReleaseNotesDialog } from '@/components/release-notes-dialog';
+import { cn } from '@/lib/utils';
 
 type TimetableEntry = {
   id: string;
@@ -304,18 +305,45 @@ export default function Page() {
     }
   }
 
+  const NavButton = ({ targetView, icon: Icon, label }: { targetView: string, icon: any, label: string }) => {
+    const isActive = view === targetView || (targetView === 'daily' && view === 'weekly');
+    return (
+      <button 
+        onClick={() => {
+            if (targetView === 'daily') setManualWeekToggle(null);
+            setView(targetView);
+        }}
+        className={cn(
+          "relative flex flex-col items-center justify-center h-14 w-16 transition-all duration-300 active:scale-90",
+          isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <div className={cn(
+            "p-2 rounded-2xl transition-all duration-300",
+            isActive ? "bg-primary/10 shadow-inner" : "bg-transparent"
+        )}>
+          <Icon className={cn("w-6 h-6", isActive ? "stroke-[2.5px]" : "stroke-[1.5px]")} />
+        </div>
+        <span className={cn("text-[9px] font-black uppercase mt-1 tracking-tighter transition-all", isActive ? "opacity-100" : "opacity-60")}>
+          {label}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <main className="container mx-auto p-4 md:p-8 relative min-h-screen pb-24">
       <ReleaseNotesDialog />
       {renderView()}
-      {view !== 'edit' && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50">
-          <div className="bg-background/80 backdrop-blur-sm rounded-full p-2 flex justify-around items-center shadow-lg border">
-            <Button variant={view === 'daily' || view === 'weekly' ? 'secondary' : 'ghost'} size="icon" className="rounded-full h-14 w-14 flex flex-col gap-1" onClick={() => { setView('daily'); setManualWeekToggle(null); }}><Home className="w-5 h-5" /><span className="text-[10px]">Heute</span></Button>
-            <Button variant={view === 'homework' ? 'secondary' : 'ghost'} size="icon" className="rounded-full h-14 w-14 flex flex-col gap-1" onClick={() => setView('homework')}><ListChecks className="w-5 h-5" /><span className="text-[10px]">Aufgaben</span></Button>
-            <Button variant={view === 'smart-tool' ? 'secondary' : 'ghost'} size="icon" className="rounded-full h-14 w-14 flex flex-col gap-1" onClick={() => setView('smart-tool')}><Sparkles className="w-5 h-5" /><span className="text-[10px]">Tools</span></Button>
-            <Button variant={view === 'settings' ? 'secondary' : 'ghost'} size="icon" className="rounded-full h-14 w-14 flex flex-col gap-1" onClick={() => setView('settings')}><Settings className="w-5 h-5" /><span className="text-[10px]">Einst.</span></Button>
-          </div>
+      
+      {view !== 'edit' && view !== '' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-50 animate-in slide-in-from-bottom-8 duration-500">
+          <nav className="bg-background/60 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[2rem] p-2 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-black/5">
+            <NavButton targetView="daily" icon={Home} label="Heute" />
+            <NavButton targetView="homework" icon={ListChecks} label="Planer" />
+            <NavButton targetView="smart-tool" icon={Sparkles} label="Tools" />
+            <NavButton targetView="settings" icon={Settings} label="Optionen" />
+          </nav>
         </div>
       )}
     </main>
