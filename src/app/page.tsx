@@ -333,7 +333,7 @@ export default function Page() {
       
       {view !== 'edit' && view !== '' && (
         <div className="fixed bottom-6 left-0 right-0 px-4 z-50 flex justify-center pointer-events-none">
-          <nav className="bg-card border-2 border-border rounded-xl p-1.5 flex gap-1 w-full max-w-sm shadow-xl pointer-events-auto">
+          <nav className="bg-card/80 backdrop-blur-md border-2 border-border rounded-xl p-1.5 flex gap-1 w-full max-w-sm shadow-xl pointer-events-auto">
             <NavButton targetView="daily" icon={Home} label="Heute" />
             <NavButton targetView="homework" icon={ListChecks} label="Planer" />
             <NavButton targetView="smart-tool" icon={Sparkles} label="Tools" />
