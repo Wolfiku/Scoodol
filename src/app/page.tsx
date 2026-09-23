@@ -314,12 +314,12 @@ export default function Page() {
             setView(targetView);
         }}
         className={cn(
-          "flex flex-col items-center justify-center py-2 px-1 transition-all rounded-2xl flex-1",
-          isActive ? "text-primary bg-primary/5" : "text-muted-foreground hover:bg-secondary/50"
+          "flex flex-col items-center justify-center py-2 px-1 transition-all rounded-lg flex-1",
+          isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-secondary/80"
         )}
       >
-        <Icon className={cn("w-5 h-5 mb-1", isActive ? "stroke-[2.5px]" : "stroke-[1.5px]")} />
-        <span className={cn("text-[9px] font-bold uppercase tracking-tight", isActive ? "opacity-100" : "opacity-60")}>
+        <Icon className={cn("w-5 h-5 mb-1", isActive ? "stroke-[2px]" : "stroke-[1.5px]")} />
+        <span className={cn("text-[11px] leading-tight", isActive ? "opacity-100" : "opacity-70")}>
           {label}
         </span>
       </button>
@@ -333,7 +333,7 @@ export default function Page() {
       
       {view !== 'edit' && view !== '' && (
         <div className="fixed bottom-6 left-0 right-0 px-4 z-50 flex justify-center pointer-events-none">
-          <nav className="bg-card/95 backdrop-blur-sm border border-border rounded-2xl p-1.5 flex gap-1 w-full max-w-sm shadow-xl shadow-black/5 pointer-events-auto">
+          <nav className="bg-card border-2 border-border rounded-xl p-1.5 flex gap-1 w-full max-w-sm shadow-xl pointer-events-auto">
             <NavButton targetView="daily" icon={Home} label="Heute" />
             <NavButton targetView="homework" icon={ListChecks} label="Planer" />
             <NavButton targetView="smart-tool" icon={Sparkles} label="Tools" />
