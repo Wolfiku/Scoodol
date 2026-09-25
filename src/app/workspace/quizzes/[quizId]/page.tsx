@@ -571,7 +571,7 @@ function QuizPreviewDialog({ open, onOpenChange, title, creator, slides }: { ope
         const { question, referenceAnswer, criteria } = currentSlide.content;
         const result = await checkLongAnswer(question, referenceAnswer, criteria, userAnswer, aiLanguage);
         setAiScore(result.score);
-        setAiFeedback(result.feedback);
+        setAiFeedback(result.feedback || null);
         if (result.isCorrect) setCorrectCount(prev => prev + 1);
         setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');
     }

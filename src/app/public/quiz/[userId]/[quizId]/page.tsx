@@ -147,7 +147,7 @@ export default function PublicQuizPage() {
         const { question, referenceAnswer, criteria } = currentSlide.content;
         const result = await checkLongAnswer(question, referenceAnswer, criteria, userAnswer, aiLanguage);
         setAiScore(result.score);
-        setAiFeedback(result.feedback);
+        setAiFeedback(result.feedback || null);
         if (result.isCorrect) setCorrectCount(prev => prev + 1);
         setAllAnswers(prev => ({ ...prev, [currentSlide.id]: { text: userAnswer, score: result.score } }));
         setAnswerStatus(result.isCorrect ? 'correct' : 'incorrect');

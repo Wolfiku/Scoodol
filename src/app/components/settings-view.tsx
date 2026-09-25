@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -30,6 +30,9 @@ import { useRouter } from "next/navigation"
 import { doc, updateDoc } from "firebase/firestore"
 import { APP_VERSION } from "@/app/lib/version"
 import { Badge } from "@/components/ui/badge"
+import { ReleaseNotesDialog } from "@/components/release-notes-dialog"
+import AfternoonLessonsDialog, { CustomAfternoonLesson } from "./afternoon-lessons-dialog"
+import { generateTimeSlots } from "./setup-view"
 
 const themes = [
     { value: "default", label: "Standard", lightIcon: Sparkles, darkIcon: Sparkles, lightColor: "bg-sky-500", darkColor: "bg-slate-500"},
@@ -54,6 +57,9 @@ type TimetableSettings = {
     schoolEndTime: string;
     firstBreakDuration: number;
     secondBreakDuration: number;
+    isABWeekActive?: boolean;
+    afternoonStartTime?: string;
+    afternoonLessonDuration?: number;
 }
 
 type GroupSettings = {
@@ -67,6 +73,7 @@ type UserProfile = {
     groupSettings?: GroupSettings;
     role?: 'user' | 'admin' | 'workspace_plus_user';
     shareId?: string;
+    customAfternoon?: CustomAfternoonLesson[];
 }
 
 const parseTimeToMinutes = (time: string): number => {
@@ -75,7 +82,27 @@ const parseTimeToMinutes = (time: string): number => {
     return hours * 60 + minutes;
 };
 
-export default function SettingsView({ onEditTimetable, isPreview = false, onTimetableImport, timetableSettings, onSettingsChange, isTimetableSynced }: { onEditTimetable: () => void, isPreview?: boolean, onTimetableImport: (importedData: any) => void, timetableSettings: TimetableSettings, onSettingsChange: (settings: TimetableSettings) => void, isTimetableSynced: boolean }) {
+export default function SettingsView({ 
+    onEditTimetable, 
+    onEditAfternoon,
+    isPreview = false, 
+    onTimetableImport, 
+    timetableSettings, 
+    onSettingsChange, 
+    isTimetableSynced,
+    customAfternoonLessons,
+    onCustomAfternoonChange,
+}: { 
+    onEditTimetable: () => void, 
+    onEditAfternoon?: () => void,
+    isPreview?: boolean, 
+    onTimetableImport: (importedData: any) => void, 
+    timetableSettings: TimetableSettings, 
+    onSettingsChange: (settings: TimetableSettings) => void, 
+    isTimetableSynced: boolean,
+    customAfternoonLessons?: CustomAfternoonLesson[],
+    onCustomAfternoonChange?: (lessons: CustomAfternoonLesson[]) => void,
+}) {
     const { theme, setTheme, resolvedTheme, colorTheme, setColorTheme, startView, setStartView, aiLanguage, setAiLanguage } = useTheme();
     const [isMounted, setIsMounted] = useState(false);
     const [betaFeaturesEnabled, setBetaFeaturesEnabled] = useState(false);
@@ -83,7 +110,9 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const { toast } = useToast();
     const [resetInput, setResetInput] = useState('');
     const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+    const [showReleaseNotes, setShowReleaseNotes] = useState(false);
     const [tapCount, setTapCount] = useState(0);
+    const [isAfternoonDialogOpen, setIsAfternoonDialogOpen] = useState(false);
 
     const [localTimetableSettings, setLocalTimetableSettings] = useState<TimetableSettings>(timetableSettings);
     const [showValidationDialog, setShowValidationDialog] = useState(false);
@@ -98,7 +127,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
 
     const userDocRef = useMemoFirebase(() => 
         user ? doc(firestore, 'users', user.uid) : null
-  , [firestore, user]);
+    , [firestore, user]);
     
     const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
@@ -106,6 +135,34 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         userProfile?.groupId ? doc(firestore, 'groups', userProfile.groupId) : null
     , [firestore, userProfile?.groupId]);
     const { data: groupData } = useDoc<any>(groupDocRef);
+
+    const afternoonLessons: CustomAfternoonLesson[] = useMemo(() => {
+        if (customAfternoonLessons && customAfternoonLessons.length > 0) return customAfternoonLessons;
+        if (userProfile?.customAfternoon && userProfile.customAfternoon.length > 0) return userProfile.customAfternoon;
+        if (typeof window !== 'undefined') {
+            const local = localStorage.getItem('customAfternoon');
+            if (local) {
+                try { return JSON.parse(local); } catch (e) {}
+            }
+        }
+        return [];
+    }, [customAfternoonLessons, userProfile?.customAfternoon]);
+
+    const handleSaveAfternoonLessons = async (newLessons: CustomAfternoonLesson[]) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('customAfternoon', JSON.stringify(newLessons));
+        }
+        if (userDocRef) {
+            await updateDoc(userDocRef, {
+                customAfternoon: newLessons,
+            });
+        }
+        if (onCustomAfternoonChange) {
+            onCustomAfternoonChange(newLessons);
+        }
+    };
+
+    const timeSlots = useMemo(() => generateTimeSlots(localTimetableSettings), [localTimetableSettings]);
 
     useEffect(() => {
         setLocalTimetableSettings(timetableSettings);
@@ -144,6 +201,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
         try {
             const timetableData = localStorage.getItem('timetable');
             const timetableSettingsData = localStorage.getItem('timetableSettings');
+            const customAfternoonData = localStorage.getItem('customAfternoon');
             const homeworkData = localStorage.getItem('homeworks');
             const themeData = localStorage.getItem('theme');
             const startViewData = localStorage.getItem('startView');
@@ -154,6 +212,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
             const exportData = {
                 timetable: timetableData ? JSON.parse(timetableData) : null,
                 timetableSettings: timetableSettingsData ? JSON.parse(timetableSettingsData) : null,
+                customAfternoon: customAfternoonData ? JSON.parse(customAfternoonData) : (userProfile?.customAfternoon || []),
                 homeworks: homeworkData ? JSON.parse(homeworkData) : null,
                 theme: themeData,
                 startView: startViewData,
@@ -287,7 +346,9 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
     const timeSettingsChanged = localTimetableSettings.schoolStartTime !== timetableSettings.schoolStartTime 
         || localTimetableSettings.schoolEndTime !== timetableSettings.schoolEndTime
         || localTimetableSettings.firstBreakDuration !== timetableSettings.firstBreakDuration
-        || localTimetableSettings.secondBreakDuration !== timetableSettings.secondBreakDuration;
+        || localTimetableSettings.secondBreakDuration !== timetableSettings.secondBreakDuration
+        || localTimetableSettings.afternoonStartTime !== timetableSettings.afternoonStartTime
+        || localTimetableSettings.afternoonLessonDuration !== timetableSettings.afternoonLessonDuration;
 
 
     if (!isMounted) {
@@ -544,22 +605,23 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                              </div>
                         )}
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className={cn("space-y-4 transition-all duration-300", isTimetableSynced && "opacity-40 grayscale pointer-events-none")}>
+                    <CardContent className="space-y-6">
+                        {/* 1. Main Timetable & General Times (Disabled if group-synced) */}
+                        <div className={cn("space-y-4 transition-all duration-300", isTimetableSynced && "opacity-50 grayscale pointer-events-none")}>
                             {isTimetableSynced && (
                                 <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] mb-2">
                                     <Check className="h-3 w-3" /> Gruppenplan aktiviert
                                 </div>
                             )}
                             
-                            <Button onClick={onEditTimetable} className="w-full sm:w-auto">
-                                <Edit className="mr-2"/> Stundenplan bearbeiten
+                            <Button onClick={onEditTimetable} className="w-full sm:w-auto font-bold rounded-xl">
+                                <Edit className="mr-2 h-4 w-4"/> Stundenplan bearbeiten
                             </Button>
                             
                             <Accordion type="single" collapsible>
                                 <AccordionItem value="item-1" className="border-none">
                                     <AccordionTrigger className="bg-secondary/50 px-4 rounded-xl hover:no-underline">
-                                        <h3 className="text-lg font-semibold flex items-center gap-2"><Clock className="w-4 h-4" /> Allgemeine Schul- & Pausenzeiten</h3>
+                                        <h3 className="text-base font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Allgemeine Schul- & Pausenzeiten</h3>
                                     </AccordionTrigger>
                                     <AccordionContent className="px-4">
                                         <div className="space-y-4 pt-4">
@@ -571,7 +633,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                         type="time" 
                                                         value={localTimetableSettings.schoolStartTime} 
                                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolStartTime: e.target.value })} 
-                                                        className="w-full"
+                                                        className="w-full rounded-xl"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -581,7 +643,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                         type="time" 
                                                         value={localTimetableSettings.schoolEndTime} 
                                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, schoolEndTime: e.target.value })} 
-                                                        className="w-full"
+                                                        className="w-full rounded-xl"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -591,7 +653,7 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                         type="number" 
                                                         value={localTimetableSettings.firstBreakDuration || ''} 
                                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, firstBreakDuration: parseInt(e.target.value) || 0 })} 
-                                                        className="w-full"
+                                                        className="w-full rounded-xl"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -601,11 +663,32 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                                         type="number" 
                                                         value={localTimetableSettings.secondBreakDuration || ''} 
                                                         onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, secondBreakDuration: parseInt(e.target.value) || 0 })} 
-                                                        className="w-full"
+                                                        className="w-full rounded-xl"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="afternoon-start">Start Nachmittagsunterricht</Label>
+                                                    <Input 
+                                                        id="afternoon-start"
+                                                        type="time" 
+                                                        value={localTimetableSettings.afternoonStartTime || ''} 
+                                                        placeholder="Automatisch (nach Vormittag)"
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, afternoonStartTime: e.target.value })} 
+                                                        className="w-full rounded-xl"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="afternoon-duration">Dauer Nachmittagsstunde (Min.)</Label>
+                                                    <Input 
+                                                        id="afternoon-duration"
+                                                        type="number" 
+                                                        value={localTimetableSettings.afternoonLessonDuration || 45} 
+                                                        onChange={e => setLocalTimetableSettings({ ...localTimetableSettings, afternoonLessonDuration: parseInt(e.target.value) || 45 })} 
+                                                        className="w-full rounded-xl"
                                                     />
                                                 </div>
                                             </div>
-                                            <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged} className="w-full sm:w-auto">
+                                            <Button onClick={handleTimeSettingsSave} disabled={!timeSettingsChanged} className="w-full sm:w-auto rounded-xl font-bold">
                                                 <Save className="mr-2 h-4 w-4" /> Zeiten speichern
                                             </Button>
                                         </div>
@@ -613,6 +696,42 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                                 </AccordionItem>
                             </Accordion>
                         </div>
+
+                        {/* 2. Dedicated Nachmittagsunterricht Card (ALWAYS editable, even when group-synced!) */}
+                        <div className="p-4 sm:p-5 rounded-2xl border-2 border-primary/20 bg-primary/[0.03] space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="font-bold text-base flex items-center gap-2 text-foreground">
+                                            <Sunset className="w-5 h-5 text-primary" />
+                                            Persönlicher Nachmittagsunterricht
+                                        </h3>
+                                        <Badge variant="outline" className="text-xs font-mono px-2 py-0.5 rounded-lg border-primary/30 text-primary">
+                                            {afternoonLessons.length} {afternoonLessons.length === 1 ? 'Fach' : 'Fächer'} aktiv
+                                        </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Eigene Fächer wie Wahlfächer, AGs oder Nachhilfe – bleibt auch bei geteiltem Klassen-Stundenplan für dich aktiv.
+                                    </p>
+                                </div>
+                                <Button 
+                                    onClick={() => onEditAfternoon ? onEditAfternoon() : setIsAfternoonDialogOpen(true)}
+                                    className="rounded-xl font-bold shadow-md shadow-primary/10 shrink-0 h-11"
+                                >
+                                    <Sunset className="mr-2 h-4 w-4" /> Nachmittagsunterricht bearbeiten
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Afternoon Lessons Modal */}
+                        <AfternoonLessonsDialog 
+                            open={isAfternoonDialogOpen} 
+                            onOpenChange={setIsAfternoonDialogOpen} 
+                            customLessons={afternoonLessons} 
+                            onSave={handleSaveAfternoonLessons} 
+                            isABWeekActive={!!localTimetableSettings.isABWeekActive}
+                            timeSlots={timeSlots}
+                        />
                     </CardContent>
                 </Card>
 
@@ -705,14 +824,19 @@ export default function SettingsView({ onEditTimetable, isPreview = false, onTim
                 <Card>
                     <CardHeader>
                         <CardTitle>News & Updates</CardTitle>
-                        <CardDescription>Hier bekommst du neue Informationen zum Projekt.</CardDescription>
+                        <CardDescription>Hier findest du Informationen zum Projekt und alle Versionshinweise.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex flex-wrap gap-2">
+                        <Button variant="default" onClick={() => setShowReleaseNotes(true)}>
+                            <Sparkles className="mr-2 h-4 w-4" /> Was ist neu in v{APP_VERSION}
+                        </Button>
                         <Button variant="outline" asChild>
-                           <Link href="https://wolfikuproduction.de/scoodolnews" target="_blank" rel="noopener noreferrer"><Rss className="mr-2"/>Zu den News</Link>
+                           <Link href="https://wolfikuproduction.de/scoodolnews" target="_blank" rel="noopener noreferrer"><Rss className="mr-2 h-4 w-4"/>Zu den News</Link>
                         </Button>
                     </CardContent>
                 </Card>
+
+                <ReleaseNotesDialog open={showReleaseNotes} onOpenChange={setShowReleaseNotes} />
 
                 <Card>
                     <CardHeader>

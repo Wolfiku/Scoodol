@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   Table,
   TableHeader,
@@ -23,6 +23,7 @@ import {
 import { openPrintView, downloadAsPng } from "@/app/lib/export-helpers";
 import { generateTimeSlots } from "./setup-view";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 type TimetableEntry = {
   id: string;
@@ -32,6 +33,8 @@ type TimetableEntry = {
   start: string;
   ende: string;
   hauptfach?: boolean;
+  isCustomAfternoon?: boolean;
+  afternoonType?: string;
 };
 
 type Timetable = {
@@ -43,6 +46,9 @@ type TimetableSettings = {
     schoolEndTime: string;
     firstBreakDuration: number;
     secondBreakDuration: number;
+    isABWeekActive?: boolean;
+    afternoonStartTime?: string;
+    afternoonLessonDuration?: number;
 }
 
 type Props = {
@@ -72,27 +78,38 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
 
   const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
+  const prevProcessedRef = useRef<{ [day: string]: ProcessedEntry[] }>({});
+  const prevProcessedStringRef = useRef<string>('');
+
   const processedTimetable = useMemo(() => {
     if (!timetable || Object.keys(timetable).length === 0) return {};
-    return days.reduce((acc, day) => {
+    const result = days.reduce((acc, day) => {
       const daySchedule = timetable[day] || [];
       const processedDay: ProcessedEntry[] = [];
       let i = 0;
       while (i < daySchedule.length) {
         const currentEntry = daySchedule[i];
-        if (!currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
+        if (!currentEntry || !currentEntry.fach || currentEntry.fach.trim() === '' || currentEntry.fach === 'Pause') {
           processedDay.push({ ...currentEntry, start: timeSlots[i]?.start, ende: timeSlots[i]?.ende, rowspan: 1, isContinuation: false, originalIndex: i });
           i++; continue;
         }
         let rowspan = 1;
-        while (i + rowspan < daySchedule.length && daySchedule[i + rowspan].fach === currentEntry.fach && daySchedule[i + rowspan].lehrer === currentEntry.lehrer && daySchedule[i + rowspan].room === currentEntry.room) { rowspan++; }
+        while (i + rowspan < daySchedule.length && daySchedule[i + rowspan]?.fach === currentEntry.fach && daySchedule[i + rowspan]?.lehrer === currentEntry.lehrer && daySchedule[i + rowspan]?.room === currentEntry.room) { rowspan++; }
         processedDay.push({ ...currentEntry, start: timeSlots[i]?.start, ende: timeSlots[i + rowspan - 1]?.ende, rowspan, isContinuation: false, originalIndex: i });
         for (let j = 1; j < rowspan; j++) { processedDay.push({ ...daySchedule[i + j], rowspan: 0, isContinuation: true, originalIndex: i+j }); }
         i += rowspan;
       }
       acc[day] = processedDay;
       return acc;
-    }, {} as { [day: string]: ProcessedEntry[] })
+    }, {} as { [day: string]: ProcessedEntry[] });
+
+    const str = JSON.stringify(result);
+    if (str === prevProcessedStringRef.current && Object.keys(prevProcessedRef.current).length > 0) {
+      return prevProcessedRef.current;
+    }
+    prevProcessedStringRef.current = str;
+    prevProcessedRef.current = result;
+    return result;
   }, [timetable, timeSlots]);
     
   const getEntry = (day: string, slotIndex: number) => {
@@ -162,10 +179,15 @@ export default function ClassicTimetableView({ setView, isPreview = false, timet
                                 const entry = getEntry(day, slotIndex);
                                 if (!entry || entry.isContinuation) return null;
                                 return (
-                                <TableCell key={`${day}-${slotIndex}`} className="text-center border-r p-2 align-top" rowSpan={entry.rowspan}>
+                                <TableCell key={`${day}-${slotIndex}`} className={cn("text-center border-r p-2 align-top", entry.isCustomAfternoon && "bg-primary/[0.04]")} rowSpan={entry.rowspan}>
                                     {entry && entry.fach && entry.fach.trim() !== '' && entry.fach !== 'Pause' ? (
                                     <div className="space-y-1">
                                         <p className="font-bold text-sm">{entry.fach}</p>
+                                        {entry.isCustomAfternoon && (
+                                            <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono text-primary border-primary/30">
+                                                Nachmittag
+                                            </Badge>
+                                        )}
                                         <div className="text-[10px] text-muted-foreground space-y-0.5">
                                             {entry.lehrer && <div className="flex items-center justify-center gap-1"><User className="w-2.5 h-2.5" /><span>{entry.lehrer}</span></div>}
                                             {entry.room && <div className="flex items-center justify-center gap-1"><MapPin className="w-2.5 h-2.5" /><span>{entry.room}</span></div>}

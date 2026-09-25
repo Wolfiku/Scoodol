@@ -52,6 +52,8 @@ type TimetableEntry = {
   hauptfach?: boolean;
   notizen?: string;
   materialien?: string;
+  isCustomAfternoon?: boolean;
+  afternoonType?: string;
 };
 
 type ProcessedTimetableEntry = TimetableEntry & {
@@ -68,6 +70,9 @@ type TimetableSettings = {
     schoolEndTime: string;
     firstBreakDuration: number;
     secondBreakDuration: number;
+    isABWeekActive?: boolean;
+    afternoonStartTime?: string;
+    afternoonLessonDuration?: number;
 }
 
 type Props = {
@@ -150,6 +155,9 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
 
   const timeSlots = useMemo(() => generateTimeSlots(timetableSettings), [timetableSettings]);
 
+  const prevUpdatedTimetableRef = useRef<TimetableData>({});
+  const prevUpdatedStringRef = useRef<string>('');
+
   const updatedTimetable = useMemo(() => {
     const newTimetable: TimetableData = {};
     weekDays.forEach(day => {
@@ -164,6 +172,12 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
             return entry;
         });
     });
+    const str = JSON.stringify(newTimetable);
+    if (str === prevUpdatedStringRef.current && Object.keys(prevUpdatedTimetableRef.current).length > 0) {
+      return prevUpdatedTimetableRef.current;
+    }
+    prevUpdatedStringRef.current = str;
+    prevUpdatedTimetableRef.current = newTimetable;
     return newTimetable;
   }, [timetable, timeSlots]);
 
@@ -351,11 +365,18 @@ export default function ZeitplanDashboard({ setView, isPreview = false, timetabl
         {dailyTimetable.map((entry) => {
           const isCurrent = currentSubject?.id === entry.id;
           return (
-            <Card key={entry.id} onClick={() => handleOpenDialog(entry)} className={cn(`cursor-pointer transition-all duration-300 hover:shadow-lg rounded-xl`, isCurrent && "border-accent shadow-accent/20 shadow-lg")}>
+            <Card key={entry.id} onClick={() => handleOpenDialog(entry)} className={cn("cursor-pointer transition-colors hover:shadow-lg rounded-xl", isCurrent && "border-accent shadow-accent/20 shadow-lg")}>
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-2xl font-bold">{entry.fach}</CardTitle>
-                  {entry.hauptfach ? <Badge variant="default">Hauptfach</Badge> : <Badge variant="secondary">Nebenfach</Badge>}
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <CardTitle className="text-2xl font-bold truncate">{entry.fach}</CardTitle>
+                    {entry.isCustomAfternoon && (
+                      <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5 text-xs font-bold shrink-0">
+                        Nachmittag
+                      </Badge>
+                    )}
+                  </div>
+                  {entry.hauptfach ? <Badge variant="default" className="shrink-0">Hauptfach</Badge> : <Badge variant="secondary" className="shrink-0">Nebenfach</Badge>}
                 </div>
                 <CardDescription className="text-base flex items-center gap-2">
                   <span>{entry.start} - {entry.ende}</span>

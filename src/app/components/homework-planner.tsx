@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -21,8 +20,11 @@ import {
   Pencil,
   Info,
   Users,
+  User,
   Star,
   BookOpen,
+  ListChecks,
+  Clock,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type Homework = {
   id: string; // Firestore document ID
@@ -62,6 +65,8 @@ type Homework = {
   done: boolean;
   completedAt?: number;
   groupHwId?: string;
+  createdByName?: string;
+  createdBy?: string;
 };
 
 type GroupHomework = {
@@ -95,6 +100,75 @@ export default function HomeworkPlanner() {
 
   const { data: groupHomeworks, isLoading: isLoadingGroupHw } = useCollection<GroupHomework>(groupHomeworksRef);
 
+  // Local cache for instant 0ms rendering
+  const [cachedPersonalHw, setCachedPersonalHw] = useState<Homework[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cached_personal_homeworks') || localStorage.getItem('homeworks');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [cachedGroupHw, setCachedGroupHw] = useState<GroupHomework[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cached_group_homeworks');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [cachedDeletedGroupHwIds, setCachedDeletedGroupHwIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cached_deleted_group_hw_ids');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Sync incoming Firestore snapshots into cache
+  useEffect(() => {
+    if (personalHomeworks) {
+      setCachedPersonalHw(personalHomeworks as Homework[]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_personal_homeworks', JSON.stringify(personalHomeworks));
+        localStorage.setItem('homeworks', JSON.stringify(personalHomeworks));
+      }
+    }
+  }, [personalHomeworks]);
+
+  useEffect(() => {
+    if (groupHomeworks) {
+      setCachedGroupHw(groupHomeworks);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_group_homeworks', JSON.stringify(groupHomeworks));
+      }
+    }
+  }, [groupHomeworks]);
+
+  useEffect(() => {
+    if (userProfile?.settings?.deletedGroupHwIds) {
+      setCachedDeletedGroupHwIds(userProfile.settings.deletedGroupHwIds);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cached_deleted_group_hw_ids', JSON.stringify(userProfile.settings.deletedGroupHwIds));
+      }
+    }
+  }, [userProfile?.settings?.deletedGroupHwIds]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
 
@@ -102,7 +176,10 @@ export default function HomeworkPlanner() {
   const [newTask, setNewTask] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [isCustomSubject, setIsCustomSubject] = useState(false);
+  const [customSubjectName, setCustomSubjectName] = useState("");
   const [shareWithGroup, setShareWithGroup] = useState(false);
+  const [filterMode, setFilterMode] = useState<'all' | 'personal' | 'shared'>('all');
   
   const [isScanning, setIsScanning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -112,38 +189,67 @@ export default function HomeworkPlanner() {
   const { toast } = useToast();
   const { aiLanguage } = useTheme();
 
-  // Get subjects from timetable for the dropdown
+  // Get subjects from timetable and afternoon lessons for the dropdown
   const timetableSubjects = useMemo(() => {
-    if (!userProfile?.timetable) return [];
     const subjects = new Set<string>();
     
-    const tt = userProfile.timetable;
-    const days = tt.weekA ? [...Object.values(tt.weekA), ...Object.values(tt.weekB)] : Object.values(tt);
-    
-    days.forEach((day: any) => {
-        if (Array.isArray(day)) {
-            day.forEach((entry: any) => {
-                if (entry.fach && entry.fach.trim() !== "" && entry.fach !== "Pause") {
-                    subjects.add(entry.fach);
+    // 1. From User Profile timetable
+    if (userProfile?.timetable) {
+        const tt = userProfile.timetable;
+        const days = tt.weekA ? [...Object.values(tt.weekA), ...Object.values(tt.weekB)] : Object.values(tt);
+        days.forEach((day: any) => {
+            if (Array.isArray(day)) {
+                day.forEach((entry: any) => {
+                    if (entry.fach && entry.fach.trim() !== "" && entry.fach !== "Pause") {
+                        subjects.add(entry.fach.trim());
+                    }
+                });
+            }
+        });
+    }
+
+    // 2. From User Profile customAfternoon
+    if (userProfile?.customAfternoon && Array.isArray(userProfile.customAfternoon)) {
+        userProfile.customAfternoon.forEach((lesson: any) => {
+            if (lesson.fach && lesson.fach.trim() !== "") {
+                subjects.add(lesson.fach.trim());
+            }
+        });
+    }
+
+    // 3. Fallback / Local Storage
+    if (typeof window !== 'undefined') {
+        const localAfternoon = localStorage.getItem('customAfternoon');
+        if (localAfternoon) {
+            try {
+                const parsed = JSON.parse(localAfternoon);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach((lesson: any) => {
+                        if (lesson.fach && lesson.fach.trim() !== "") {
+                            subjects.add(lesson.fach.trim());
+                        }
+                    });
                 }
-            });
+            } catch (e) {}
         }
-    });
+    }
     
     return Array.from(subjects).sort();
-  }, [userProfile?.timetable]);
+  }, [userProfile?.timetable, userProfile?.customAfternoon]);
+
+  const effectivePersonal = personalHomeworks ?? cachedPersonalHw;
+  const effectiveGroup = groupHomeworks ?? cachedGroupHw;
+  const effectiveDeletedIds = userProfile?.settings?.deletedGroupHwIds ?? cachedDeletedGroupHwIds;
 
   // Combine personal and group homeworks
   const allHomeworks = useMemo(() => {
-    if (!personalHomeworks) return [];
+    const combined: Homework[] = [...(effectivePersonal || [])];
+    const deletedGroupIds = effectiveDeletedIds || [];
     
-    const combined: Homework[] = [...personalHomeworks];
-    const deletedGroupIds = userProfile?.settings?.deletedGroupHwIds || [];
-    
-    if (groupHomeworks) {
-        groupHomeworks.forEach(ghw => {
+    if (effectiveGroup) {
+        effectiveGroup.forEach(ghw => {
             // Check if this group task is already in personal list or marked as deleted by user
-            const alreadyInList = personalHomeworks.find(phw => phw.groupHwId === ghw.id);
+            const alreadyInList = effectivePersonal?.some(phw => phw.groupHwId === ghw.id);
             const isIgnored = deletedGroupIds.includes(ghw.id);
 
             if (!alreadyInList && !isIgnored) {
@@ -154,7 +260,9 @@ export default function HomeworkPlanner() {
                     description: ghw.description,
                     dueDate: ghw.dueDate,
                     done: false,
-                    groupHwId: ghw.id
+                    groupHwId: ghw.id,
+                    createdBy: ghw.createdBy,
+                    createdByName: ghw.createdByName,
                 });
             }
         });
@@ -170,33 +278,92 @@ export default function HomeworkPlanner() {
         dueDate.setHours(0, 0, 0, 0);
         return dueDate >= today;
     });
-  }, [personalHomeworks, groupHomeworks, userProfile?.settings?.deletedGroupHwIds]);
+  }, [effectivePersonal, effectiveGroup, effectiveDeletedIds]);
 
-  const activeHomeworks = allHomeworks.filter(hw => {
-    const isNotDone = !hw.done;
-    const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
-    return isNotDone || isDoneRecently;
-  });
+  const activeHomeworks = useMemo(() => {
+    return allHomeworks.filter(hw => {
+      const isNotDone = !hw.done;
+      const isDoneRecently = hw.done && hw.completedAt && (Date.now() - hw.completedAt < 24 * 60 * 60 * 1000);
+      return isNotDone || isDoneRecently;
+    });
+  }, [allHomeworks]);
   
-  const upcomingHomeworks = activeHomeworks.filter(hw => !hw.done);
-  const doneHomeworks = activeHomeworks.filter(hw => hw.done);
+  const upcomingHomeworks = useMemo(() => {
+    return activeHomeworks.filter(hw => !hw.done);
+  }, [activeHomeworks]);
+
+  const doneHomeworks = useMemo(() => {
+    return activeHomeworks.filter(hw => hw.done);
+  }, [activeHomeworks]);
+
+  // Filtered upcoming tasks
+  const filteredUpcoming = useMemo(() => {
+    if (filterMode === 'personal') {
+      return upcomingHomeworks.filter(hw => !hw.groupHwId);
+    }
+    if (filterMode === 'shared') {
+      return upcomingHomeworks.filter(hw => !!hw.groupHwId);
+    }
+    return upcomingHomeworks;
+  }, [upcomingHomeworks, filterMode]);
+
+  // Group filtered upcoming tasks by Subject
+  const groupedUpcomingHomeworks = useMemo(() => {
+    const groups: { [subject: string]: Homework[] } = {};
+    
+    filteredUpcoming.forEach(hw => {
+      const subject = hw.subject?.trim() || "Allgemein";
+      if (!groups[subject]) {
+        groups[subject] = [];
+      }
+      groups[subject].push(hw);
+    });
+
+    // Sort tasks within each subject by due date
+    Object.keys(groups).forEach(subject => {
+      groups[subject].sort((a, b) => {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    });
+
+    // Sort subjects alphabetically, keeping "Allgemein" at the end if other subjects exist
+    return Object.entries(groups).sort(([subjA], [subjB]) => {
+      if (subjA === "Allgemein" && subjB !== "Allgemein") return 1;
+      if (subjB === "Allgemein" && subjA !== "Allgemein") return -1;
+      return subjA.localeCompare(subjB, 'de');
+    });
+  }, [filteredUpcoming]);
 
   const resetDialogForm = () => {
-      setNewSubject("");
+      setNewSubject(timetableSubjects[0] || "Allgemein");
       setNewTask("");
       setNewDescription("");
       setNewDueDate("");
       setShareWithGroup(false);
       setEditingHomework(null);
+      setIsCustomSubject(false);
+      setCustomSubjectName("");
   }
 
   const handleOpenDialog = (hw: Homework | null = null) => {
       if (hw) {
           setEditingHomework(hw);
-          setNewSubject(hw.subject);
+          const inList = hw.subject === "Allgemein" || timetableSubjects.includes(hw.subject);
+          if (inList) {
+              setNewSubject(hw.subject || "Allgemein");
+              setIsCustomSubject(false);
+              setCustomSubjectName("");
+          } else {
+              setNewSubject("__custom__");
+              setIsCustomSubject(true);
+              setCustomSubjectName(hw.subject || "");
+          }
           setNewTask(hw.task);
           setNewDescription(hw.description || "");
           setNewDueDate(hw.dueDate);
+          setShareWithGroup(false);
       } else {
           resetDialogForm();
       }
@@ -251,24 +418,39 @@ export default function HomeworkPlanner() {
     return "";
   };
 
+  const saveToPersonalCache = (newList: Homework[]) => {
+    setCachedPersonalHw(newList);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('cached_personal_homeworks', JSON.stringify(newList));
+        localStorage.setItem('homeworks', JSON.stringify(newList));
+      } catch (e) {}
+    }
+  };
+
   const handleSaveHomework = async () => {
     if (!newTask.trim() || !user) return;
 
+    const finalSubject = isCustomSubject 
+      ? (customSubjectName.trim() || "Allgemein") 
+      : (newSubject.trim() || "Allgemein");
+
     let finalDueDate = newDueDate;
-    if (!finalDueDate && newSubject && newSubject !== "Allgemein") {
-        finalDueDate = getNextClassDate(newSubject);
+    if (!finalDueDate && finalSubject && finalSubject !== "Allgemein") {
+        finalDueDate = getNextClassDate(finalSubject);
     }
 
     const homeworkData = {
-        subject: newSubject || "Allgemein",
-        task: newTask,
-        description: newDescription,
+        subject: finalSubject,
+        task: newTask.trim(),
+        description: newDescription.trim(),
         dueDate: finalDueDate || "",
     };
 
     if (editingHomework) {
         const docRef = doc(firestore, `users/${user.uid}/homeworks`, editingHomework.id);
         updateDocumentNonBlocking(docRef, homeworkData);
+        saveToPersonalCache((effectivePersonal || []).map(hw => hw.id === editingHomework.id ? { ...hw, ...homeworkData } : hw));
         toast({ title: 'Aufgabe aktualisiert!' });
     } else {
         let groupHwId: string | undefined = undefined;
@@ -281,7 +463,8 @@ export default function HomeworkPlanner() {
             setDocumentNonBlocking(newGroupHwRef, {
                 ...homeworkData,
                 createdBy: user.uid,
-                createdByName: user.displayName || user.email?.split('@')[0] || "Anonym"
+                createdByName: user.displayName || user.email?.split('@')[0] || "Anonym",
+                createdAt: Date.now()
             }, { merge: true });
         }
 
@@ -292,8 +475,15 @@ export default function HomeworkPlanner() {
         };
         addDocumentNonBlocking(homeworksRef!, newHomework);
         
+        const tempId = `local-${Date.now()}`;
+        saveToPersonalCache([{
+            id: tempId,
+            ...newHomework,
+            groupHwId: groupHwId || undefined
+        }, ...(effectivePersonal || [])]);
+
         if (groupHwId) {
-            toast({ title: 'Aufgabe hinzugefügt und geteilt!' });
+            toast({ title: 'Aufgabe hinzugefügt und mit der Klasse geteilt!' });
         } else {
             toast({ title: 'Neue Aufgabe hinzugefügt!' });
         }
@@ -304,7 +494,8 @@ export default function HomeworkPlanner() {
   
   const addMultipleHomeworks = (tasks: {subject: string, task: string, dueDate?: string}[]) => {
       if (!user || !homeworksRef) return;
-      tasks.forEach(t => {
+      const newItems: Homework[] = [];
+      tasks.forEach((t, i) => {
           const newHomework = {
               subject: t.subject || "Allgemein",
               task: t.task,
@@ -312,7 +503,12 @@ export default function HomeworkPlanner() {
               done: false,
           };
           addDocumentNonBlocking(homeworksRef, newHomework);
+          newItems.push({
+            id: `local-${Date.now()}-${i}`,
+            ...newHomework
+          });
       });
+      saveToPersonalCache([...newItems, ...(effectivePersonal || [])]);
   }
 
   const toggleDone = (id: string) => {
@@ -334,12 +530,17 @@ export default function HomeworkPlanner() {
             groupHwId: homework.groupHwId
         };
         addDocumentNonBlocking(homeworksRef!, newPersonalHw);
+        saveToPersonalCache([{
+            id: `local-${Date.now()}`,
+            ...newPersonalHw
+        }, ...(effectivePersonal || [])]);
         toast({ title: "In deine Liste übernommen und erledigt!" });
     } else {
         const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
         const isDone = !homework.done;
         const updatedData = { done: isDone, completedAt: isDone ? Date.now() : null };
         updateDocumentNonBlocking(docRef, updatedData);
+        saveToPersonalCache((effectivePersonal || []).map(hw => hw.id === id ? { ...hw, done: isDone, completedAt: isDone ? Date.now() : undefined } : hw));
     }
   };
 
@@ -354,6 +555,13 @@ export default function HomeworkPlanner() {
         updateDoc(userDocRef, {
             'settings.deletedGroupHwIds': arrayUnion(homework.groupHwId)
         });
+        const updatedDeleted = [...cachedDeletedGroupHwIds, homework.groupHwId];
+        setCachedDeletedGroupHwIds(updatedDeleted);
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('cached_deleted_group_hw_ids', JSON.stringify(updatedDeleted));
+            } catch (e) {}
+        }
     }
 
     if (id.startsWith('ghw-')) {
@@ -362,6 +570,7 @@ export default function HomeworkPlanner() {
     } else {
         const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
         deleteDocumentNonBlocking(docRef);
+        saveToPersonalCache((effectivePersonal || []).filter(hw => hw.id !== id));
         toast({ title: "Aufgabe gelöscht" });
     }
   };
@@ -427,57 +636,54 @@ export default function HomeworkPlanner() {
     }
   }
 
-  const handleExitFocusMode = (completedTaskIds?: string[]) => {
+  const handleExitFocusMode = (completedTaskIds?: number[]) => {
       setIsFocusMode(false);
       if(completedTaskIds && user) {
-          completedTaskIds.forEach(id => {
-              if (id.startsWith('ghw-')) {
-                  const ghw = allHomeworks.find(h => h.id === id);
-                  if (ghw && ghw.groupHwId) {
-                      addDocumentNonBlocking(homeworksRef!, {
-                          subject: ghw.subject,
-                          task: ghw.task,
-                          description: ghw.description,
-                          dueDate: ghw.dueDate,
+          let updatedPersonal = [...(effectivePersonal || [])];
+          completedTaskIds.forEach(numId => {
+              const hw = upcomingHomeworks[numId - 1];
+              if (!hw) return;
+              if (hw.id.startsWith('ghw-')) {
+                  if (hw.groupHwId && homeworksRef) {
+                      const newPersonalHw = {
+                          subject: hw.subject,
+                          task: hw.task,
+                          description: hw.description,
+                          dueDate: hw.dueDate,
                           done: true,
                           completedAt: Date.now(),
-                          groupHwId: ghw.groupHwId
-                      });
+                          groupHwId: hw.groupHwId
+                      };
+                      addDocumentNonBlocking(homeworksRef, newPersonalHw);
+                      updatedPersonal = [{ id: `local-${Date.now()}-${numId}`, ...newPersonalHw }, ...updatedPersonal];
                   }
               } else {
-                  const docRef = doc(firestore, `users/${user.uid}/homeworks`, id);
+                  const docRef = doc(firestore, `users/${user.uid}/homeworks`, hw.id);
                   updateDocumentNonBlocking(docRef, { done: true, completedAt: Date.now() });
+                  updatedPersonal = updatedPersonal.map(h => h.id === hw.id ? { ...h, done: true, completedAt: Date.now() } : h);
               }
           });
+          saveToPersonalCache(updatedPersonal);
       }
   }
 
   const focusModeTasks: FocusTask[] = upcomingHomeworks
-    .map(hw => ({ id: hw.id, title: `${hw.subject || "Allgemein"}: ${hw.task}` }));
-
+    .map((hw, idx) => ({ id: idx + 1, title: `${hw.subject || "Allgemein"}: ${hw.task}` }));
 
   if (isFocusMode) {
       return <FocusMode tasks={focusModeTasks} onExit={handleExitFocusMode} />;
-  }
-  
-  if (isLoadingHomeworks || (userProfile?.groupId && isLoadingGroupHw)) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Hausaufgabenplaner</CardTitle>
-            </CardHeader>
-            <CardContent className="flex justify-center items-center p-8">
-                <Loader2 className="w-8 h-8 animate-spin" />
-            </CardContent>
-        </Card>
-    ); 
   }
 
   return (
     <Card className="h-full flex flex-col min-h-[500px]">
       <CardHeader>
         <CardTitle className="flex flex-wrap gap-4 justify-between items-center">
-          <span>Hausaufgabenplaner</span>
+          <div className="flex items-center gap-2">
+            <span>Hausaufgabenplaner</span>
+            {(isLoadingHomeworks || (userProfile?.groupId && isLoadingGroupHw)) && !personalHomeworks && (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground opacity-60" />
+            )}
+          </div>
           <div className="flex gap-2">
             <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
@@ -516,84 +722,199 @@ export default function HomeworkPlanner() {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()}>
-                  <Plus className="mr-2" /> Neue Aufgabe
+                <Button onClick={() => handleOpenDialog()} className="rounded-xl font-bold gap-1.5 shadow-sm">
+                  <Plus className="w-4 h-4" /> Neue Aufgabe
                 </Button>
               </DialogTrigger>
-              <DialogContent onEscapeKeyDown={handleCloseDialog} className="max-w-[95vw] sm:max-w-[550px] max-h-[95vh] overflow-y-auto overflow-x-hidden">
+              <DialogContent onEscapeKeyDown={handleCloseDialog} className="sm:max-w-lg rounded-3xl">
                 <DialogHeader>
-                  <DialogTitle>{editingHomework ? 'Hausaufgabe bearbeiten' : 'Neue Hausaufgabe hinzufügen'}</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                    <ListChecks className="w-5 h-5 text-primary" />
+                    {editingHomework ? 'Hausaufgabe bearbeiten' : 'Neue Hausaufgabe hinzufügen'}
+                  </DialogTitle>
                   <DialogDescription>
-                    {editingHomework ? 'Ändere die Details deiner Aufgabe.' : 'Gib den Titel deiner neuen Aufgabe ein.'}
+                    {editingHomework ? 'Ändere die Details deiner Aufgabe.' : 'Trage eine neue Aufgabe für deinen Planer ein.'}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="task-title">Titel / Aufgabe <span className="text-destructive">*</span></Label>
+
+                <div className="grid gap-4 py-3">
+                  {/* Subject Selector */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider">Fach</Label>
+                    {!isCustomSubject ? (
+                      <div className="space-y-2">
+                        <Select 
+                          value={newSubject} 
+                          onValueChange={(val) => {
+                            if (val === "__custom__") {
+                              setIsCustomSubject(true);
+                            } else {
+                              setNewSubject(val);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="rounded-xl font-bold bg-secondary/30">
+                            <SelectValue placeholder="Fach auswählen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Allgemein">Allgemein</SelectItem>
+                            {timetableSubjects.filter(s => s !== "Allgemein").map(s => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                            <SelectItem value="__custom__">Anderes Fach eintragen...</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input 
+                          placeholder="z.B. Mathematik, Deutsch..." 
+                          value={customSubjectName} 
+                          onChange={e => setCustomSubjectName(e.target.value)} 
+                          className="rounded-xl font-medium bg-secondary/30"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="link" 
+                          size="sm" 
+                          onClick={() => { setIsCustomSubject(false); setNewSubject(timetableSubjects[0] || "Allgemein"); }}
+                          className="text-xs h-auto p-0 text-primary font-bold"
+                        >
+                          ← Aus Stundenplan-Fächern wählen
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Task Title */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider">Aufgabe *</Label>
                     <Input
-                        id="task-title"
-                        placeholder="z.B. Buch S. 55 Nr. 3"
-                        value={newTask}
-                        onChange={(e) => setNewTask(e.target.value)}
+                      placeholder="z.B. Buch S. 55 Nr. 3 a, b"
+                      value={newTask}
+                      onChange={(e) => setNewTask(e.target.value)}
+                      className="rounded-xl font-bold bg-secondary/30 text-base"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="task-content">Inhalt</Label>
+                  {/* Content / Subtasks / Description */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider">Inhalt & Teilaufgaben (optional)</Label>
                     <Textarea
-                        id="task-content"
-                        placeholder="Zusätzliche Details zur Aufgabe..."
-                        value={newDescription}
-                        onChange={(e) => setNewDescription(e.target.value)}
-                        rows={3}
+                      placeholder="Zusätzliche Details, Teilaufgaben (z.B. - Nr. 1a&#10;- Nr. 1b)..."
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      rows={3}
+                      className="rounded-xl bg-secondary/30 text-sm resize-none"
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="task-subject">Fach</Label>
-                    <Select value={newSubject} onValueChange={setNewSubject}>
-                        <SelectTrigger id="task-subject">
-                            <SelectValue placeholder="Fach wählen..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Allgemein">Allgemein</SelectItem>
-                            {timetableSubjects.map(s => (
-                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="task-date">Fälligkeitsdatum</Label>
+                  {/* Due Date with Quick Presets */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider">Fälligkeitsdatum</Label>
                     <Input
-                        id="task-date"
-                        type="date"
-                        value={newDueDate}
-                        onChange={(e) => setNewDueDate(e.target.value)}
+                      type="date"
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      className="rounded-xl font-medium bg-secondary/30"
                     />
+                    {/* Presets */}
+                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground font-bold mr-1">Schnellwahl:</span>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 1);
+                          setNewDueDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="h-6 text-[10px] font-bold px-2 rounded-lg"
+                      >
+                        Morgen
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 2);
+                          setNewDueDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="h-6 text-[10px] font-bold px-2 rounded-lg"
+                      >
+                        Übermorgen
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 7);
+                          setNewDueDate(d.toISOString().split('T')[0]);
+                        }}
+                        className="h-6 text-[10px] font-bold px-2 rounded-lg"
+                      >
+                        Nächste Woche
+                      </Button>
+                      {newDueDate && (
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setNewDueDate("")} 
+                          className="h-6 text-[10px] text-muted-foreground px-2 rounded-lg"
+                        >
+                          Zurücksetzen
+                        </Button>
+                      )}
+                    </div>
                     {!newDueDate && newSubject && newSubject !== "Allgemein" && (
-                        <p className="text-[10px] text-muted-foreground italic">Wird automatisch auf den nächsten Termin für "{newSubject}" gesetzt.</p>
+                      <p className="text-[10px] text-muted-foreground italic pt-1">
+                        Wird automatisch auf den nächsten Termin für "{newSubject}" gesetzt.
+                      </p>
                     )}
                   </div>
                   
+                  {/* Share with group toggle */}
                   {userProfile?.groupId && !editingHomework && (
-                      <div className="flex items-center space-x-2 p-2 bg-secondary/50 rounded-lg">
-                          <Switch 
-                            id="group-share" 
-                            checked={shareWithGroup} 
-                            onCheckedChange={setShareWithGroup} 
-                          />
-                          <Label htmlFor="group-share" className="flex items-center gap-2 cursor-pointer">
-                              <Users className="w-4 h-4 text-primary" />
-                              Mit der Gruppe teilen
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/40 border border-primary/20 mt-1">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <Label htmlFor="group-share" className="font-bold text-sm cursor-pointer">
+                            Mit der Gruppe teilen
                           </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Erscheint auch im Gruppen-Dashboard für deine Mitschüler
+                          </p>
+                        </div>
                       </div>
+                      <Switch 
+                        id="group-share" 
+                        checked={shareWithGroup} 
+                        onCheckedChange={setShareWithGroup} 
+                      />
+                    </div>
                   )}
                 </div>
-                <DialogFooter className="pt-4 sm:pt-0">
-                    <Button variant="outline" onClick={handleCloseDialog}>Abbrechen</Button>
-                    <Button onClick={handleSaveHomework} disabled={!newTask.trim()}>{editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}</Button>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={handleCloseDialog} className="rounded-xl font-bold">
+                    Abbrechen
+                  </Button>
+                  <Button 
+                    onClick={handleSaveHomework} 
+                    disabled={!newTask.trim()} 
+                    className="font-bold rounded-xl shadow-sm"
+                  >
+                    {editingHomework ? 'Änderungen speichern' : 'Hinzufügen'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -621,64 +942,138 @@ export default function HomeworkPlanner() {
             </Alert>
         )}
 
-          <h3 className="font-bold text-lg">Anstehend</h3>
-          {upcomingHomeworks.length > 0 ? (
-            upcomingHomeworks
-              .sort((a, b) => {
-                  if (!a.dueDate) return 1;
-                  if (!b.dueDate) return -1;
-                  return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-              })
-              .map((hw) => (
-              <div
-                key={hw.id}
-                className="flex items-center justify-between gap-4 p-3 rounded-md bg-secondary"
-              >
-                <div 
-                  className="flex items-start gap-4 cursor-pointer flex-1"
-                  onClick={() => toggleDone(hw.id)}
+          {/* Section Header with View/Filter Toggles */}
+          <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+            <h3 className="font-bold text-lg">Anstehend ({filteredUpcoming.length})</h3>
+            <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg">
+                <Button 
+                    variant={filterMode === 'all' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className={cn("h-7 text-xs px-2.5 rounded-md", filterMode === 'all' && "bg-card shadow-xs font-semibold")}
+                    onClick={() => setFilterMode('all')}
                 >
-                  <Checkbox
-                    checked={hw.done}
-                    aria-label={`Mark task as done: ${hw.task}`}
-                    className="mt-1"
-                  />
-                  <div
-                    className={`grid gap-1 flex-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
-                  >
-                    <div className="flex justify-between items-baseline flex-wrap">
-                        <div className="flex items-center gap-2">
-                             <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
-                             {hw.groupHwId && <Star className="w-3.5 h-3.5 text-primary fill-primary" title="Gruppenaufgabe" />}
-                        </div>
-                        {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                    Alle
+                </Button>
+                <Button 
+                    variant={filterMode === 'personal' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className={cn("h-7 text-xs px-2.5 rounded-md", filterMode === 'personal' && "bg-card shadow-xs font-semibold")}
+                    onClick={() => setFilterMode('personal')}
+                >
+                    Eigene
+                </Button>
+                {userProfile?.groupId && (
+                    <Button 
+                        variant={filterMode === 'shared' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        className={cn("h-7 text-xs px-2.5 rounded-md", filterMode === 'shared' && "bg-card shadow-xs font-semibold")}
+                        onClick={() => setFilterMode('shared')}
+                    >
+                        Geteilt
+                    </Button>
+                )}
+            </div>
+          </div>
+
+          {/* Grouped by Subject & Subtasks */}
+          {groupedUpcomingHomeworks.length > 0 ? (
+            <div className="space-y-4">
+              {groupedUpcomingHomeworks.map(([subject, tasks]) => (
+                <div key={subject} className="space-y-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-border/40">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-primary" />
+                      <h4 className="font-semibold text-sm text-foreground">{subject}</h4>
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({tasks.length} {tasks.length === 1 ? 'Aufgabe' : 'Aufgaben'})
+                      </span>
                     </div>
-                    <p className="text-sm font-medium">{hw.task}</p>
-                    {hw.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{hw.description}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    {tasks.map((hw) => (
+                      <div
+                        key={hw.id}
+                        className="flex items-center justify-between gap-4 p-3 rounded-md bg-secondary"
+                      >
+                        <div 
+                          className="flex items-start gap-4 cursor-pointer flex-1 min-w-0"
+                          onClick={() => toggleDone(hw.id)}
+                        >
+                          <Checkbox
+                            checked={hw.done}
+                            aria-label={`Mark task as done: ${hw.task}`}
+                            className="mt-1 shrink-0"
+                          />
+                          <div
+                            className={`grid gap-1 flex-1 min-w-0 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                          >
+                            <div className="flex justify-between items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-base">{hw.task}</span>
+                                    {hw.groupHwId ? (
+                                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+                                            <Users className="w-3 h-3" />
+                                            Geteilt {hw.createdByName ? `· ${hw.createdByName}` : ''}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-background/80 text-muted-foreground font-medium border border-border/40">
+                                            <User className="w-3 h-3" />
+                                            Eigene
+                                        </span>
+                                    )}
+                                </div>
+                                {hw.dueDate && (
+                                    <span className="text-xs text-muted-foreground font-medium shrink-0">
+                                        Fällig: {new Date(hw.dueDate).toLocaleDateString('de-DE')}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Subtasks / Description Details */}
+                            {hw.description && (
+                                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                                    {hw.description.split('\n').map((line, lIdx) => {
+                                        const trimmed = line.trim();
+                                        if (!trimmed) return null;
+                                        const isBullet = trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•') || /^\d+[\.\)]/.test(trimmed);
+                                        return (
+                                            <p key={lIdx} className={cn("leading-relaxed", isBullet ? "pl-2 border-l-2 border-primary/40 text-foreground/80" : "")}>
+                                                {trimmed}
+                                            </p>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0">
+                            {!hw.id.startsWith('ghw-') && (
+                                <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDialog(hw)}
+                                className="shrink-0"
+                                >
+                                <Pencil className="w-4 h-4" />
+                                </Button>
+                            )}
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteHomework(hw.id)}
+                            className="shrink-0"
+                            >
+                            <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="flex">
-                    {!hw.id.startsWith('ghw-') && (
-                        <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenDialog(hw)}
-                        className="shrink-0"
-                        >
-                        <Pencil className="w-4 h-4" />
-                        </Button>
-                    )}
-                    <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteHomework(hw.id)}
-                    className="shrink-0"
-                    >
-                    <Trash2 className="w-4 h-4" />
-                    </Button>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           ) : (
               <p className="text-muted-foreground text-center p-4">Super! Keine anstehenden Aufgaben.</p>
           )}
@@ -692,28 +1087,36 @@ export default function HomeworkPlanner() {
                 className="flex items-center justify-between gap-3 p-3 rounded-md bg-secondary/50"
               >
                 <div 
-                  className="flex items-start gap-3 cursor-pointer flex-1"
+                  className="flex items-start gap-3 cursor-pointer flex-1 min-w-0"
                   onClick={() => toggleDone(hw.id)}
                 >
                   <Checkbox
                     checked={hw.done}
-                    className="mt-1"
+                    className="mt-1 shrink-0"
                   />
                   <div
-                    className={`grid gap-1 flex-1 ${hw.done ? "line-through text-muted-foreground" : ""}`}
+                    className={`grid gap-1 flex-1 min-w-0 ${hw.done ? "line-through text-muted-foreground" : ""}`}
                   >
-                    <div className="flex justify-between items-baseline flex-wrap">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-base">{hw.subject || "Allgemein"}</span>
-                            {hw.groupHwId && <Star className="w-3 h-3 text-primary fill-primary opacity-50" />}
+                    <div className="flex justify-between items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-base">{hw.task}</span>
+                            <span className="text-xs text-muted-foreground">({hw.subject || "Allgemein"})</span>
+                            {hw.groupHwId ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary opacity-60 font-medium">
+                                    <Users className="w-3 h-3" /> Geteilt
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-background/50 text-muted-foreground opacity-60 font-medium">
+                                    <User className="w-3 h-3" /> Eigene
+                                </span>
+                            )}
                         </div>
-                        {hw.dueDate && <span className="text-xs">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
+                        {hw.dueDate && <span className="text-xs text-muted-foreground">{new Date(hw.dueDate).toLocaleDateString('de-DE')}</span>}
                     </div>
-                    <p className="text-sm font-medium">{hw.task}</p>
                     {hw.description && <p className="text-xs text-muted-foreground line-clamp-1">{hw.description}</p>}
                   </div>
                 </div>
-                <div className="flex">
+                <div className="flex shrink-0">
                     {!hw.id.startsWith('ghw-') && (
                         <Button
                         variant="ghost"

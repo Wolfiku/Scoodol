@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { searchFormula } from '@/app/actions';
-import type { FindFormulaOutput } from '@/ai/flows/find-formula';
+import { searchFormula, type FindFormulaOutput } from '@/app/actions';
 import { Loader2, Wand2, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/hooks/use-theme';

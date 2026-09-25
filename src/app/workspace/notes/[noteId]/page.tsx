@@ -278,9 +278,9 @@ function NoteEditor() {
       setTutorQuestion('');
       
       const result = await getTutorReply(content, q, aiLanguage);
-      if ('reply' in result) {
+      if (result.reply) {
           setTutorReplies(prev => [...prev, { q, a: result.reply }]);
-      } else {
+      } else if (result.error) {
           toast({ variant: 'destructive', title: "Tutor-Fehler", description: result.error });
       }
       setIsTutorLoading(false);

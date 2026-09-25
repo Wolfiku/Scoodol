@@ -8,8 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileUp, Loader2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeReportCard } from '@/app/actions';
-import type { AnalyzeReportCardOutput } from '@/ai/flows/analyze-report-card';
+import { analyzeReportCard, type AnalyzeReportCardOutput } from '@/app/actions';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ReportCardAnalyzer() {

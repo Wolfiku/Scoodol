@@ -41,9 +41,10 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import AfternoonLessonsDialog, { CustomAfternoonLesson } from './afternoon-lessons-dialog';
 
 
-type TimetableEntry = {
+export type TimetableEntry = {
     id: string;
     fach: string;
     lehrer?: string;
@@ -51,18 +52,23 @@ type TimetableEntry = {
     start: string;
     ende: string;
     hauptfach?: boolean;
+    isCustomAfternoon?: boolean;
+    afternoonType?: string;
+    notizen?: string;
 };
 
-type TimetableData = {
+export type TimetableData = {
     [key: string]: TimetableEntry[];
 };
 
-type TimetableSettings = {
+export type TimetableSettings = {
     schoolStartTime: string;
     schoolEndTime: string;
     firstBreakDuration: number;
     secondBreakDuration: number;
     isABWeekActive?: boolean;
+    afternoonStartTime?: string;
+    afternoonLessonDuration?: number;
 }
 
 const weekDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
@@ -119,12 +125,14 @@ export const generateTimeSlots = (settings: TimetableSettings): { start: string,
         }
     }
     
-    let afternoonStartTime = currentTime;
-    if (morningEndMinutes < afternoonStartTime) {
-        afternoonStartTime = morningEndMinutes;
+    let afternoonStartTime = settings.afternoonStartTime
+        ? parseTimeToMinutes(settings.afternoonStartTime)
+        : currentTime;
+    if (afternoonStartTime < currentTime) {
+        afternoonStartTime = currentTime;
     }
 
-    const afternoonLessonDuration = 45;
+    const afternoonLessonDuration = settings.afternoonLessonDuration || 45;
     for (let i = MAX_LESSONS_MORNING; i < MAX_LESSONS_TOTAL; i++) {
         const lessonStart = afternoonStartTime;
         const lessonEnd = afternoonStartTime + afternoonLessonDuration;
@@ -163,7 +171,8 @@ type UserData = {
     timetableSettings: TimetableSettings,
     settings: {
         profilePicture?: string,
-    }
+    },
+    customAfternoon?: CustomAfternoonLesson[],
 }
 
 export default function SetupView({ onSetupComplete, onTimetableImport, initialData, isEditing = false, isCreatorMode = false, viewMode = 'setup', isGroupPlan = false }: { onSetupComplete: (userData: Partial<UserData>) => void, onTimetableImport: (importedData: any) => void, initialData?: Partial<UserData>, isEditing?: boolean, isCreatorMode?: boolean, viewMode?: 'setup' | 'creator' | 'edit', isGroupPlan?: boolean }) {
@@ -171,19 +180,31 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
     
     const [timetableSettings, setTimetableSettings] = useState<TimetableSettings>(initialData?.timetableSettings || { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15, isABWeekActive: false });
     
+    const [isAfternoonDialogOpen, setIsAfternoonDialogOpen] = useState(false);
+    const [customAfternoon, setCustomAfternoon] = useState<CustomAfternoonLesson[]>(() => {
+        if (initialData?.customAfternoon) return initialData.customAfternoon;
+        if (typeof window !== 'undefined') {
+            const local = localStorage.getItem('customAfternoon');
+            if (local) {
+                try { return JSON.parse(local); } catch (e) {}
+            }
+        }
+        return [];
+    });
+
     // Complex A/B Logic
     const [timetableA, setTimetableA] = useState<TimetableData>(() => {
         if (initialData?.timetable) {
-            // @ts-ignore
-            if (initialData.timetable.weekA) return initialData.timetable.weekA;
-            return initialData.timetable as TimetableData;
+            const raw = initialData.timetable as any;
+            if (raw.weekA) return raw.weekA as TimetableData;
+            return raw as TimetableData;
         }
         return createInitialTimetable(timetableSettings);
     });
 
     const [timetableB, setTimetableB] = useState<TimetableData>(() => {
-        // @ts-ignore
-        if (initialData?.timetable?.weekB) return initialData.timetable.weekB;
+        const raw = initialData?.timetable as any;
+        if (raw?.weekB) return raw.weekB as TimetableData;
         return createInitialTimetable(timetableSettings);
     });
     
@@ -268,21 +289,71 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                 toast({
                     variant: 'destructive',
                     title: 'Fehler beim Scannen',
-                    description: result.error || 'Die KI konnte keinen Stundenplan erkennen.',
+                    description: result.error || 'Die KI konnte keinen Stundenplan erkennen. Bitte stelle sicher, dass das Bild scharf und gut lesbar ist.',
                 });
-            } else {
-                const newTimetable = createInitialTimetable(timetableSettings);
-                const scannedTimeSlots = generateTimeSlots(timetableSettings);
-                Object.keys(result.timetable).forEach(day => {
-                    const dayName = day as keyof typeof result.timetable;
+                setIsScanning(false);
+                return;
+            }
+
+            const isAB = !!(result.isABWeek || (result.weekB && Object.keys(result.weekB).length > 0));
+
+            const currentSettings = { ...timetableSettings };
+            if (isAB && !currentSettings.isABWeekActive) {
+                currentSettings.isABWeekActive = true;
+                setTimetableSettings(currentSettings);
+            }
+
+            const applyAiTimetableToGrid = (aiWeekData: any, settings: TimetableSettings) => {
+                const newTimetable = createInitialTimetable(settings);
+                const scannedTimeSlots = generateTimeSlots(settings);
+                let count = 0;
+
+                if (!aiWeekData) return { timetable: newTimetable, count: 0 };
+
+                Object.keys(aiWeekData).forEach(day => {
+                    const dayName = day as keyof typeof aiWeekData;
                     // @ts-ignore
-                    if(newTimetable[dayName]) {
-                        // @ts-ignore
-                        const daySchedule = result.timetable[dayName] || [];
+                    const daySchedule = aiWeekData[dayName];
+                    // @ts-ignore
+                    if (Array.isArray(daySchedule) && newTimetable[dayName]) {
                         daySchedule.forEach((aiEntry: any) => {
-                            const slotIndex = scannedTimeSlots.findIndex(slot => slot.start === aiEntry.start);
+                            if (!aiEntry || !aiEntry.subject) return;
+
+                            let slotIndex = -1;
+
+                            // Strategy 1: Match by period / lesson number (1-based index)
                             // @ts-ignore
-                            if(slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
+                            if (typeof aiEntry.period === 'number' && aiEntry.period >= 1 && aiEntry.period <= newTimetable[dayName].length) {
+                                slotIndex = aiEntry.period - 1;
+                            }
+
+                            // Strategy 2: Exact start time match
+                            if (slotIndex === -1 && aiEntry.start) {
+                                slotIndex = scannedTimeSlots.findIndex(slot => slot.start === aiEntry.start);
+                            }
+
+                            // Strategy 3: Closest start time match (within ±30 mins)
+                            if (slotIndex === -1 && aiEntry.start) {
+                                const aiStartMins = parseTimeToMinutes(aiEntry.start);
+                                let minDiff = 30;
+                                scannedTimeSlots.forEach((slot, idx) => {
+                                    const slotStartMins = parseTimeToMinutes(slot.start);
+                                    const diff = Math.abs(slotStartMins - aiStartMins);
+                                    if (diff < minDiff) {
+                                        minDiff = diff;
+                                        slotIndex = idx;
+                                    }
+                                });
+                            }
+
+                            // Strategy 4: Fallback to first available empty slot
+                            if (slotIndex === -1) {
+                                // @ts-ignore
+                                slotIndex = newTimetable[dayName].findIndex(slot => !slot.fach);
+                            }
+
+                            // @ts-ignore
+                            if (slotIndex !== -1 && slotIndex < newTimetable[dayName].length) {
                                 // @ts-ignore
                                 newTimetable[dayName][slotIndex] = {
                                     // @ts-ignore
@@ -292,26 +363,109 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                     room: aiEntry.room || '',
                                     hauptfach: aiEntry.isMainSubject || false,
                                 };
+                                count++;
                             }
-                        })
+                        });
                     }
-                })
-                setActiveTimetable(newTimetable);
-                toast({
-                    title: 'Stundenplan gescannt!',
-                    description: `Der Plan wurde in Woche ${activeWeekTab} eingefügt.`,
                 });
-                setMode('manual');
+
+                return { timetable: newTimetable, count };
+            };
+
+            const { timetable: parsedWeekA, count: countA } = applyAiTimetableToGrid(result.timetable, currentSettings);
+
+            if (isAB && result.weekB) {
+                const { timetable: parsedWeekB, count: countB } = applyAiTimetableToGrid(result.weekB, currentSettings);
+                setTimetableA(parsedWeekA);
+                setTimetableB(parsedWeekB);
+                toast({
+                    title: 'A/B-Stundenplan erkannt!',
+                    description: `${countA + countB} Stunden für Woche A & B erfolgreich eingetragen.`,
+                });
+            } else {
+                if (activeWeekTab === 'B') {
+                    setTimetableB(parsedWeekA);
+                } else {
+                    setTimetableA(parsedWeekA);
+                    if (!timetableSettings.isABWeekActive) {
+                        setTimetableB(parsedWeekA);
+                    }
+                }
+                toast({
+                    title: 'Stundenplan erkannt!',
+                    description: `${countA} Unterrichtsstunden wurden erfolgreich eingetragen.`,
+                });
             }
+
+            setMode('manual');
+            setIsScanning(false);
+        };
+        reader.onerror = () => {
+            toast({
+                variant: 'destructive',
+                title: 'Fehler',
+                description: 'Das Bild konnte nicht geladen werden.',
+            });
             setIsScanning(false);
         };
     }
     
     const handleInputChange = (day: string, slotIndex: number, field: keyof TimetableEntry, value: string | boolean) => {
+        if (field === 'hauptfach') {
+            const currentEntry = activeTimetable[day]?.[slotIndex];
+            const subjectTitle = currentEntry?.fach?.trim();
+
+            if (subjectTitle) {
+                const targetLower = subjectTitle.toLowerCase();
+                
+                const updateTableHauptfach = (prev: TimetableData) => {
+                    const updated = { ...prev };
+                    weekDays.forEach(d => {
+                        if (updated[d]) {
+                            updated[d] = updated[d].map(entry => {
+                                if (entry.fach && entry.fach.trim().toLowerCase() === targetLower) {
+                                    return { ...entry, hauptfach: !!value };
+                                }
+                                return entry;
+                            });
+                        }
+                    });
+                    if (updated[day] && updated[day][slotIndex]) {
+                        updated[day][slotIndex] = {
+                            ...updated[day][slotIndex],
+                            hauptfach: !!value
+                        };
+                    }
+                    return updated;
+                };
+
+                setTimetableA(prev => updateTableHauptfach(prev));
+                setTimetableB(prev => updateTableHauptfach(prev));
+                return;
+            }
+        }
+
         setActiveTimetable(prev => {
             const updated = { ...prev };
-            // @ts-ignore
-            updated[day][slotIndex][field] = value;
+            if (updated[day] && updated[day][slotIndex]) {
+                const newEntry = {
+                    ...updated[day][slotIndex],
+                    [field]: value,
+                };
+
+                // If typing a subject name that is already marked as Hauptfach elsewhere, automatically set hauptfach: true
+                if (field === 'fach' && typeof value === 'string' && value.trim()) {
+                    const typedLower = value.trim().toLowerCase();
+                    const isAlreadyHauptfach = Object.values(prev).some(dayList => 
+                        dayList.some(entry => entry.fach?.trim().toLowerCase() === typedLower && entry.hauptfach)
+                    );
+                    if (isAlreadyHauptfach) {
+                        newEntry.hauptfach = true;
+                    }
+                }
+
+                updated[day][slotIndex] = newEntry;
+            }
             return updated;
         });
     }
@@ -324,8 +478,12 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
             timetableSettings,
             settings: {
                 profilePicture: profilePicture || undefined,
-            }
+            },
+            customAfternoon,
         };
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('customAfternoon', JSON.stringify(customAfternoon));
+        }
         onSetupComplete(dataToSave);
         toast({ title: "Stundenplan gespeichert!" });
         setShowValidationDialog(false);
@@ -357,6 +515,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
             try {
                 const content = e.target?.result as string;
                 const importedData = JSON.parse(content);
+                if (importedData.customAfternoon) {
+                    setCustomAfternoon(importedData.customAfternoon);
+                    localStorage.setItem('customAfternoon', JSON.stringify(importedData.customAfternoon));
+                }
                 onTimetableImport(importedData);
             } catch (error) {
                 toast({ variant: 'destructive', title: "Importfehler" });
@@ -370,6 +532,7 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
             const dataToExport = {
                 timetable: timetableSettings.isABWeekActive ? { weekA: timetableA, weekB: timetableB } : timetableA,
                 timetableSettings: timetableSettings,
+                customAfternoon: customAfternoon,
             }
             const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -481,9 +644,9 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                     </div>
                  </div>
 
-                 <Card className="mb-6 border-dashed bg-secondary/10">
+                  <Card className="mb-6 border-dashed bg-secondary/10">
                     <CardContent className="flex flex-wrap items-center gap-3 p-4">
-                        <Button variant="secondary" size="sm" className="font-bold gap-2" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
+                        <Button variant="secondary" size="sm" className="font-bold gap-2 rounded-xl" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
                             {isScanning ? <Loader2 className="w-4 h-4 animate-spin"/> : <Camera className="w-4 h-4" />} KI-Scan
                         </Button>
                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
@@ -492,6 +655,21 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                             <Label htmlFor="ab-weeks" className="text-[10px] uppercase font-black cursor-pointer">A/B Wochen</Label>
                             <Switch id="ab-weeks" checked={timetableSettings.isABWeekActive} onCheckedChange={(c) => setTimetableSettings({...timetableSettings, isABWeekActive: c})} />
                         </div>
+                        <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="font-bold gap-1.5 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+                            onClick={() => setIsAfternoonDialogOpen(true)}
+                        >
+                            <Sunset className="w-4 h-4" />
+                            <span>Nachmittagsunterricht</span>
+                            {customAfternoon.length > 0 && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                                    {customAfternoon.length}
+                                </Badge>
+                            )}
+                        </Button>
                         <Separator orientation="vertical" className="h-6 hidden sm:block" />
                         <Button variant="ghost" size="sm" onClick={() => importFileInputRef.current?.click()}><Upload className="mr-2 h-3 w-3" /> Import</Button>
                         <input type="file" accept=".json" ref={importFileInputRef} onChange={handleImportFileChange} className="hidden" />
@@ -534,6 +712,10 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                                                         <Input placeholder="Lehrer" value={entry.lehrer || ''} onChange={e => handleInputChange(day, slotIndex, 'lehrer', e.target.value)} className="h-10 rounded-xl" />
                                                         <Input placeholder="Raum" value={entry.room || ''} onChange={e => handleInputChange(day, slotIndex, 'room', e.target.value)} className="h-10 rounded-xl" />
                                                     </div>
+                                                    <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer pt-0.5">
+                                                        <input type="checkbox" checked={!!entry.hauptfach} onChange={e => handleInputChange(day, slotIndex, 'hauptfach', e.target.checked)} className="rounded h-4 w-4" />
+                                                        <span>Hauptfach (HF)</span>
+                                                    </label>
                                                 </div>
                                             </Card>
                                         )
@@ -592,6 +774,20 @@ export default function SetupView({ onSetupComplete, onTimetableImport, initialD
                         <Button size="lg" onClick={handleSave} className="w-full sm:w-auto font-black text-lg h-14 sm:h-12 rounded-2xl shadow-lg"><CheckCircle2 className="mr-2 h-5 w-5"/> Plan speichern</Button>
                     </div>
                 </div>
+
+                <AfternoonLessonsDialog 
+                    open={isAfternoonDialogOpen} 
+                    onOpenChange={setIsAfternoonDialogOpen} 
+                    customLessons={customAfternoon} 
+                    onSave={(updated) => {
+                        setCustomAfternoon(updated);
+                        if (typeof window !== 'undefined') {
+                            localStorage.setItem('customAfternoon', JSON.stringify(updated));
+                        }
+                    }} 
+                    isABWeekActive={!!timetableSettings.isABWeekActive}
+                    timeSlots={timeSlots}
+                />
             </div>
         )
     }

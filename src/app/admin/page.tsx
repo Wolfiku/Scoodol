@@ -17,6 +17,7 @@ import { Loader2, Search, User as UserIcon, Shield, Save, Key } from 'lucide-rea
 import { sendPasswordResetEmailForUser } from '../actions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 
 type UserProfile = {
   id: string;

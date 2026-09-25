@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ZeitplanDashboard from '@/app/components/zeitplan-dashboard';
 import ClassicTimetableView from '@/app/components/classic-timetable-view';
@@ -18,6 +18,9 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { APP_VERSION } from '@/app/lib/version';
 import { ReleaseNotesDialog } from '@/components/release-notes-dialog';
 import { cn } from '@/lib/utils';
+import { CustomAfternoonLesson } from '@/app/components/afternoon-lessons-dialog';
+import AfternoonEditorView from './components/afternoon-editor-view';
+import { generateTimeSlots } from '@/app/components/setup-view';
 
 type TimetableEntry = {
   id: string;
@@ -29,6 +32,8 @@ type TimetableEntry = {
   hauptfach?: boolean;
   notizen?: string;
   materialien?: string;
+  isCustomAfternoon?: boolean;
+  afternoonType?: string;
 };
 
 type TimetableData = {
@@ -41,6 +46,8 @@ type TimetableSettings = {
     firstBreakDuration: number;
     secondBreakDuration: number;
     isABWeekActive?: boolean;
+    afternoonStartTime?: string;
+    afternoonLessonDuration?: number;
 }
 
 type UserSettings = {
@@ -59,7 +66,8 @@ type UserData = {
     groupId?: string;
     groupSettings?: {
         syncTimetable?: boolean;
-    }
+    },
+    customAfternoon?: CustomAfternoonLesson[];
 }
 
 const getWeekNumber = (date: Date) => {
@@ -78,8 +86,19 @@ export default function Page() {
   const { startView: themeStartView } = useTheme();
 
   const [isMounted, setIsMounted] = useState(false);
-  const [view, setView] = useState('');
-  const [hasLocalData, setHasLocalData] = useState(false);
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('startView') || '';
+    }
+    return '';
+  });
+  const [hasLocalData, setHasLocalData] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const tt = localStorage.getItem('timetable');
+      return !!tt && tt !== '{}';
+    }
+    return false;
+  });
   const [manualWeekToggle, setManualWeekToggle] = useState<'A' | 'B' | null>(null);
 
   const userDocRef = useMemoFirebase(() => 
@@ -101,15 +120,34 @@ export default function Page() {
     return weekNum % 2 !== 0 ? 'A' : 'B';
   }, [manualWeekToggle]);
 
+  // Sync DB snapshots to cache immediately to ensure instantaneous future loads
+  useEffect(() => {
+    if (userData) {
+      if (userData.timetable) localStorage.setItem('timetable', JSON.stringify(userData.timetable));
+      if (userData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(userData.timetableSettings));
+      if (userData.customAfternoon) localStorage.setItem('customAfternoon', JSON.stringify(userData.customAfternoon));
+      if (userData.groupSettings?.syncTimetable !== undefined) localStorage.setItem('syncTimetable', String(userData.groupSettings.syncTimetable));
+      if (userData.groupId) localStorage.setItem('groupId', userData.groupId);
+    }
+  }, [userData]);
+
+  useEffect(() => {
+    if (groupData) {
+      if (groupData.timetable) localStorage.setItem('cached_group_timetable', JSON.stringify(groupData.timetable));
+      if (groupData.timetableSettings) localStorage.setItem('cached_group_timetableSettings', JSON.stringify(groupData.timetableSettings));
+    }
+  }, [groupData]);
+
   // Safely initialize client-side state
   useEffect(() => {
     setIsMounted(true);
     const cachedStartView = localStorage.getItem('startView');
-    if (cachedStartView) setView(cachedStartView);
+    if (cachedStartView && !view) setView(cachedStartView);
+    else if (!view) setView('daily');
 
     const tt = localStorage.getItem('timetable');
     setHasLocalData(!!tt && tt !== '{}');
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     if (!isMounted || isUserLoading) return;
@@ -119,7 +157,6 @@ export default function Page() {
         if (pathname.startsWith('/workspace') || pathname.startsWith('/admin') || pathname.startsWith('/account')) {
             router.replace('/login');
         }
-        // Root page handling for unauthenticated
         if (pathname === '/' && !view) {
             if (hasLocalData) setView('daily');
             else setView(''); // Triggers SetupView below
@@ -141,6 +178,7 @@ export default function Page() {
     if (typeof window !== 'undefined') {
         if (data.timetable) localStorage.setItem('timetable', JSON.stringify(data.timetable));
         if (data.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(data.timetableSettings));
+        if (data.customAfternoon) localStorage.setItem('customAfternoon', JSON.stringify(data.customAfternoon));
         if (data.settings?.startView) localStorage.setItem('startView', data.settings.startView);
     }
 
@@ -150,6 +188,7 @@ export default function Page() {
     const updates: any = {};
     if (data.timetable) updates.timetable = data.timetable;
     if (data.timetableSettings) updates.timetableSettings = data.timetableSettings;
+    if (data.customAfternoon) updates.customAfternoon = data.customAfternoon;
     if (data.settings) {
         Object.keys(data.settings).forEach(key => {
             updates[`settings.${key}`] = (data.settings as any)[key];
@@ -168,6 +207,7 @@ export default function Page() {
     if (typeof window !== 'undefined') {
         if (newUserData.timetable) localStorage.setItem('timetable', JSON.stringify(newUserData.timetable));
         if (newUserData.timetableSettings) localStorage.setItem('timetableSettings', JSON.stringify(newUserData.timetableSettings));
+        if (newUserData.customAfternoon) localStorage.setItem('customAfternoon', JSON.stringify(newUserData.customAfternoon));
         if (newUserData.settings?.profilePicture) localStorage.setItem('profilePicture', newUserData.settings.profilePicture);
         if (newUserData.settings?.startView) localStorage.setItem('startView', newUserData.settings.startView);
     }
@@ -176,6 +216,7 @@ export default function Page() {
         const updates: any = {};
         if (newUserData.timetable) updates.timetable = newUserData.timetable;
         if (newUserData.timetableSettings) updates.timetableSettings = newUserData.timetableSettings;
+        if (newUserData.customAfternoon) updates.customAfternoon = newUserData.customAfternoon;
         if (newUserData.settings) {
             Object.keys(newUserData.settings).forEach(key => {
                 updates[`settings.${key}`] = (newUserData.settings as any)[key];
@@ -190,6 +231,7 @@ export default function Page() {
     if (typeof window !== 'undefined') {
         localStorage.setItem('timetable', JSON.stringify(importedData.timetable));
         localStorage.setItem('timetableSettings', JSON.stringify(importedData.timetableSettings));
+        if (importedData.customAfternoon) localStorage.setItem('customAfternoon', JSON.stringify(importedData.customAfternoon));
     }
     
     if (!userDocRef) {
@@ -200,6 +242,7 @@ export default function Page() {
     const updates: any = {
         timetable: importedData.timetable,
         timetableSettings: importedData.timetableSettings,
+        customAfternoon: importedData.customAfternoon || [],
         'settings.theme': importedData.theme,
         'settings.startView': importedData.startView,
         'settings.aiLanguage': importedData.aiLanguage,
@@ -210,48 +253,150 @@ export default function Page() {
     updateDoc(userDocRef, updates).then(() => window.location.reload());
   };
 
-  const isTimetableSynced = !!(userData?.groupSettings?.syncTimetable && groupData);
-
-  const effectiveTimetable = useMemo(() => {
-    if (isPreviewMode) return previewTimetableData;
-    if (isTimetableSynced) return groupData?.timetable;
-    
-    const raw = userData?.timetable;
-    if (raw) {
-        // @ts-ignore
-        if (raw.weekA) return currentWeekType === 'A' ? (raw as any).weekA : (raw as any).weekB;
-        return raw as TimetableData;
+  const isTimetableSynced = useMemo(() => {
+    if (userData?.groupSettings?.syncTimetable !== undefined) {
+      return !!userData.groupSettings.syncTimetable;
     }
-
-    // Guest / Cache fallback
     if (typeof window !== 'undefined') {
-        const local = localStorage.getItem('timetable');
-        if (local) {
-            try {
-                const parsed = JSON.parse(local);
-                if (parsed.weekA) return currentWeekType === 'A' ? parsed.weekA : parsed.weekB;
-                return parsed;
-            } catch (e) { return {}; }
-        }
+      return localStorage.getItem('syncTimetable') === 'true';
     }
-    return {};
-  }, [userData, isPreviewMode, currentWeekType, isTimetableSynced, groupData]);
+    return false;
+  }, [userData?.groupSettings?.syncTimetable]);
+
+  const prevSettingsRef = useRef<TimetableSettings>({ schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 });
+  const prevSettingsStringRef = useRef<string>('');
 
   const effectiveSettings = useMemo(() => {
     if (isPreviewMode) return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
-    if (isTimetableSynced) return groupData?.timetableSettings;
     
-    if (userData?.timetableSettings) return userData.timetableSettings;
+    let result: TimetableSettings = { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
 
-    // Guest / Cache fallback
-    if (typeof window !== 'undefined') {
-        const local = localStorage.getItem('timetableSettings');
-        if (local) {
-            try { return JSON.parse(local); } catch (e) {}
+    if (isTimetableSynced) {
+      if (groupData?.timetableSettings) {
+        result = groupData.timetableSettings;
+      } else if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('cached_group_timetableSettings');
+        if (cached) {
+          try { result = JSON.parse(cached); } catch (e) {}
+        }
+      }
+    } else if (userData?.timetableSettings) {
+      result = userData.timetableSettings;
+    } else if (typeof window !== 'undefined') {
+      const local = localStorage.getItem('timetableSettings');
+      if (local) {
+        try { result = JSON.parse(local); } catch (e) {}
+      }
+    }
+
+    const str = JSON.stringify(result);
+    if (str === prevSettingsStringRef.current) {
+      return prevSettingsRef.current;
+    }
+    prevSettingsStringRef.current = str;
+    prevSettingsRef.current = result;
+    return result;
+  }, [userData?.timetableSettings, isPreviewMode, isTimetableSynced, groupData?.timetableSettings]);
+
+  const prevMergedTimetableRef = useRef<TimetableData>({});
+  const prevMergedStringRef = useRef<string>('');
+
+  const effectiveTimetable = useMemo(() => {
+    if (isPreviewMode) return previewTimetableData;
+    
+    let baseTimetable: TimetableData = {};
+    if (isTimetableSynced) {
+        if (groupData?.timetable) {
+          baseTimetable = groupData.timetable;
+        } else if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem('cached_group_timetable');
+          if (cached) {
+            try { baseTimetable = JSON.parse(cached); } catch (e) {}
+          }
+        }
+    } else {
+        const raw = userData?.timetable;
+        if (raw) {
+            // @ts-ignore
+            if (raw.weekA) baseTimetable = currentWeekType === 'A' ? (raw as any).weekA : (raw as any).weekB;
+            else baseTimetable = raw as TimetableData;
+        } else if (typeof window !== 'undefined') {
+            const local = localStorage.getItem('timetable');
+            if (local) {
+                try {
+                    const parsed = JSON.parse(local);
+                    if (parsed.weekA) baseTimetable = currentWeekType === 'A' ? parsed.weekA : parsed.weekB;
+                    else baseTimetable = parsed;
+                } catch (e) {}
+            }
         }
     }
-    return { schoolStartTime: '08:00', schoolEndTime: '13:00', firstBreakDuration: 15, secondBreakDuration: 15 };
-  }, [userData, isPreviewMode, isTimetableSynced, groupData]);
+
+    // Get personal custom afternoon lessons
+    let afternoonLessons: CustomAfternoonLesson[] = [];
+    if (userData?.customAfternoon && Array.isArray(userData.customAfternoon)) {
+        afternoonLessons = userData.customAfternoon;
+    } else if (typeof window !== 'undefined') {
+        const local = localStorage.getItem('customAfternoon');
+        if (local) {
+            try { afternoonLessons = JSON.parse(local); } catch (e) {}
+        }
+    }
+
+    const weekDaysList = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+    const slots = generateTimeSlots(effectiveSettings);
+
+    const merged: TimetableData = {};
+    weekDaysList.forEach((day) => {
+        const existingDay = baseTimetable[day] || [];
+        // Populate standard slots
+        merged[day] = slots.map((slot, idx) => {
+            const existingEntry = existingDay[idx];
+            return {
+                id: existingEntry?.id || `${day.slice(0, 2).toLowerCase()}-${idx + 1}`,
+                fach: existingEntry?.fach || '',
+                lehrer: existingEntry?.lehrer || '',
+                room: existingEntry?.room || '',
+                start: slot.start,
+                ende: slot.ende,
+                hauptfach: existingEntry?.hauptfach || false,
+                notizen: existingEntry?.notizen || '',
+                materialien: existingEntry?.materialien || '',
+            };
+        });
+
+        // Overlay custom afternoon lessons for this day and week
+        const dayLessons = afternoonLessons.filter(
+            (l) => l.day === day && (!l.weekType || l.weekType === 'ALL' || l.weekType === currentWeekType)
+        );
+
+        dayLessons.forEach((lesson) => {
+            let targetSlot = lesson.slotIndex !== undefined ? lesson.slotIndex : 6;
+            if (targetSlot < 0 || targetSlot >= 10) targetSlot = 6;
+
+            merged[day][targetSlot] = {
+                id: lesson.id || `custom-afternoon-${day}-${targetSlot}`,
+                fach: lesson.fach,
+                lehrer: lesson.lehrer || '',
+                room: lesson.room || '',
+                start: lesson.start || slots[targetSlot]?.start || '',
+                ende: lesson.ende || slots[targetSlot]?.ende || '',
+                hauptfach: !!lesson.hauptfach,
+                isCustomAfternoon: true,
+                afternoonType: 'Nachmittagsunterricht',
+                notizen: lesson.notes || '',
+            };
+        });
+    });
+
+    const str = JSON.stringify(merged);
+    if (str === prevMergedStringRef.current && Object.keys(prevMergedTimetableRef.current).length > 0) {
+      return prevMergedTimetableRef.current;
+    }
+    prevMergedStringRef.current = str;
+    prevMergedTimetableRef.current = merged;
+    return merged;
+  }, [userData, isPreviewMode, currentWeekType, isTimetableSynced, groupData, effectiveSettings]);
 
   // Initial Loader to match server during hydration
   if (!isMounted || ((isUserLoading || isUserDataLoading) && !hasLocalData && !view)) {
@@ -278,7 +423,7 @@ export default function Page() {
     return (
         <>
             <ReleaseNotesDialog />
-            <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }}} />
+            <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ settings: { profilePicture: undefined }, customAfternoon: userData?.customAfternoon }} />
         </>
     );
   }
@@ -299,8 +444,9 @@ export default function Page() {
       case 'weekly': return <ClassicTimetableView setView={setView} isPreview={isPreviewMode} timetable={effectiveTimetable} timetableSettings={effectiveSettings} currentWeek={(isTimetableSynced ? groupData?.timetableSettings?.isABWeekActive : effectiveSettings.isABWeekActive) ? currentWeekType : null} onWeekToggle={(w) => setManualWeekToggle(w)} />;
       case 'homework': return <HomeworkPlanner />;
       case 'smart-tool': return <SmartToolsView />;
-      case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={isTimetableSynced} />;
-      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {}), timetableSettings: effectiveSettings }} isEditing={true} viewMode="edit" />;
+      case 'settings': return <SettingsView onEditTimetable={() => setView('edit')} onEditAfternoon={() => setView('afternoon')} isPreview={isPreviewMode} onTimetableImport={handleTimetableImport} timetableSettings={effectiveSettings} onSettingsChange={(ns) => updateUserData({ timetableSettings: ns })} isTimetableSynced={isTimetableSynced} customAfternoonLessons={userData?.customAfternoon} onCustomAfternoonChange={(na) => updateUserData({ customAfternoon: na })} />;
+      case 'edit': return <SetupView onSetupComplete={handleSetupComplete} onTimetableImport={handleTimetableImport} initialData={{ timetable: userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {}), timetableSettings: effectiveSettings, customAfternoon: userData?.customAfternoon }} isEditing={true} viewMode="edit" />;
+      case 'afternoon': return <AfternoonEditorView onBack={() => setView('settings')} onSave={(na) => updateUserData({ customAfternoon: na })} initialLessons={userData?.customAfternoon} timetableSettings={effectiveSettings} baseTimetable={isTimetableSynced && groupData?.timetable ? groupData.timetable : (userData?.timetable || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('timetable') || '{}') : {}))} />;
       default: return null;
     }
   }
@@ -331,7 +477,7 @@ export default function Page() {
       <ReleaseNotesDialog />
       {renderView()}
       
-      {view !== 'edit' && view !== '' && (
+      {view !== 'edit' && view !== 'afternoon' && view !== '' && (
         <div className="fixed bottom-6 left-0 right-0 px-4 z-50 flex justify-center pointer-events-none">
           <nav className="bg-card/80 backdrop-blur-md border-2 border-border rounded-xl p-1.5 flex gap-1 w-full max-w-sm shadow-xl pointer-events-auto">
             <NavButton targetView="daily" icon={Home} label="Heute" />
