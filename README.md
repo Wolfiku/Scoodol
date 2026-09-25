@@ -2,7 +2,7 @@
 
 # Scoodol
  
-**Der smarte Begleiter für den modernen Schulalltag.**
+**The smart, modern school planner for students.**
  
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://scoodol.app)
 [![Next.js](https://img.shields.io/badge/Next.js-15.3-black.svg)](https://nextjs.org/)
@@ -11,97 +11,97 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-100%25_Offline-success.svg)](https://scoodol.app)
 [![License](https://img.shields.io/badge/license-wk--lc--04-orange.svg)](./LICENSE.md)
  
-**Live-Version:** [scoodol.app](https://scoodol.app)
+**Live App:** [scoodol.app](https://scoodol.app)
  
 </div>
 
 ---
  
-## Über Scoodol
+## About Scoodol
  
-Scoodol ist eine moderne Progressive Web App (PWA) für Schülerinnen und Schüler. Sie vereint Stundenplan, Hausaufgabenverwaltung, Notenberechnung und weitere Lernwerkzeuge in einer einzigen, durchdachten Oberfläche.
+Scoodol is a modern, high-performance Progressive Web App (PWA) designed for students. It combines timetables, homework management, grade calculation, and study tools in a single, well-crafted interface.
  
-Die Anwendung ist auf drei Kernprinzipien ausgelegt:
+The application is built on three core design principles:
  
-- **Performance** – Cache-First-Architektur für nahezu verzögerungsfreies Laden
-- **Offline-Fähigkeit** – vollständige Funktionalität ohne aktive Internetverbindung
-- **Datenschutz** – Daten bleiben, wo immer möglich, lokal auf dem Gerät
+- **Performance** — Cache-first architecture for instantaneous (0ms latency) page rendering and state hydration.
+- **Offline-First** — Full standalone functionality with zero active internet connection required.
+- **Privacy** — User data stays local on the device whenever possible.
 
 ---
  
 ## Features
  
-### Stundenplan
+### Timetable
  
-- **Tages-Dashboard:** Zeigt die aktuelle und nächste Schulstunde inklusive Countdown und Pausenstatus.
-- **Wochenansicht:** Klassisches Wochenraster mit Raum, Lehrkraft, Notizen und farblicher Kennzeichnung.
-- **A/B-Wochen:** Unterstützung für 2-Wochen-Rhythmen mit automatischem oder manuellem Umschalten.
-- **Flexible Schulzeiten:** Konfigurierbare Startzeiten, Stundendauern und Pausenlängen.
+- **Daily Dashboard:** Live view of the current and upcoming class period with countdowns and break status.
+- **Weekly Schedule:** Classic grid overview with room numbers, teachers, notes, and color accents.
+- **A/B Week Support:** Full support for alternating 2-week schedules with automatic or manual toggling.
+- **Flexible Bell Times:** Configurable school start times, period durations, and customized breaks.
 
-### Nachmittagsunterricht
+### Custom Afternoon Classes
  
-Eigene Nachmittagsfächer (7.–10. Stunde) lassen sich unabhängig verwalten – auch wenn der Hauptstundenplan mit einer Klasse synchronisiert ist.
+Manage your individual afternoon classes (7th–10th period) independently — even when your main schedule is synced with a class or study group.
  
-### Hausaufgaben-Planer
+### Homework Planner
  
-- **Cache-First Loading:** Aufgaben werden ohne Ladeverzögerung angezeigt.
-- **Fach-Gruppierung:** Automatische Sortierung nach Unterrichtsfächern.
-- **Schnellwahl für Fälligkeiten:** Ein-Klick-Auswahl für „Morgen", „Übermorgen" oder den nächsten Unterrichtstermin des Fachs.
-- **Klassen-Freigabe:** Aufgaben lassen sich innerhalb einer Gruppe mit Mitschülern teilen.
+- **Cache-First Loading:** Zero-latency task rendering with background Firestore synchronization.
+- **Subject Grouping:** Automatically groups and sorts tasks by school subjects.
+- **Due Date Presets:** One-click shortcuts for "Tomorrow", "Day After Tomorrow", or the subject's next scheduled class date.
+- **Group Sharing:** Seamlessly share assignments with classmates inside a group.
 
-### Fokus-Modus
+### Focus Mode
  
-Konzentrierte Lerneinheiten für anstehende Aufgaben mit Timer und Abschluss-Signal.
+Distraction-free study sessions with integrated focus timers, checklists, and sound notifications.
  
-### Offline-PWA
+### 100% Offline PWA
  
-Installierbar als native App auf iOS, Android, Windows und macOS. Läuft vollständig offline; alle Daten werden lokal gesichert.
+Installable as a native app on iOS, Android, Windows, and macOS. Operates completely offline with local storage fallbacks.
  
-### Schul-Tools & Workspace
+### Study Tools & Workspace
  
-- **Notenrechner:** Schnelle Berechnung des Notendurchschnitts inklusive Gewichtung.
-- **Formelsammlung:** Referenz für Mathematik und Physik.
-- **Periodensystem:** Interaktive Übersicht der chemischen Elemente.
-- **Vokabeltrainer & Quiz:** Erstellung eigener Vokabellisten mit interaktiver Abfrage.
-- **Workspace:** Notizen, Dokumente, Präsentationen und Todo-Listen.
+- **Grade Calculator:** Quick GPA and average calculation with custom weighting.
+- **Formula Collection:** Quick reference for mathematics and physics.
+- **Periodic Table:** Interactive directory of chemical elements.
+- **Vocabulary Trainer & Quizzes:** Build custom vocabulary lists with interactive test modes.
+- **Workspace:** Notes, documents, presentations, and todo lists.
 
 ---
  
-## Schnellstart & Installation
+## Quick Start & Installation
  
-### Voraussetzungen
+### Prerequisites
  
-- [Node.js](https://nodejs.org/) (Version 18 oder höher)
-- [npm](https://www.npmjs.com/) oder [pnpm](https://pnpm.io/)
+- [Node.js](https://nodejs.org/) (version 18 or higher)
+- [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/)
 
-### 1. Repository klonen
+### 1. Clone the repository
  
 ```bash
 git clone https://github.com/Wolfiku/Scoodol.git
 cd Scoodol
 ```
  
-### 2. Abhängigkeiten installieren
+### 2. Install dependencies
  
 ```bash
 npm install
 ```
  
-### 3. Umgebungsvariablen einrichten (optional)
+### 3. Configure environment variables (optional)
  
 ```bash
 cp .env.example .env.local
 ```
  
-### 4. Entwicklungsserver starten
+### 4. Start development server
  
 ```bash
 npm run dev
 ```
  
-Anschließend [http://localhost:3000](http://localhost:3000) im Browser öffnen.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
  
-### 5. Produktions-Build
+### 5. Production build
  
 ```bash
 npm run build
@@ -112,38 +112,38 @@ npm run start
  
 ## Tech Stack
  
-| Bereich | Technologie |
+| Area | Technology |
 |---|---|
-| Framework | [Next.js 15](https://nextjs.org/) (App Router, Server Actions) |
+| Framework | [Next.js 15](https://nextjs.org/) (App Router, Server Actions, Turbopack) |
 | Frontend | [React 18](https://react.dev/), [TypeScript](https://www.typescriptlang.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/) |
 | Icons | [Lucide React](https://lucide.dev/) |
 | PWA & Offline | [@ducanh2912/next-pwa](https://github.com/ducanh2912/next-pwa), Workbox |
-| Datenbank & Auth | [Firebase](https://firebase.google.com/) (Firestore, Firebase Auth) |
+| Database & Auth | [Firebase](https://firebase.google.com/) (Firestore, Firebase Auth) |
  
 ---
  
-## Lizenz & Urheberrecht
+## License & Attribution
  
-Dieses Projekt steht unter der **wk-lc-04** (Wolfiku Custom Non-Commercial License, v0.4).
+This project is licensed under **wk-lc-04** (Wolfiku's Custom Non-Commercial License, v0.4).
  
-**Erlaubt:**
-- Private, schulische und nicht-kommerzielle Nutzung
-- Wiederverwendung von Komponenten und Code-Ausschnitten mit Namensnennung
-- Forken und substanzielle Weiterentwicklung mit Namensnennung
+**Allowed:**
+- Personal, educational, and non-commercial use.
+- Reusing individual components, functions, or modules with attribution.
+- Forking and making substantial, meaningful improvements with attribution.
 
-**Nicht erlaubt:**
-- Kommerzielle Nutzung (Verkauf, SaaS, Werbung) ohne ausdrückliche Genehmigung
-- Reines Rebranding als „neues" Produkt ohne wesentliche eigene Entwicklungsleistung
+**Not Allowed:**
+- Commercial use (sales, SaaS, monetization, advertising) without separate written permission.
+- Pure rebranding or superficial copies without substantial original work.
 
-**Namensnennung:** Bei jeder Nutzung oder Weiterverbreitung müssen der Autor (**Wolfiku**) und das Originalprojekt ([scoodol.app](https://scoodol.app)) sichtbar genannt werden.
+**Attribution Requirement:** Any reuse, fork, or distribution must clearly credit **Wolfiku** and the original project ([scoodol.app](https://scoodol.app)).
  
-Der vollständige Lizenztext befindet sich in [`LICENSE.md`](./LICENSE.md).
+For full terms, see [`LICENSE.md`](./LICENSE.md).
  
 ---
  
 <div align="center">
 
-Entwickelt von **Wolfiku** · [scoodol.app](https://scoodol.app)
+Developed with ❤️ by **Wolfiku** · [scoodol.app](https://scoodol.app)
  
 </div>
