@@ -1,6 +1,6 @@
 # wk-lc-04
  
-**wk-lc-04 (Wolfgang's Custom Non-Commercial License, v0.4)**
+**wk-lc-04 (Wolfiku Custom Non-Commercial License, v0.4)**
  
 Copyright (c) 2026 Wolfiku ("the Author")
 Original work associated with: scoodol.app
