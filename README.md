@@ -125,7 +125,7 @@ npm run start
  
 ## Lizenz & Urheberrecht
  
-Dieses Projekt steht unter der **wk-lc-04** (Wolfgang's Custom Non-Commercial License, v0.4).
+Dieses Projekt steht unter der **wk-lc-04** (Wolfiku Custom Non-Commercial License, v0.4).
  
 **Erlaubt:**
 - Private, schulische und nicht-kommerzielle Nutzung
